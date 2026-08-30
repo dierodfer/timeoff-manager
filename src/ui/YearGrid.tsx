@@ -6,14 +6,14 @@ import { GRID_DAY_CLASS, MONTH_NAMES, dayState, yearDays } from './calendarGrid'
 import type { DayMark } from './MonthCalendar'
 
 interface YearGridProps {
-  year: number
-  employees: Employee[]
-  calendar: WorkCalendar
-  markOf: (employeeId: string, date: IsoDate) => DayMark
-  selectedEmployeeId: string | null
-  selected: ReadonlySet<IsoDate>
-  today: IsoDate
-  onToggle: (employeeId: string, date: IsoDate, extendRange: boolean) => void
+  readonly year: number
+  readonly employees: Employee[]
+  readonly calendar: WorkCalendar
+  readonly markOf: (employeeId: string, date: IsoDate) => DayMark
+  readonly selectedEmployeeId: string | null
+  readonly selected: ReadonlySet<IsoDate>
+  readonly today: IsoDate
+  readonly onToggle: (employeeId: string, date: IsoDate, extendRange: boolean) => void
 }
 
 export function YearGrid({

@@ -113,7 +113,7 @@ export function Employees() {
               type="checkbox"
               checked={showInactive}
               onChange={(event) => setShowInactive(event.target.checked)}
-            />
+            />{' '}
             Ver bajas
           </label>
           <button

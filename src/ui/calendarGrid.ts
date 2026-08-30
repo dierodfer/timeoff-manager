@@ -49,11 +49,11 @@ export function formatLongDate(date: IsoDate): string {
 
 export function summarizeDays(days: IsoDate[]): string {
   if (days.length === 0) return '—'
-  const sorted = [...days].sort()
+  const sorted = [...days].sort((a, b) => a.localeCompare(b))
   const ranges: [IsoDate, IsoDate][] = []
 
   for (const day of sorted) {
-    const last = ranges[ranges.length - 1]
+    const last = ranges.at(-1)
     if (last && isNextCalendarDay(last[1], day)) {
       last[1] = day
     } else {

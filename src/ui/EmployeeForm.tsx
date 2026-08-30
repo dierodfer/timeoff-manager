@@ -28,11 +28,11 @@ function initialValues(employee: Employee | null, year: number): EmployeeFormVal
 }
 
 interface EmployeeFormProps {
-  employee: Employee | null
-  year: number
-  onSubmit: (values: EmployeeFormValues) => void
-  formId: string
-  onError: (message: string) => void
+  readonly employee: Employee | null
+  readonly year: number
+  readonly onSubmit: (values: EmployeeFormValues) => void
+  readonly formId: string
+  readonly onError: (message: string) => void
 }
 
 export function EmployeeForm({ employee, year, onSubmit, formId, onError }: EmployeeFormProps) {

@@ -95,7 +95,7 @@ export function checkSelection(
   requests: VacationRequest[],
   today: IsoDate = todayIso(),
 ): SelectionCheck {
-  const yearDays = days.filter((day) => yearOf(day) === year).sort()
+  const yearDays = days.filter((day) => yearOf(day) === year).sort((a, b) => a.localeCompare(b))
 
   if (yearDays.length === 0) {
     return { ok: false, reason: 'No hay ningún día laborable en la selección.', days: yearDays }
@@ -131,7 +131,7 @@ export function checkSelection(
 
 export function groupByYear(days: IsoDate[]): Map<number, IsoDate[]> {
   const grouped = new Map<number, IsoDate[]>()
-  for (const day of [...days].sort()) {
+  for (const day of [...days].sort((a, b) => a.localeCompare(b))) {
     const year = yearOf(day)
     const bucket = grouped.get(year)
     if (bucket) bucket.push(day)

@@ -16,10 +16,10 @@ function Section({
   action,
   children,
 }: {
-  title: string
-  description?: string
-  action?: ReactNode
-  children: ReactNode
+  readonly title: string
+  readonly description?: string
+  readonly action?: ReactNode
+  readonly children: ReactNode
 }) {
   return (
     <section>
@@ -45,10 +45,10 @@ function Row({
   control,
   stacked,
 }: {
-  label: string
-  hint?: string
-  control: ReactNode
-  stacked?: boolean
+  readonly label: string
+  readonly hint?: string
+  readonly control: ReactNode
+  readonly stacked?: boolean
 }) {
   return (
     <div
@@ -65,7 +65,13 @@ function Row({
 
 // Se remonta con `key={year}`: sin eso la fecha propuesta se queda en el año
 // en que se montó y el festivo acaba en un año que no se está viendo.
-function AddHolidayForm({ year, onAdd }: { year: number; onAdd: (holiday: Holiday) => void }) {
+function AddHolidayForm({
+  year,
+  onAdd,
+}: {
+  readonly year: number
+  readonly onAdd: (holiday: Holiday) => void
+}) {
   const [date, setDate] = useState(() => yearStart(year))
   const [name, setName] = useState('')
 

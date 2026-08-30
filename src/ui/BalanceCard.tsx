@@ -1,7 +1,15 @@
 import type { Balance } from '../domain/balance'
 import { formatDays } from '../domain/format'
 
-function Metric({ label, value, tone }: { label: string; value: number; tone?: string }) {
+function Metric({
+  label,
+  value,
+  tone,
+}: {
+  readonly label: string
+  readonly value: number
+  readonly tone?: string
+}) {
   return (
     <div>
       <p className="text-xs text-[var(--color-ink-muted)]">{label}</p>
@@ -15,7 +23,7 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: s
   )
 }
 
-export function BalanceCard({ balance }: { balance: Balance }) {
+export function BalanceCard({ balance }: { readonly balance: Balance }) {
   return (
     <div className="card p-5">
       <div className="flex items-baseline justify-between">
