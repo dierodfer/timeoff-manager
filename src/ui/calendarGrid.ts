@@ -1,0 +1,85 @@
+import { daysInMonth, isoOf, weekday } from '../domain/dates'
+import type { IsoDate } from '../domain/types'
+
+/** Etiquetas de columna con la semana empezando en lunes. */
+export const WEEK_COLUMNS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
+
+export const MONTH_NAMES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+] as const
+
+/** Columna 0-6 de una fecha en una semana que empieza en lunes. */
+export function columnOf(date: IsoDate): number {
+  return (weekday(date) + 6) % 7
+}
+
+/**
+ * Casillas de un mes para pintar la rejilla: `null` en los huecos previos al
+ * día 1 para que la primera semana quede alineada con su columna.
+ */
+export function monthCells(year: number, month: number): (IsoDate | null)[] {
+  const first = isoOf(year, month, 1)
+  const cells: (IsoDate | null)[] = Array.from({ length: columnOf(first) }, () => null)
+  for (let day = 1; day <= daysInMonth(year, month); day += 1) {
+    cells.push(isoOf(year, month, day))
+  }
+  return cells
+}
+
+/** Todos los días del año en orden, para la rejilla anual del administrador. */
+export function yearDays(year: number): IsoDate[] {
+  const days: IsoDate[] = []
+  for (let month = 1; month <= 12; month += 1) {
+    for (let day = 1; day <= daysInMonth(year, month); day += 1) {
+      days.push(isoOf(year, month, day))
+    }
+  }
+  return days
+}
+
+export function formatLongDate(date: IsoDate): string {
+  const [year, month, day] = date.split('-').map(Number)
+  return `${day} de ${MONTH_NAMES[month - 1].toLowerCase()} de ${year}`
+}
+
+/** Resume una lista de días como rangos: "4–8 de mayo, 12 de mayo". */
+export function summarizeDays(days: IsoDate[]): string {
+  if (days.length === 0) return '—'
+  const sorted = [...days].sort()
+  const ranges: [IsoDate, IsoDate][] = []
+
+  for (const day of sorted) {
+    const last = ranges[ranges.length - 1]
+    if (last && isNextCalendarDay(last[1], day)) {
+      last[1] = day
+    } else {
+      ranges.push([day, day])
+    }
+  }
+
+  return ranges
+    .map(([start, end]) => (start === end ? formatShort(start) : `${formatShort(start)} – ${formatShort(end)}`))
+    .join(', ')
+}
+
+function isNextCalendarDay(previous: IsoDate, next: IsoDate): boolean {
+  const gap =
+    (Date.parse(`${next}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`)) / 86_400_000
+  return gap === 1
+}
+
+function formatShort(date: IsoDate): string {
+  const [, month, day] = date.split('-').map(Number)
+  return `${day} ${MONTH_NAMES[month - 1].slice(0, 3).toLowerCase()}`
+}

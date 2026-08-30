@@ -1,0 +1,291 @@
+import { useMemo, useState } from 'react'
+import { newId } from '../data/ids'
+import { hashPin, randomSalt } from '../data/pin'
+import { createEmployee } from '../data/seed'
+import { activeDaysInYear, employmentSpanInYear } from '../domain/accrual'
+import { computeBalance } from '../domain/balance'
+import { todayIso } from '../domain/dates'
+import type { Employee } from '../domain/types'
+import {
+  clearAllowance,
+  displayName,
+  setAllowance,
+  terminateEmployee,
+} from '../state/actions'
+import { useSession } from '../state/AppStore'
+import { EmployeeForm, type EmployeeFormValues } from '../ui/EmployeeForm'
+import { Modal } from '../ui/Modal'
+import { Stepper } from '../ui/Stepper'
+
+type Dialog =
+  | { kind: 'form'; employee: Employee | null }
+  | { kind: 'delete'; employee: Employee }
+  | null
+
+export function Employees() {
+  const { database, currentUser, year, commit, apply, notify } = useSession()
+  const [dialog, setDialog] = useState<Dialog>(null)
+  const [showInactive, setShowInactive] = useState(false)
+
+  const today = todayIso()
+
+  const employees = useMemo(() => {
+    const isInactive = (employee: Employee) =>
+      Boolean(employee.terminationDate && employee.terminationDate < today)
+    return database.employees
+      .filter((employee) => showInactive || !isInactive(employee))
+      .sort((a, b) => displayName(a).localeCompare(displayName(b), 'es'))
+  }, [database.employees, showInactive, today])
+
+  const saveEmployee = async (values: EmployeeFormValues) => {
+    if (dialog?.kind !== 'form') return
+    const existing = dialog.employee
+
+    if (!existing) {
+      const employee = await createEmployee({
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
+        role: values.role,
+        hireDate: values.hireDate,
+        terminationDate: values.terminationDate || null,
+        isSeasonal: values.isSeasonal,
+        activityPeriods: values.isSeasonal ? values.activityPeriods : [],
+        pin: values.pin,
+      })
+      await commit({ ...database, employees: [...database.employees, employee] })
+      notify(`${displayName(employee)} dado de alta.`)
+    } else {
+      const pinSalt = values.pin ? randomSalt() : existing.pinSalt
+      const pinHash = values.pin ? await hashPin(values.pin, pinSalt) : existing.pinHash
+      const updated: Employee = {
+        ...existing,
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
+        role: values.role,
+        hireDate: values.hireDate,
+        terminationDate: values.terminationDate || null,
+        isSeasonal: values.isSeasonal,
+        activityPeriods: values.isSeasonal ? values.activityPeriods : [],
+        pinSalt,
+        pinHash,
+      }
+      await commit({
+        ...database,
+        employees: database.employees.map((item) => (item.id === existing.id ? updated : item)),
+      })
+      notify('Cambios guardados.')
+    }
+
+    setDialog(null)
+  }
+
+  const removeEmployee = async (employee: Employee) => {
+    await commit({
+      ...database,
+      employees: database.employees.filter((item) => item.id !== employee.id),
+      requests: database.requests.filter((item) => item.employeeId !== employee.id),
+      allowances: database.allowances.filter((item) => item.employeeId !== employee.id),
+    })
+    notify(`${displayName(employee)} eliminado.`)
+    setDialog(null)
+  }
+
+  const adminCount = database.employees.filter((employee) => employee.role === 'admin').length
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl">Empleados</h1>
+          <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+            Los días de {year} salen de la estimación automática; ajústalos con + y − cuando haga
+            falta.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-ink-muted)]">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(event) => setShowInactive(event.target.checked)}
+            />
+            Ver bajas
+          </label>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => setDialog({ kind: 'form', employee: null })}
+          >
+            Nuevo empleado
+          </button>
+        </div>
+      </div>
+
+      <div className="card divide-y divide-[var(--color-hairline)] overflow-hidden">
+        {employees.map((employee) => {
+          const balance = computeBalance(
+            employee,
+            year,
+            database.settings,
+            database.allowances,
+            database.requests,
+          )
+          const inYear = employmentSpanInYear(employee, year)
+          const isInactive = Boolean(employee.terminationDate && employee.terminationDate < today)
+
+          return (
+            <div key={employee.id} className="flex flex-wrap items-center gap-4 p-4">
+              <div className="min-w-52 flex-1">
+                <p className="text-[15px] font-medium">
+                  {displayName(employee)}
+                  {employee.id === currentUser.id && (
+                    <span className="chip chip-neutral ml-2">Tú</span>
+                  )}
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                  {employee.role === 'admin' ? 'Administrador' : 'Empleado'} · alta{' '}
+                  {employee.hireDate}
+                  {employee.terminationDate ? ` · baja ${employee.terminationDate}` : ''}
+                  {employee.isSeasonal
+                    ? ` · fijo discontinuo (${employee.activityPeriods.length} ${
+                        employee.activityPeriods.length === 1 ? 'periodo' : 'periodos'
+                      })`
+                    : ''}
+                </p>
+                {inYear && (
+                  <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                    {activeDaysInYear(employee, year)} días en activo en {year} · estimación{' '}
+                    {balance.estimated} · aprobados {balance.approved} · pendientes{' '}
+                    {balance.pending}
+                  </p>
+                )}
+              </div>
+
+              {inYear ? (
+                <div className="flex items-center gap-2">
+                  <Stepper
+                    label={displayName(employee)}
+                    value={balance.assigned}
+                    onChange={async (next) => {
+                      await apply((db) => setAllowance(db, employee.id, year, next))
+                    }}
+                  />
+                  {balance.isOverridden && (
+                    <button
+                      type="button"
+                      className="btn btn-quiet btn-sm"
+                      title={`Volver a la estimación (${balance.estimated} días)`}
+                      onClick={async () => {
+                        await commit(clearAllowance(database, employee.id, year))
+                        notify('Días restablecidos a la estimación.')
+                      }}
+                    >
+                      Restablecer
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <span className="chip chip-neutral">Sin actividad en {year}</span>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setDialog({ kind: 'form', employee })}
+                >
+                  Editar
+                </button>
+
+                {!isInactive && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={async () => {
+                      await commit(terminateEmployee(database, employee.id))
+                      notify(`${displayName(employee)} dado de baja con fecha de hoy.`)
+                    }}
+                  >
+                    Dar de baja
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  disabled={employee.role === 'admin' && adminCount === 1}
+                  title={
+                    employee.role === 'admin' && adminCount === 1
+                      ? 'Es el único administrador'
+                      : undefined
+                  }
+                  onClick={() => setDialog({ kind: 'delete', employee })}
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          )
+        })}
+
+        {employees.length === 0 && (
+          <p className="p-6 text-sm text-[var(--color-ink-muted)]">
+            No hay empleados que mostrar.
+          </p>
+        )}
+      </div>
+
+      {dialog?.kind === 'form' && (
+        <Modal
+          title={dialog.employee ? 'Editar empleado' : 'Nuevo empleado'}
+          onClose={() => setDialog(null)}
+          wide
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setDialog(null)}>
+                Cancelar
+              </button>
+              <button type="submit" form="employee-form" className="btn btn-primary">
+                Guardar
+              </button>
+            </>
+          }
+        >
+          <EmployeeForm
+            key={dialog.employee?.id ?? newId('new')}
+            formId="employee-form"
+            employee={dialog.employee}
+            year={year}
+            onSubmit={saveEmployee}
+            onError={(message) => notify(message, 'error')}
+          />
+        </Modal>
+      )}
+
+      {dialog?.kind === 'delete' && (
+        <Modal
+          title={`Eliminar a ${displayName(dialog.employee)}`}
+          description="Se borrarán también sus solicitudes y sus días ajustados. Si solo quieres cerrar su relación laboral, usa «Dar de baja» y conservarás el histórico."
+          onClose={() => setDialog(null)}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setDialog(null)}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => removeEmployee(dialog.employee)}
+              >
+                Eliminar definitivamente
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-[var(--color-ink-soft)]">Esta acción no se puede deshacer.</p>
+        </Modal>
+      )}
+    </div>
+  )
+}

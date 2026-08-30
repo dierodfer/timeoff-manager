@@ -1,0 +1,94 @@
+import type { IsoDate } from '../domain/types'
+import { dayOf } from '../domain/dates'
+import { holidayOn, isWorkingDay, type WorkCalendar } from '../domain/workdays'
+import { MONTH_NAMES, WEEK_COLUMNS, monthCells } from './calendarGrid'
+
+export type DayMark = 'aprobada' | 'pendiente' | undefined
+
+interface MonthCalendarProps {
+  year: number
+  month: number
+  calendar: WorkCalendar
+  markOf: (date: IsoDate) => DayMark
+  selected: ReadonlySet<IsoDate>
+  today: IsoDate
+  onToggle?: (date: IsoDate, extendRange: boolean) => void
+}
+
+export function MonthCalendar({
+  year,
+  month,
+  calendar,
+  markOf,
+  selected,
+  today,
+  onToggle,
+}: MonthCalendarProps) {
+  const cells = monthCells(year, month)
+
+  return (
+    <section className="min-w-0">
+      <h3 className="mb-2 px-1 text-sm font-semibold">{MONTH_NAMES[month - 1]}</h3>
+
+      <div className="mb-1 grid grid-cols-7 gap-1 px-1">
+        {WEEK_COLUMNS.map((label, index) => (
+          <span
+            key={label}
+            className={`text-center text-[11px] font-medium ${
+              index === 6 ? 'text-[var(--color-ink-muted)]/60' : 'text-[var(--color-ink-muted)]'
+            }`}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 px-1">
+        {cells.map((date, index) => {
+          if (!date) return <span key={`empty-${index}`} />
+
+          const holiday = holidayOn(calendar, date)
+          const workable = isWorkingDay(calendar, date)
+          const mark = markOf(date)
+          const isSelected = selected.has(date)
+
+          const classes = ['day', 'aspect-square']
+          if (isSelected) classes.push('day-selected')
+          else if (mark) classes.push(`day-${mark}`)
+          else if (holiday) classes.push('day-holiday')
+          else if (!workable) classes.push('day-off')
+          if (date === today) classes.push('day-today')
+
+          const title = holiday
+            ? holiday.name
+            : mark === 'aprobada'
+              ? 'Vacaciones aprobadas'
+              : mark === 'pendiente'
+                ? 'Solicitud pendiente'
+                : undefined
+
+          if (!onToggle || !workable) {
+            return (
+              <span key={date} className={classes.join(' ')} title={title}>
+                {dayOf(date)}
+              </span>
+            )
+          }
+
+          return (
+            <button
+              key={date}
+              type="button"
+              title={title}
+              aria-pressed={isSelected}
+              onClick={(event) => onToggle(date, event.shiftKey)}
+              className={`${classes.join(' ')} cursor-pointer hover:brightness-95`}
+            >
+              {dayOf(date)}
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
