@@ -71,6 +71,10 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   `toWorkingDays()` los descarta antes de guardar.
 - Las solicitudes `rechazada` no reservan días.
 - `batchId` agrupa las solicitudes creadas en una misma asignación masiva.
+- **Una solicitud tiene un único estado para todos sus días.** El administrador aprueba o rechaza
+  días sueltos de una solicitud `pendiente` con varios días mediante `resolveRequestDay()`, que
+  separa el día resuelto en una solicitud nueva y deja el resto pendiente en la original. Por eso
+  la bandeja de Solicitudes agrupa por empleado y muestra cada día por separado, no por solicitud.
 
 ## Festivos
 

@@ -174,6 +174,98 @@ export function resolveRequest(
   }
 }
 
+/**
+ * Resuelve un único día de una solicitud, no la solicitud entera. Si quedan
+ * otros días pendientes en ella, se separan en una solicitud aparte con el
+ * resto de los días, sin tocar su estado.
+ */
+export function resolveRequestDay(
+  database: Database,
+  requestId: string,
+  day: IsoDate,
+  status: Extract<RequestStatus, 'aprobada' | 'rechazada'>,
+  adminId: string,
+  comment?: string,
+): Outcome {
+  const request = database.requests.find((item) => item.id === requestId)
+  if (!request) return { ok: false, reason: 'La solicitud no existe.' }
+  if (request.status !== 'pendiente') {
+    return { ok: false, reason: 'La solicitud ya está resuelta.' }
+  }
+  if (!request.days.includes(day)) {
+    return { ok: false, reason: 'Ese día no pertenece a la solicitud.' }
+  }
+
+  const now = new Date().toISOString()
+  const comments = comment?.trim()
+    ? [...request.comments, makeComment(database, adminId, comment.trim())]
+    : request.comments
+  const remainingDays = request.days.filter((item) => item !== day)
+
+  const resolvedDay: VacationRequest = {
+    ...request,
+    id: remainingDays.length === 0 ? request.id : newId('req'),
+    days: [day],
+    status,
+    resolvedBy: adminId,
+    resolvedAt: now,
+    comments,
+  }
+
+  if (remainingDays.length === 0) {
+    return {
+      ok: true,
+      database: {
+        ...database,
+        requests: database.requests.map((item) => (item.id === requestId ? resolvedDay : item)),
+      },
+    }
+  }
+
+  const stillPending: VacationRequest = { ...request, days: remainingDays }
+  return {
+    ok: true,
+    database: {
+      ...database,
+      requests: [
+        ...database.requests.map((item) => (item.id === requestId ? stillPending : item)),
+        resolvedDay,
+      ],
+    },
+  }
+}
+
+/** Resuelve de una vez todas las solicitudes pendientes de un empleado en un año. */
+export function resolveAllPending(
+  database: Database,
+  employeeId: string,
+  year: number,
+  status: Extract<RequestStatus, 'aprobada' | 'rechazada'>,
+  adminId: string,
+): Outcome {
+  const pendingIds = database.requests
+    .filter(
+      (request) =>
+        request.employeeId === employeeId &&
+        request.year === year &&
+        request.status === 'pendiente',
+    )
+    .map((request) => request.id)
+
+  if (pendingIds.length === 0) {
+    return { ok: false, reason: 'No hay solicitudes pendientes para este empleado.' }
+  }
+
+  let draft = database
+  for (const id of pendingIds) {
+    const outcome = resolveRequest(draft, id, status, adminId)
+    if (!outcome.ok) return outcome
+    draft = outcome.database
+  }
+
+  return { ok: true, database: draft }
+}
+
 export function removeRequest(database: Database, requestId: string, actor: Employee): Outcome {
   const request = database.requests.find((item) => item.id === requestId)
   if (!request) return { ok: false, reason: 'La solicitud no existe.' }

@@ -18,9 +18,9 @@ export function AppShell() {
   const { database, currentUser, year, setYear, signOut } = useSession()
   const links = currentUser.role === 'admin' ? ADMIN_LINKS : EMPLOYEE_LINKS
 
-  const pendingCount = database.requests.filter(
-    (request) => request.status === 'pendiente' && request.year === year,
-  ).length
+  const pendingCount = database.requests
+    .filter((request) => request.status === 'pendiente' && request.year === year)
+    .reduce((total, request) => total + request.days.length, 0)
 
   return (
     <div className="min-h-dvh">

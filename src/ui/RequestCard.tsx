@@ -1,12 +1,6 @@
 import type { ReactNode } from 'react'
 import type { VacationRequest } from '../domain/types'
-import { summarizeDays } from './calendarGrid'
-
-const STATUS_LABEL: Record<VacationRequest['status'], string> = {
-  pendiente: 'Pendiente',
-  aprobada: 'Aprobada',
-  rechazada: 'Rechazada',
-}
+import { STATUS_LABEL, summarizeDays } from './calendarGrid'
 
 interface RequestCardProps {
   request: VacationRequest
