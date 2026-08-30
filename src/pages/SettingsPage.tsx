@@ -3,7 +3,7 @@ import { BackupFormatError, downloadBackup, parseBackup } from '../data/backup'
 import { newId } from '../data/ids'
 import { hasPreloadedHolidays, preloadedHolidays, SCOPE_LABELS } from '../domain/holidays.es'
 import { yearOf } from '../domain/dates'
-import type { Holiday, HolidayScope } from '../domain/types'
+import type { Holiday } from '../domain/types'
 import { WEEKDAY_NAMES } from '../domain/workdays'
 import { useSession } from '../state/AppStore'
 import { Modal } from '../ui/Modal'
@@ -24,19 +24,19 @@ export function SettingsPage() {
     [database.holidays, year],
   )
 
-  const updateSettings = async (changes: Partial<typeof database.settings>) => {
-    await commit({ ...database, settings: { ...database.settings, ...changes } })
+  const updateSettings = (changes: Partial<typeof database.settings>) => {
+    commit({ ...database, settings: { ...database.settings, ...changes } })
   }
 
-  const toggleWorkday = async (day: number) => {
+  const toggleWorkday = (day: number) => {
     const workweek = database.settings.workweek.includes(day)
       ? database.settings.workweek.filter((item) => item !== day)
       : [...database.settings.workweek, day].sort()
     if (workweek.length === 0) return notify('Tiene que quedar al menos un día laborable.', 'error')
-    await updateSettings({ workweek })
+    updateSettings({ workweek })
   }
 
-  const addHoliday = async () => {
+  const addHoliday = () => {
     if (!newHoliday.name.trim()) return notify('Ponle un nombre al festivo.', 'error')
     if (database.holidays.some((holiday) => holiday.date === newHoliday.date)) {
       return notify('Ya hay un festivo en esa fecha.', 'error')
@@ -47,13 +47,13 @@ export function SettingsPage() {
       name: newHoliday.name.trim(),
       scope: 'algarrobo',
     }
-    await commit({ ...database, holidays: [...database.holidays, holiday] })
+    commit({ ...database, holidays: [...database.holidays, holiday] })
     setNewHoliday({ date: `${year}-01-01`, name: '' })
     notify('Festivo añadido.')
   }
 
-  const renameHoliday = async (id: string, name: string) => {
-    await commit({
+  const renameHoliday = (id: string, name: string) => {
+    commit({
       ...database,
       holidays: database.holidays.map((holiday) =>
         holiday.id === id ? { ...holiday, name } : holiday,
@@ -61,19 +61,19 @@ export function SettingsPage() {
     })
   }
 
-  const removeHoliday = async (id: string) => {
-    await commit({
+  const removeHoliday = (id: string) => {
+    commit({
       ...database,
       holidays: database.holidays.filter((holiday) => holiday.id !== id),
     })
     notify('Festivo eliminado.')
   }
 
-  const loadOfficialHolidays = async () => {
+  const loadOfficialHolidays = () => {
     const existing = new Set(database.holidays.map((holiday) => holiday.date))
     const missing = preloadedHolidays(year).filter((holiday) => !existing.has(holiday.date))
     if (missing.length === 0) return notify('Ya están todos los festivos oficiales de ese año.')
-    await commit({ ...database, holidays: [...database.holidays, ...missing] })
+    commit({ ...database, holidays: [...database.holidays, ...missing] })
     notify(`${missing.length} festivos añadidos.`)
   }
 
@@ -191,7 +191,7 @@ export function SettingsPage() {
                   if (name && name !== holiday.name) renameHoliday(holiday.id, name)
                 }}
               />
-              <span className="chip chip-neutral">{SCOPE_LABELS[holiday.scope as HolidayScope]}</span>
+              <span className="chip chip-neutral">{SCOPE_LABELS[holiday.scope]}</span>
               <button
                 type="button"
                 className="btn btn-danger btn-sm"

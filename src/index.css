@@ -32,6 +32,10 @@
   --color-rejected-soft: rgba(179, 38, 30, 0.1);
   --color-holiday: #7c4dff;
   --color-holiday-soft: rgba(124, 77, 255, 0.12);
+  /* Tramas de la rejilla anual, donde una celda mide 19 píxeles y necesita
+     más contraste que un simple cambio de superficie para leerse. */
+  --color-grid-off: #e3e3e8;
+  --color-grid-holiday: #ddd0ff;
 
   --radius-card: 18px;
   --radius-control: 12px;
@@ -63,6 +67,8 @@
     --color-rejected-soft: rgba(255, 69, 58, 0.18);
     --color-holiday: #bf9bff;
     --color-holiday-soft: rgba(191, 155, 255, 0.18);
+    --color-grid-off: #3a3a3d;
+    --color-grid-holiday: #4a3a6b;
 
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.4);
     --shadow-raised: 0 12px 40px rgba(0, 0, 0, 0.6);

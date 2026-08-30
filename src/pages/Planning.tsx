@@ -59,9 +59,9 @@ export function Planning() {
     toggle(date, extendRange)
   }
 
-  const submit = async () => {
+  const submit = () => {
     if (!target) return
-    const ok = await apply((db) =>
+    const ok = apply((db) =>
       createVacation(db, {
         employeeId: target.id,
         days: selectedDays,
@@ -194,8 +194,8 @@ function Legend() {
   const items = [
     { label: 'Aprobadas', background: 'var(--color-approved)' },
     { label: 'Pendientes', background: 'var(--color-pending)' },
-    { label: 'Festivo', background: 'var(--color-holiday-soft)' },
-    { label: 'Domingo', background: 'var(--color-surface-sunken)' },
+    { label: 'Festivo', background: 'var(--color-grid-holiday)' },
+    { label: 'No laborable', background: 'var(--color-grid-off)' },
     { label: 'Selección', background: 'var(--color-accent)' },
   ]
 

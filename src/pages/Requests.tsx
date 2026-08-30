@@ -39,26 +39,26 @@ export function Requests() {
     [database.requests, year, filter],
   )
 
-  const approve = async (requestId: string) => {
-    if (await apply((db) => resolveRequest(db, requestId, 'aprobada', currentUser.id))) {
+  const approve = (requestId: string) => {
+    if (apply((db) => resolveRequest(db, requestId, 'aprobada', currentUser.id))) {
       notify('Solicitud aprobada.')
     }
   }
 
-  const remove = async (requestId: string) => {
-    if (await apply((db) => removeRequest(db, requestId, currentUser))) {
+  const remove = (requestId: string) => {
+    if (apply((db) => removeRequest(db, requestId, currentUser))) {
       notify('Solicitud eliminada.')
     }
   }
 
-  const confirmDialog = async () => {
+  const confirmDialog = () => {
     if (!dialog) return
     const ok =
       dialog.kind === 'rechazar'
-        ? await apply((db) =>
+        ? apply((db) =>
             resolveRequest(db, dialog.requestId, 'rechazada', currentUser.id, comment),
           )
-        : await apply((db) => addRequestComment(db, dialog.requestId, currentUser.id, comment))
+        : apply((db) => addRequestComment(db, dialog.requestId, currentUser.id, comment))
 
     if (ok) {
       notify(dialog.kind === 'rechazar' ? 'Solicitud rechazada.' : 'Comentario añadido.')

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Vacaciones">
+  <rect width="64" height="64" rx="14" fill="#0071e3" />
+  <rect x="12" y="16" width="40" height="36" rx="7" fill="#fff" />
+  <rect x="12" y="16" width="40" height="10" rx="5" fill="#d6e8fb" />
+  <circle cx="22" cy="13" r="3" fill="#0071e3" />
+  <circle cx="42" cy="13" r="3" fill="#0071e3" />
+  <rect x="19" y="32" width="8" height="7" rx="2" fill="#34c759" />
+  <rect x="30" y="32" width="8" height="7" rx="2" fill="#34c759" />
+  <rect x="41" y="32" width="6" height="7" rx="2" fill="#c9c9cf" />
+  <rect x="19" y="42" width="8" height="7" rx="2" fill="#c9c9cf" />
+  <rect x="30" y="42" width="17" height="7" rx="2" fill="#e5e5ea" />
+</svg>

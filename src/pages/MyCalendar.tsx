@@ -43,8 +43,8 @@ export function MyCalendar() {
 
   const selectedDays = useMemo(() => [...selected].sort(), [selected])
 
-  const submit = async () => {
-    const ok = await apply((db) =>
+  const submit = () => {
+    const ok = apply((db) =>
       createVacation(db, {
         employeeId: currentUser.id,
         days: selectedDays,
@@ -61,8 +61,8 @@ export function MyCalendar() {
     }
   }
 
-  const cancel = async (requestId: string) => {
-    if (await apply((db) => removeRequest(db, requestId, currentUser))) {
+  const cancel = (requestId: string) => {
+    if (apply((db) => removeRequest(db, requestId, currentUser))) {
       notify('Solicitud cancelada.')
     }
   }

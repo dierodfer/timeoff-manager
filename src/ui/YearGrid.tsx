@@ -117,13 +117,17 @@ export function YearGrid({
                     if (isSelected) background = 'var(--color-accent)'
                     else if (mark === 'aprobada') background = 'var(--color-approved)'
                     else if (mark === 'pendiente') background = 'var(--color-pending)'
-                    else if (holiday) background = 'var(--color-holiday-soft)'
-                    else if (!workable) background = 'var(--color-surface-sunken)'
+                    else if (holiday) background = 'var(--color-grid-holiday)'
+                    else if (!workable) background = 'var(--color-grid-off)'
 
                     return (
                       <td
                         key={date}
-                        className={`hairline border-t p-0 ${dayOf(date) === 1 ? 'border-l' : ''}`}
+                        className={`hairline border-t p-0 ${
+                          dayOf(date) === 1
+                            ? 'border-l border-l-[var(--color-hairline-strong)]'
+                            : ''
+                        }`}
                       >
                         <button
                           type="button"
@@ -131,7 +135,7 @@ export function YearGrid({
                           onClick={(event) => onToggle(employee.id, date, event.shiftKey)}
                           title={holiday ? holiday.name : date}
                           aria-label={`${employee.firstName} ${employee.lastName}, ${date}`}
-                          className={`block h-6 w-[19px] transition-[background-color] ${
+                          className={`block h-7 w-[19px] transition-[background-color] ${
                             workable ? 'cursor-pointer hover:brightness-90' : 'cursor-default'
                           } ${date === today ? 'ring-1 ring-inset ring-[var(--color-accent)]' : ''}`}
                           style={{ background }}

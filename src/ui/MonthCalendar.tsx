@@ -1,7 +1,7 @@
 import type { IsoDate } from '../domain/types'
 import { dayOf } from '../domain/dates'
 import { holidayOn, isWorkingDay, type WorkCalendar } from '../domain/workdays'
-import { MONTH_NAMES, WEEK_COLUMNS, monthCells } from './calendarGrid'
+import { MONTH_NAMES, WEEK_COLUMNS, formatLongDate, monthCells } from './calendarGrid'
 
 export type DayMark = 'aprobada' | 'pendiente' | undefined
 
@@ -80,6 +80,7 @@ export function MonthCalendar({
               key={date}
               type="button"
               title={title}
+              aria-label={formatLongDate(date)}
               aria-pressed={isSelected}
               onClick={(event) => onToggle(date, event.shiftKey)}
               className={`${classes.join(' ')} cursor-pointer hover:brightness-95`}

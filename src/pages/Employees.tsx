@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { newId } from '../data/ids'
 import { hashPin, randomSalt } from '../data/pin'
 import { createEmployee } from '../data/seed'
 import { activeDaysInYear, employmentSpanInYear } from '../domain/accrual'
@@ -52,7 +51,7 @@ export function Employees() {
         activityPeriods: values.isSeasonal ? values.activityPeriods : [],
         pin: values.pin,
       })
-      await commit({ ...database, employees: [...database.employees, employee] })
+      commit({ ...database, employees: [...database.employees, employee] })
       notify(`${displayName(employee)} dado de alta.`)
     } else {
       const pinSalt = values.pin ? randomSalt() : existing.pinSalt
@@ -69,7 +68,7 @@ export function Employees() {
         pinSalt,
         pinHash,
       }
-      await commit({
+      commit({
         ...database,
         employees: database.employees.map((item) => (item.id === existing.id ? updated : item)),
       })
@@ -79,8 +78,8 @@ export function Employees() {
     setDialog(null)
   }
 
-  const removeEmployee = async (employee: Employee) => {
-    await commit({
+  const removeEmployee = (employee: Employee) => {
+    commit({
       ...database,
       employees: database.employees.filter((item) => item.id !== employee.id),
       requests: database.requests.filter((item) => item.employeeId !== employee.id),
@@ -167,17 +166,15 @@ export function Employees() {
                   <Stepper
                     label={displayName(employee)}
                     value={balance.assigned}
-                    onChange={async (next) => {
-                      await apply((db) => setAllowance(db, employee.id, year, next))
-                    }}
+                    onChange={(next) => apply((db) => setAllowance(db, employee.id, year, next))}
                   />
                   {balance.isOverridden && (
                     <button
                       type="button"
                       className="btn btn-quiet btn-sm"
                       title={`Volver a la estimación (${balance.estimated} días)`}
-                      onClick={async () => {
-                        await commit(clearAllowance(database, employee.id, year))
+                      onClick={() => {
+                        commit(clearAllowance(database, employee.id, year))
                         notify('Días restablecidos a la estimación.')
                       }}
                     >
@@ -202,8 +199,8 @@ export function Employees() {
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    onClick={async () => {
-                      await commit(terminateEmployee(database, employee.id))
+                    onClick={() => {
+                      commit(terminateEmployee(database, employee.id))
                       notify(`${displayName(employee)} dado de baja con fecha de hoy.`)
                     }}
                   >
@@ -253,7 +250,7 @@ export function Employees() {
           }
         >
           <EmployeeForm
-            key={dialog.employee?.id ?? newId('new')}
+            key={dialog.employee?.id ?? 'nuevo'}
             formId="employee-form"
             employee={dialog.employee}
             year={year}

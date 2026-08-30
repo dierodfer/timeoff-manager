@@ -37,8 +37,12 @@ interface AppContextValue {
   signOut: () => void
   /** Guarda una base de datos ya calculada. */
   commit: (next: Database) => Promise<void>
-  /** Aplica una operación de negocio y avisa del motivo si no se puede. */
-  apply: (mutation: (database: Database) => Outcome) => Promise<boolean>
+  /**
+   * Aplica una operación de negocio y avisa del motivo si no se puede.
+   * Es síncrona a propósito: así el estado que dependa del resultado se
+   * actualiza en el mismo render y no se ve la selección anterior parpadear.
+   */
+  apply: (mutation: (database: Database) => Outcome) => boolean
   replaceDatabase: (next: Database) => Promise<void>
   wipe: () => Promise<void>
 }
@@ -76,7 +80,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const notify = useCallback((message: string, tone: Toast['tone'] = 'success') => {
     const toast: Toast = { id: Date.now() + Math.random(), message, tone }
-    setToasts((current) => [...current, toast])
+    // Como mucho tres avisos a la vez: apilar más tapa la pantalla.
+    setToasts((current) => [...current, toast].slice(-3))
     setTimeout(() => {
       setToasts((current) => current.filter((item) => item.id !== toast.id))
     }, 4000)
@@ -86,20 +91,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setToasts((current) => current.filter((item) => item.id !== id))
   }, [])
 
-  const commit = useCallback(async (next: Database) => {
-    setDatabase(next)
-    await indexedDbRepository.save(next)
-  }, [])
+  /**
+   * La pantalla se actualiza en cuanto cambia el estado y la escritura en
+   * IndexedDB va por detrás: esperar al disco dejaba a la vista la selección
+   * anterior durante unas décimas. Si la escritura falla se avisa.
+   */
+  const commit = useCallback(
+    (next: Database) => {
+      setDatabase(next)
+      return indexedDbRepository.save(next).catch((error: unknown) => {
+        console.error(error)
+        notify('No se han podido guardar los cambios en este navegador.', 'error')
+      })
+    },
+    [notify],
+  )
 
   const apply = useCallback(
-    async (mutation: (database: Database) => Outcome) => {
+    (mutation: (database: Database) => Outcome) => {
       if (!database) return false
       const outcome = mutation(database)
       if (!outcome.ok) {
         notify(outcome.reason, 'error')
         return false
       }
-      await commit(outcome.database)
+      void commit(outcome.database)
       return true
     },
     [database, commit, notify],

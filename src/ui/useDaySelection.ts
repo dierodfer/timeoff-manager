@@ -15,11 +15,16 @@ export function useDaySelection(canSelect: (date: IsoDate) => boolean) {
     (date: IsoDate, extendRange = false) => {
       if (!canSelect(date)) return
 
+      // El ancla se lee antes de moverla: React ejecuta el actualizador de
+      // estado más tarde, cuando el ref ya apuntaría al día recién pulsado.
+      const from = anchor.current
+      anchor.current = date
+
       setSelected((current) => {
         const next = new Set(current)
 
-        if (extendRange && anchor.current) {
-          for (const day of expandRange(anchor.current, date)) {
+        if (extendRange && from) {
+          for (const day of expandRange(from, date)) {
             if (canSelect(day)) next.add(day)
           }
         } else if (next.has(date)) {
@@ -30,8 +35,6 @@ export function useDaySelection(canSelect: (date: IsoDate) => boolean) {
 
         return next
       })
-
-      anchor.current = date
     },
     [canSelect],
   )
