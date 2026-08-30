@@ -1,10 +1,5 @@
 @import 'tailwindcss';
 
-/*
- * Sistema de diseño: superficies limpias, jerarquía por tipografía y espacio en
- * lugar de por bordes, radios generosos y un único color de acento. Los tokens
- * son variables CSS, así que el modo oscuro solo redefine valores.
- */
 @theme {
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue',
@@ -32,8 +27,6 @@
   --color-rejected-soft: rgba(179, 38, 30, 0.1);
   --color-holiday: #7c4dff;
   --color-holiday-soft: rgba(124, 77, 255, 0.12);
-  /* Tramas de la rejilla anual, donde una celda mide 19 píxeles y necesita
-     más contraste que un simple cambio de superficie para leerse. */
   --color-grid-off: #e3e3e8;
   --color-grid-holiday: #ddd0ff;
 
@@ -343,7 +336,6 @@
 }
 
 @layer utilities {
-  /* Cabecera translúcida al estilo de las barras del sistema. */
   .glass {
     background: color-mix(in srgb, var(--color-surface) 72%, transparent);
     backdrop-filter: saturate(180%) blur(20px);

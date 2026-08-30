@@ -1,11 +1,6 @@
 import type { Database } from '../domain/types'
 import { SCHEMA_VERSION, type StoredDatabase } from './repository'
 
-/**
- * Copia de seguridad en un fichero JSON. Es también la única forma de llevar
- * los datos de un dispositivo a otro, porque el almacenamiento es local.
- */
-
 export function backupFileName(date = new Date()): string {
   return `vacaciones-${date.toISOString().slice(0, 10)}.json`
 }
@@ -37,10 +32,6 @@ function isArrayOfObjects(value: unknown): value is Record<string, unknown>[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'object' && item !== null)
 }
 
-/**
- * Valida la estructura de un fichero de copia antes de reemplazar los datos
- * actuales: importar un JSON cualquiera dejaría la aplicación inservible.
- */
 export function parseBackup(text: string): Database {
   let parsed: unknown
   try {

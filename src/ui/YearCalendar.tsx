@@ -11,7 +11,6 @@ interface YearCalendarProps {
   onToggle?: (date: IsoDate, extendRange: boolean) => void
 }
 
-/** Los doce meses del año a la vez: la vista con la que el empleado planifica. */
 export function YearCalendar(props: YearCalendarProps) {
   return (
     <div className="grid grid-cols-1 gap-x-6 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

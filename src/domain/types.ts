@@ -1,9 +1,7 @@
-/** Fecha en formato ISO corto `yyyy-MM-dd`. Es el formato canónico en todo el dominio. */
 export type IsoDate = string
 
 export type Role = 'admin' | 'employee'
 
-/** Periodo de llamamiento de un empleado fijo discontinuo. */
 export interface ActivityPeriod {
   id: string
   start: IsoDate
@@ -16,10 +14,8 @@ export interface Employee {
   lastName: string
   role: Role
   hireDate: IsoDate
-  /** Fecha de baja. `null` mientras el empleado sigue activo. */
   terminationDate: IsoDate | null
   isSeasonal: boolean
-  /** Solo se tiene en cuenta cuando `isSeasonal` es cierto. */
   activityPeriods: ActivityPeriod[]
   pinHash: string
   pinSalt: string
@@ -40,7 +36,6 @@ export interface VacationRequest {
   id: string
   employeeId: string
   year: number
-  /** Días laborables ya filtrados: aquí no hay domingos ni festivos. */
   days: IsoDate[]
   status: RequestStatus
   createdBy: string
@@ -48,7 +43,6 @@ export interface VacationRequest {
   resolvedBy: string | null
   resolvedAt: string | null
   comments: RequestComment[]
-  /** Agrupa las solicitudes creadas en una misma asignación masiva. */
   batchId: string | null
 }
 
@@ -61,10 +55,6 @@ export interface Holiday {
   scope: HolidayScope
 }
 
-/**
- * Ajuste manual del administrador sobre los días de un empleado en un año.
- * Si no existe registro, rige la estimación automática.
- */
 export interface Allowance {
   employeeId: string
   year: number
@@ -73,9 +63,8 @@ export interface Allowance {
 
 export interface Settings {
   organizationName: string
-  /** Base anual de días de vacaciones antes de prorratear. */
   defaultAnnualDays: number
-  /** Días de la semana que se consideran laborables. 0 = domingo … 6 = sábado. */
+  /** 0 = domingo, 1 = lunes … 6 = sábado. */
   workweek: number[]
 }
 

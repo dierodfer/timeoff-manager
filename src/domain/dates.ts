@@ -1,10 +1,8 @@
 import type { IsoDate } from './types'
 
-/**
- * Todas las operaciones de fecha del dominio trabajan sobre cadenas `yyyy-MM-dd`
- * y usan UTC internamente. Así el resultado no depende de la zona horaria del
- * navegador: un 1 de enero es el mismo día en Canarias que en Madrid.
- */
+// Fechas como `yyyy-MM-dd` y aritmética en UTC: con la hora local, un 1 de
+// enero cambia de día según la zona horaria del navegador.
+
 export function toUtcDate(iso: IsoDate): Date {
   const [year, month, day] = iso.split('-').map(Number)
   return new Date(Date.UTC(year, month - 1, day))
@@ -14,7 +12,6 @@ export function toIso(date: Date): IsoDate {
   return date.toISOString().slice(0, 10)
 }
 
-/** Fecha de hoy según el calendario local del usuario. */
 export function todayIso(): IsoDate {
   const now = new Date()
   return isoOf(now.getFullYear(), now.getMonth() + 1, now.getDate())
@@ -30,7 +27,6 @@ export function addDays(iso: IsoDate, amount: number): IsoDate {
   return toIso(date)
 }
 
-/** 0 = domingo, 1 = lunes … 6 = sábado. */
 export function weekday(iso: IsoDate): number {
   return toUtcDate(iso).getUTCDay()
 }
@@ -67,14 +63,12 @@ export function yearEnd(year: number): IsoDate {
   return `${year}-12-31`
 }
 
-/** Número de días entre dos fechas, ambas incluidas. Devuelve 0 si el rango está invertido. */
 export function daysBetweenInclusive(start: IsoDate, end: IsoDate): number {
   const diff = toUtcDate(end).getTime() - toUtcDate(start).getTime()
   if (diff < 0) return 0
   return Math.round(diff / 86_400_000) + 1
 }
 
-/** Días en común entre dos intervalos cerrados. 0 si no se solapan. */
 export function overlapDays(
   aStart: IsoDate,
   aEnd: IsoDate,
@@ -86,7 +80,6 @@ export function overlapDays(
   return daysBetweenInclusive(start, end)
 }
 
-/** Lista de todas las fechas entre `start` y `end`, ambas incluidas. */
 export function expandRange(start: IsoDate, end: IsoDate): IsoDate[] {
   const [from, to] = start <= end ? [start, end] : [end, start]
   const dates: IsoDate[] = []

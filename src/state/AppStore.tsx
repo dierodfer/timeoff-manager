@@ -35,13 +35,8 @@ interface AppContextValue {
   bootstrap: (input: FirstRunInput) => Promise<void>
   signIn: (employeeId: string, pin: string) => Promise<boolean>
   signOut: () => void
-  /** Guarda una base de datos ya calculada. */
   commit: (next: Database) => Promise<void>
-  /**
-   * Aplica una operación de negocio y avisa del motivo si no se puede.
-   * Es síncrona a propósito: así el estado que dependa del resultado se
-   * actualiza en el mismo render y no se ve la selección anterior parpadear.
-   */
+  /** Síncrona a propósito: esperar al disco dejaba la selección anterior a la vista. */
   apply: (mutation: (database: Database) => Outcome) => boolean
   replaceDatabase: (next: Database) => Promise<void>
   wipe: () => Promise<void>
@@ -80,7 +75,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const notify = useCallback((message: string, tone: Toast['tone'] = 'success') => {
     const toast: Toast = { id: Date.now() + Math.random(), message, tone }
-    // Como mucho tres avisos a la vez: apilar más tapa la pantalla.
     setToasts((current) => [...current, toast].slice(-3))
     setTimeout(() => {
       setToasts((current) => current.filter((item) => item.id !== toast.id))
@@ -91,11 +85,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setToasts((current) => current.filter((item) => item.id !== id))
   }, [])
 
-  /**
-   * La pantalla se actualiza en cuanto cambia el estado y la escritura en
-   * IndexedDB va por detrás: esperar al disco dejaba a la vista la selección
-   * anterior durante unas décimas. Si la escritura falla se avisa.
-   */
   const commit = useCallback(
     (next: Database) => {
       setDatabase(next)
@@ -225,7 +214,6 @@ export function useApp(): AppContextValue {
   return context
 }
 
-/** Acceso al estado ya cargado y con sesión iniciada, sin comprobaciones de nulo. */
 export function useSession() {
   const app = useApp()
   if (!app.database || !app.currentUser) {

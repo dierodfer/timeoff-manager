@@ -77,7 +77,6 @@ export default function App() {
   )
 }
 
-/** Las rutas de administración no existen para un empleado. */
 function AdminOnly({ children }: { children: ReactNode }) {
   const { currentUser } = useApp()
   if (currentUser?.role !== 'admin') return <Navigate to="/" replace />

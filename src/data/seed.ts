@@ -14,7 +14,6 @@ export interface FirstRunInput {
   year: number
 }
 
-/** Festivos precargados para el año indicado y el siguiente, sin duplicados. */
 export function seedHolidays(year: number): Holiday[] {
   return [...preloadedHolidays(year), ...preloadedHolidays(year + 1)]
 }
@@ -33,7 +32,6 @@ export async function createEmployee(
   }
 }
 
-/** Base de datos inicial del primer arranque: ajustes, festivos y administrador. */
 export async function createInitialDatabase(input: FirstRunInput): Promise<Database> {
   const admin = await createEmployee({
     firstName: input.firstName,

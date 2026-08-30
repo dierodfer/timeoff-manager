@@ -6,7 +6,6 @@ interface StepperProps {
   label: string
 }
 
-/** Control + / − para ajustar a mano los días de vacaciones de un empleado. */
 export function Stepper({ value, onChange, min = 0, max = 366, label }: StepperProps) {
   return (
     <div

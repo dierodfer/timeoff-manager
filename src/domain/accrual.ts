@@ -6,7 +6,6 @@ interface Interval {
   end: IsoDate
 }
 
-/** Une intervalos solapados o contiguos para no contar dos veces el mismo día. */
 function mergeIntervals(intervals: Interval[]): Interval[] {
   const sorted = [...intervals]
     .filter((interval) => interval.start <= interval.end)
@@ -24,7 +23,6 @@ function mergeIntervals(intervals: Interval[]): Interval[] {
   return merged
 }
 
-/** Periodo de relación laboral del empleado recortado al año indicado. */
 export function employmentSpanInYear(employee: Employee, year: number): Interval | null {
   const start = employee.hireDate > yearStart(year) ? employee.hireDate : yearStart(year)
   const end =
@@ -34,13 +32,6 @@ export function employmentSpanInYear(employee: Employee, year: number): Interval
   return start <= end ? { start, end } : null
 }
 
-/**
- * Días naturales que el empleado está en activo dentro del año.
- *
- * Para un empleado ordinario es el tramo entre su fecha de alta y su fecha de
- * baja. Para un fijo discontinuo es la suma de sus periodos de llamamiento,
- * siempre dentro de ese tramo.
- */
 export function activeDaysInYear(employee: Employee, year: number): number {
   const span = employmentSpanInYear(employee, year)
   if (!span) return 0
@@ -55,10 +46,6 @@ export function activeDaysInYear(employee: Employee, year: number): number {
   )
 }
 
-/**
- * Estimación automática de días de vacaciones: la base anual prorrateada por
- * los días naturales en activo dentro del año.
- */
 export function estimateAnnualDays(
   employee: Employee,
   year: number,
@@ -80,10 +67,6 @@ export function findAllowance(
   )
 }
 
-/**
- * Días efectivos del empleado en el año: el ajuste manual del administrador si
- * existe y, si no, la estimación automática.
- */
 export function effectiveAnnualDays(
   employee: Employee,
   year: number,

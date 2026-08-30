@@ -4,15 +4,11 @@ import type { Allowance, Employee, IsoDate, Settings, VacationRequest } from './
 
 export interface Balance {
   year: number
-  /** Días efectivos: el ajuste manual si existe, si no la estimación. */
   assigned: number
-  /** Estimación automática, para poder mostrar de dónde sale el valor. */
   estimated: number
-  /** Cierto cuando el administrador ha ajustado el número a mano. */
   isOverridden: boolean
   approved: number
   pending: number
-  /** Días libres todavía comprometibles. Nunca puede quedar en negativo. */
   available: number
 }
 
@@ -26,10 +22,6 @@ export function requestsOf(
   )
 }
 
-/**
- * Días ya comprometidos por el empleado en el año: los aprobados y también los
- * pendientes, para que una solicitud en curso no pueda gastarse dos veces.
- */
 export function committedDays(
   requests: VacationRequest[],
   employeeId: string,
@@ -76,13 +68,6 @@ export type SelectionCheck =
   | { ok: true; days: IsoDate[] }
   | { ok: false; reason: string; days: IsoDate[] }
 
-/**
- * Comprueba que un conjunto de días laborables se puede comprometer para un
- * empleado: sin repetir días ya solicitados y sin superar su saldo.
- *
- * El límite se aplica también al administrador; para asignar más días hay que
- * subir antes el contador del empleado.
- */
 export function checkSelection(
   employee: Employee,
   days: IsoDate[],
@@ -124,7 +109,6 @@ export function checkSelection(
   return { ok: true, days: yearDays }
 }
 
-/** Agrupa una selección por año natural: cada año genera su propia solicitud. */
 export function groupByYear(days: IsoDate[]): Map<number, IsoDate[]> {
   const grouped = new Map<number, IsoDate[]>()
   for (const day of [...days].sort()) {

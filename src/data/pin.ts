@@ -1,9 +1,3 @@
-/**
- * El PIN evita cambios de perfil accidentales; no es una medida de seguridad.
- * Los datos viven en el IndexedDB del navegador y cualquiera con acceso al
- * dispositivo puede leerlos. Se guarda el hash y no el PIN en claro para no
- * dejar el número a la vista en una copia de seguridad.
- */
 
 const FALLBACK_PREFIX = 'fnv1a:'
 
@@ -24,13 +18,10 @@ export function randomSalt(): string {
   return Math.random().toString(16).slice(2, 18)
 }
 
-/**
- * SHA-256 sobre sal + PIN. `crypto.subtle` solo existe en contextos seguros
- * (https o localhost); si no está disponible se usa un hash simple para que la
- * aplicación siga funcionando, por ejemplo al abrirla por IP en la red local.
- */
 export async function hashPin(pin: string, salt: string): Promise<string> {
   const input = `${salt}:${pin}`
+  // crypto.subtle solo existe en contextos seguros: al abrir la aplicación por
+  // IP en la red local no está disponible.
   if (typeof crypto === 'undefined' || !crypto.subtle) return fallbackHash(input)
 
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))

@@ -16,11 +16,6 @@ interface YearGridProps {
   onToggle: (employeeId: string, date: IsoDate, extendRange: boolean) => void
 }
 
-/**
- * Rejilla anual: una fila por empleado y una columna por día del año. Es la
- * vista del administrador, la que deja ver de un vistazo los solapamientos
- * entre compañeros.
- */
 export function YearGrid({
   year,
   employees,

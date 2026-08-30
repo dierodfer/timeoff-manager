@@ -1,21 +1,7 @@
 import type { Holiday, HolidayScope } from './types'
 
-/**
- * Festivos precargados para Algarrobo (Málaga): fiestas nacionales, fiestas de
- * la Comunidad Autónoma de Andalucía y las dos fiestas locales del municipio.
- *
- * Fuentes:
- * - 2026: Resolución de 17 de octubre de 2025 de la Dirección General de Trabajo
- *   (BOE-A-2025-21667) y relación de fiestas locales de Andalucía para 2026.
- * - 2027: Decreto 84/2026, de 29 de abril (BOJA núm. 84, de 5 de mayo de 2026).
- *
- * Las fiestas locales de 2027 todavía no estaban publicadas cuando se preparó
- * esta lista: los ayuntamientos las proponen tras la publicación del decreto y
- * se recogen después en una resolución posterior. Por eso el año 2027 se
- * precarga solo con las doce fiestas nacionales y autonómicas, y las dos
- * locales quedan pendientes de añadir desde Ajustes.
- */
-
+// Fuentes: BOE-A-2025-21667 para 2026 y Decreto 84/2026 (BOJA) para 2027.
+// Las dos fiestas locales de 2027 aún no estaban publicadas: faltan aquí.
 type Seed = readonly [date: string, name: string, scope: HolidayScope]
 
 const SEEDS: Record<number, readonly Seed[]> = {
@@ -57,7 +43,6 @@ export function hasPreloadedHolidays(year: number): boolean {
   return year in SEEDS
 }
 
-/** Festivos oficiales conocidos para un año. Vacío si el año no está precargado. */
 export function preloadedHolidays(year: number): Holiday[] {
   return (SEEDS[year] ?? []).map(([date, name, scope]) => ({
     id: `${scope}-${date}`,

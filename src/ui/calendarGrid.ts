@@ -1,7 +1,6 @@
 import { daysInMonth, isoOf, weekday } from '../domain/dates'
 import type { IsoDate } from '../domain/types'
 
-/** Etiquetas de columna con la semana empezando en lunes. */
 export const WEEK_COLUMNS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 
 export const MONTH_NAMES = [
@@ -19,15 +18,10 @@ export const MONTH_NAMES = [
   'Diciembre',
 ] as const
 
-/** Columna 0-6 de una fecha en una semana que empieza en lunes. */
 export function columnOf(date: IsoDate): number {
   return (weekday(date) + 6) % 7
 }
 
-/**
- * Casillas de un mes para pintar la rejilla: `null` en los huecos previos al
- * día 1 para que la primera semana quede alineada con su columna.
- */
 export function monthCells(year: number, month: number): (IsoDate | null)[] {
   const first = isoOf(year, month, 1)
   const cells: (IsoDate | null)[] = Array.from({ length: columnOf(first) }, () => null)
@@ -37,7 +31,6 @@ export function monthCells(year: number, month: number): (IsoDate | null)[] {
   return cells
 }
 
-/** Todos los días del año en orden, para la rejilla anual del administrador. */
 export function yearDays(year: number): IsoDate[] {
   const days: IsoDate[] = []
   for (let month = 1; month <= 12; month += 1) {
@@ -53,7 +46,6 @@ export function formatLongDate(date: IsoDate): string {
   return `${day} de ${MONTH_NAMES[month - 1].toLowerCase()} de ${year}`
 }
 
-/** Resume una lista de días como rangos: "4–8 de mayo, 12 de mayo". */
 export function summarizeDays(days: IsoDate[]): string {
   if (days.length === 0) return '—'
   const sorted = [...days].sort()

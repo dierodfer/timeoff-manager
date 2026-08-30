@@ -11,12 +11,6 @@ import type {
 import { buildWorkCalendar, filterWorkingDays } from '../domain/workdays'
 import { newId } from '../data/ids'
 
-/**
- * Operaciones de negocio como transformaciones puras de la base de datos.
- * Mantenerlas fuera de React permite encadenarlas —una asignación masiva son
- * varias altas seguidas— validando cada paso contra el estado ya modificado.
- */
-
 export type Outcome<T = Database> =
   | { ok: true; database: T }
   | { ok: false; reason: string }
@@ -49,16 +43,11 @@ function makeComment(database: Database, authorId: string, text: string): Reques
   }
 }
 
-/** Quita de la selección los domingos y festivos: no computan ni se guardan. */
 export function toWorkingDays(database: Database, days: Iterable<IsoDate>): IsoDate[] {
   const calendar = buildWorkCalendar(database.holidays, database.settings)
   return filterWorkingDays(calendar, days)
 }
 
-/**
- * Crea las vacaciones de un empleado. Una selección a caballo entre dos años
- * genera una solicitud por año, porque el saldo es anual.
- */
 export function createVacation(database: Database, input: CreateVacationInput): Outcome {
   const employee = findEmployee(database, input.employeeId)
   if (!employee) return { ok: false, reason: 'El empleado no existe.' }
@@ -119,11 +108,6 @@ export interface BulkAssignResult {
   skipped: { employeeId: string; name: string; reason: string }[]
 }
 
-/**
- * Asigna el mismo periodo a varios empleados como vacaciones ya aprobadas.
- * Los días computan en el límite individual de cada uno, así que un empleado
- * sin saldo se queda fuera y se informa del motivo en lugar de fallar todo.
- */
 export function bulkAssign(database: Database, input: BulkAssignInput): BulkAssignResult {
   const batchId = newId('batch')
   const result: BulkAssignResult = { database, assigned: [], skipped: [] }
@@ -188,11 +172,6 @@ export function resolveRequest(
   }
 }
 
-/**
- * El empleado solo puede retirar sus solicitudes mientras están pendientes.
- * El administrador puede eliminar cualquiera, incluidas las ya aprobadas, y los
- * días vuelven al saldo.
- */
 export function removeRequest(
   database: Database,
   requestId: string,
@@ -242,10 +221,6 @@ export function addRequestComment(
   }
 }
 
-/**
- * Ajusta a mano los días de un empleado con los controles + y −. El valor
- * nunca puede quedar por debajo de los días ya comprometidos.
- */
 export function setAllowance(
   database: Database,
   employeeId: string,
@@ -277,7 +252,6 @@ export function setAllowance(
   }
 }
 
-/** Elimina el ajuste manual y devuelve el empleado a la estimación automática. */
 export function clearAllowance(database: Database, employeeId: string, year: number): Database {
   return {
     ...database,
@@ -287,10 +261,6 @@ export function clearAllowance(database: Database, employeeId: string, year: num
   }
 }
 
-/**
- * Da de baja a un empleado conservando su histórico. Se marca la fecha de baja
- * en lugar de borrar el registro para no perder las vacaciones ya disfrutadas.
- */
 export function terminateEmployee(database: Database, employeeId: string): Database {
   return {
     ...database,

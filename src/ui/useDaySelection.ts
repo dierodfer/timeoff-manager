@@ -2,11 +2,6 @@ import { useCallback, useRef, useState } from 'react'
 import { expandRange } from '../domain/dates'
 import type { IsoDate } from '../domain/types'
 
-/**
- * Selección de días del calendario. Un clic alterna un día suelto; con la tecla
- * mayúsculas pulsada se selecciona el rango desde el último día marcado, que es
- * la forma natural de pedir unas vacaciones de varios días seguidos.
- */
 export function useDaySelection(canSelect: (date: IsoDate) => boolean) {
   const [selected, setSelected] = useState<ReadonlySet<IsoDate>>(() => new Set())
   const anchor = useRef<IsoDate | null>(null)

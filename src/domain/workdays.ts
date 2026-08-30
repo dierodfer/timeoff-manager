@@ -1,11 +1,6 @@
 import { expandRange, weekday } from './dates'
 import type { Holiday, IsoDate, Settings } from './types'
 
-/**
- * Calendario laboral efectivo: qué días de la semana se trabajan y qué fechas
- * concretas son festivas. Se construye una vez por año y se reutiliza en toda
- * la interfaz para no recalcular el conjunto de festivos en cada celda.
- */
 export interface WorkCalendar {
   workweek: Set<number>
   holidaysByDate: Map<IsoDate, Holiday>
@@ -22,13 +17,11 @@ export function holidayOn(calendar: WorkCalendar, date: IsoDate): Holiday | unde
   return calendar.holidaysByDate.get(date)
 }
 
-/** Un día laborable es el que entra en la jornada semanal y no es festivo. */
 export function isWorkingDay(calendar: WorkCalendar, date: IsoDate): boolean {
   if (!calendar.workweek.has(weekday(date))) return false
   return !calendar.holidaysByDate.has(date)
 }
 
-/** Motivo por el que un día no computa, para poder explicarlo en la interfaz. */
 export function nonWorkingReason(
   calendar: WorkCalendar,
   date: IsoDate,
@@ -42,7 +35,6 @@ export function filterWorkingDays(calendar: WorkCalendar, dates: Iterable<IsoDat
   return [...dates].filter((date) => isWorkingDay(calendar, date)).sort()
 }
 
-/** Días laborables de un rango cerrado, descartando domingos y festivos. */
 export function workingDaysInRange(
   calendar: WorkCalendar,
   start: IsoDate,

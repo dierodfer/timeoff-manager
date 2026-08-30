@@ -1,7 +1,5 @@
 import type { Employee, Settings, VacationRequest } from './types'
 
-/** Constructores mínimos para los tests del dominio. */
-
 export const testSettings: Settings = {
   organizationName: 'Empresa',
   defaultAnnualDays: 23,

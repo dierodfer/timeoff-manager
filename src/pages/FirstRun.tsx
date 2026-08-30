@@ -2,10 +2,6 @@ import { useState, type FormEvent } from 'react'
 import { isValidPin, PIN_RULE } from '../data/pin'
 import { useApp } from '../state/AppStore'
 
-/**
- * Primer arranque en un dispositivo vacío: crea los ajustes, precarga los
- * festivos y da de alta al administrador.
- */
 export function FirstRun() {
   const { bootstrap, notify } = useApp()
   const [organizationName, setOrganizationName] = useState('')
