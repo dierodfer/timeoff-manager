@@ -4,7 +4,6 @@ import { verifyPin } from '../data/pin'
 import { createInitialDatabase, type FirstRunInput } from '../data/seed'
 import type { Database } from '../domain/types'
 import { buildWorkCalendar, type WorkCalendar } from '../domain/workdays'
-import { applyTheme, readTheme, type Theme } from '../ui/theme'
 import type { Outcome } from './actions'
 import { AppContext, type AppContextValue, type Status, type Toast } from './appContext'
 
@@ -21,7 +20,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [year, setYear] = useState(() => new Date().getFullYear())
   const [toasts, setToasts] = useState<Toast[]>([])
-  const [theme, setThemeState] = useState<Theme>(readTheme)
 
   useEffect(() => {
     let cancelled = false
@@ -45,11 +43,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTimeout(() => {
       setToasts((current) => current.filter((item) => item.id !== toast.id))
     }, 4000)
-  }, [])
-
-  const setTheme = useCallback((next: Theme) => {
-    setThemeState(next)
-    applyTheme(next)
   }, [])
 
   const dismissToast = useCallback((id: number) => {
@@ -147,8 +140,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       calendar,
       toasts,
       setYear,
-      theme,
-      setTheme,
       notify,
       dismissToast,
       bootstrap,
@@ -166,8 +157,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       year,
       calendar,
       toasts,
-      theme,
-      setTheme,
       notify,
       dismissToast,
       bootstrap,

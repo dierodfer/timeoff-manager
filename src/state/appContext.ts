@@ -2,7 +2,6 @@ import { createContext, useContext } from 'react'
 import type { FirstRunInput } from '../data/seed'
 import type { Database, Employee } from '../domain/types'
 import type { WorkCalendar } from '../domain/workdays'
-import type { Theme } from '../ui/theme'
 import type { Outcome } from './actions'
 
 export type Status = 'loading' | 'empty' | 'ready'
@@ -21,8 +20,6 @@ export interface AppContextValue {
   calendar: WorkCalendar
   toasts: Toast[]
   setYear: (year: number) => void
-  theme: Theme
-  setTheme: (theme: Theme) => void
   notify: (message: string, tone?: Toast['tone']) => void
   dismissToast: (id: number) => void
   bootstrap: (input: FirstRunInput) => Promise<void>

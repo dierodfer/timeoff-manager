@@ -49,10 +49,16 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
 
 - **Día laborable:** de lunes a sábado, descontando festivos. La jornada semanal es configurable en
   Ajustes (`Settings.workweek`, donde `0` es domingo y `6` sábado).
-- **Estimación:** `base anual × días en activo en el año ÷ días del año`, redondeado y limitado a la
-  base. Un empleado ordinario está en activo entre el alta y la baja; un **fijo discontinuo** solo
-  durante sus periodos de llamamiento, que se fusionan antes de sumar para no contar dos veces los
-  solapados.
+- **Estimación:** `0,0737 × días trabajados`, **sin redondear** y limitada a la base anual, que
+  funciona como tope. Un «día trabajado» es un día de `Settings.workweek` dentro de los tramos en
+  activo; los festivos no se descuentan. Con la jornada de lunes a sábado un año completo son 313
+  días → 23,07, que el tope deja en 23. Se aplica igual a todos los empleados.
+- Un empleado ordinario está en activo entre el alta y la baja; un **fijo discontinuo** solo durante
+  sus periodos de llamamiento, que se fusionan antes de sumar para no contar dos veces los
+  solapados. **El periodo en curso se proyecta hasta el 31 de diciembre**, asumiendo que seguirá
+  llamado, así que su estimación no baja según se acerca la fecha de fin.
+- **Los días de vacaciones son decimales.** `formatDays()` (`domain/format.ts`) es lo único que los
+  pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado.
 - **Días efectivos:** si existe un registro en `allowances` para ese empleado y año, manda ese
   valor; si no, la estimación. Borrar el registro devuelve al empleado a la estimación.
 - **Saldo:** asignados − aprobados − pendientes. Las pendientes reservan saldo para que los mismos
@@ -105,6 +111,9 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
 - **`HashRouter`, no `BrowserRouter`.** Pages no reescribe rutas: un refresco daría un 404.
 - **`base` en `vite.config.ts`** apunta a `/timeoff-manager/`. Si se renombra el repositorio, hay
   que cambiarlo o pasar `BASE_PATH`.
+- **El formulario de festivos de Ajustes se remonta con `key={year}`.** Sin eso la fecha propuesta
+  se queda en el año en que se montó y añadir un festivo desde otro año lo mete en el año
+  equivocado, donde no se ve.
 - **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva:
   al abrir la aplicación por IP en la red local no está disponible.
 
@@ -125,12 +134,8 @@ mover los datos. Tenerlo presente antes de prometer flujos multiusuario.
 Tokens en `src/index.css`: un `@theme` con la paleta clara y un bloque `:root[data-theme='dark']`
 que solo redefine valores, de modo que el modo oscuro no duplica reglas.
 
-**El tema es una elección explícita, no sigue al sistema:** claro por defecto, con un conmutador en
-la cabecera y en las pantallas previas al acceso. La preferencia vive en `localStorage`
-(`ui/theme.ts`), no en la base de datos, porque las pantallas de acceso y de primer arranque se
-pintan antes de que exista base de datos y porque es una preferencia del dispositivo, no del
-perfil. Un script en línea en `index.html` fija `data-theme` antes del primer pintado; sin él, abrir
-la aplicación en oscuro parpadearía en claro durante un instante. Jerarquía por tipografía y espacio en vez de por bordes, radios generosos y un
+**Solo hay tema claro.** No se sigue a `prefers-color-scheme` ni hay conmutador: `index.html`
+declara `color-scheme: light` y la paleta vive en un único `@theme`. Jerarquía por tipografía y espacio en vez de por bordes, radios generosos y un
 único color de acento. Los componentes reutilizables (`.card`, `.btn`, `.field`, `.segmented`,
 `.chip`, `.day`, `.grid-day`) están en `@layer components`; preferirlos a repetir utilidades en el
 JSX y no pintar colores con `style` inline.

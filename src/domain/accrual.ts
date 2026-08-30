@@ -1,7 +1,13 @@
-import { daysBetweenInclusive, daysInYear, overlapDays, yearEnd, yearStart } from './dates'
-import type { Allowance, Employee, IsoDate } from './types'
+import { expandRange, todayIso, weekday, yearEnd, yearStart } from './dates'
+import type { Allowance, Employee, IsoDate, Settings } from './types'
 
-interface Interval {
+/**
+ * Días de vacaciones que genera cada día trabajado. Con la jornada de lunes a
+ * sábado —312 días al año— sale la base anual de 23 días.
+ */
+export const ACCRUAL_PER_WORKED_DAY = 0.0737
+
+export interface Interval {
   start: IsoDate
   end: IsoDate
 }
@@ -32,29 +38,68 @@ export function employmentSpanInYear(employee: Employee, year: number): Interval
   return start <= end ? { start, end } : null
 }
 
-export function activeDaysInYear(employee: Employee, year: number): number {
+/**
+ * Tramos en activo dentro del año. El periodo de llamamiento en curso de un
+ * fijo discontinuo se proyecta hasta fin de año: se asume que seguirá llamado,
+ * así que su estimación no baja cada vez que se acerca la fecha de fin.
+ */
+export function activeIntervalsInYear(
+  employee: Employee,
+  year: number,
+  today: IsoDate,
+): Interval[] {
   const span = employmentSpanInYear(employee, year)
-  if (!span) return 0
+  if (!span) return []
+  if (!employee.isSeasonal) return [span]
 
-  if (!employee.isSeasonal) {
-    return daysBetweenInclusive(span.start, span.end)
-  }
+  const withinSpan = mergeIntervals(employee.activityPeriods)
+    .map((period) => ({
+      start: period.start > span.start ? period.start : span.start,
+      end: period.end < span.end ? period.end : span.end,
+    }))
+    .filter((period) => period.start <= period.end)
 
-  return mergeIntervals(employee.activityPeriods).reduce(
-    (total, period) => total + overlapDays(period.start, period.end, span.start, span.end),
+  const projected = withinSpan.map((period) =>
+    today >= period.start && today <= period.end ? { start: period.start, end: span.end } : period,
+  )
+
+  return mergeIntervals(projected)
+}
+
+/**
+ * Días de la jornada semanal (`Settings.workweek`) dentro de los tramos en
+ * activo. Los festivos no se descuentan: la base anual se define sobre los días
+ * de jornada, no sobre los efectivamente trabajados.
+ */
+export function workedDaysInYear(
+  employee: Employee,
+  year: number,
+  workweek: number[],
+  today: IsoDate = todayIso(),
+): number {
+  const workdays = new Set(workweek)
+  return activeIntervalsInYear(employee, year, today).reduce(
+    (total, interval) =>
+      total +
+      expandRange(interval.start, interval.end).filter((date) => workdays.has(weekday(date)))
+        .length,
     0,
   )
 }
 
+/**
+ * Estimación de días de vacaciones: `0,0737 × días trabajados`, sin redondear y
+ * limitada a la base anual. `today` se inyecta para poder fijarlo en los tests.
+ */
 export function estimateAnnualDays(
   employee: Employee,
   year: number,
-  baseAnnualDays: number,
+  settings: Settings,
+  today: IsoDate = todayIso(),
 ): number {
-  const activeDays = activeDaysInYear(employee, year)
-  if (activeDays <= 0) return 0
-  const estimate = Math.round((baseAnnualDays * activeDays) / daysInYear(year))
-  return Math.min(estimate, baseAnnualDays)
+  const worked = workedDaysInYear(employee, year, settings.workweek, today)
+  if (worked <= 0) return 0
+  return Math.min(worked * ACCRUAL_PER_WORKED_DAY, settings.defaultAnnualDays)
 }
 
 export function findAllowance(
@@ -70,9 +115,10 @@ export function findAllowance(
 export function effectiveAnnualDays(
   employee: Employee,
   year: number,
-  baseAnnualDays: number,
+  settings: Settings,
   allowances: Allowance[],
+  today: IsoDate = todayIso(),
 ): number {
   const override = findAllowance(allowances, employee.id, year)
-  return override ? override.days : estimateAnnualDays(employee, year, baseAnnualDays)
+  return override ? override.days : estimateAnnualDays(employee, year, settings, today)
 }

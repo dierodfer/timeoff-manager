@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { employmentSpanInYear } from '../domain/accrual'
 import { computeBalance, requestsOf } from '../domain/balance'
+import { formatDays, pluralDays } from '../domain/format'
 import { todayIso } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import { isWorkingDay } from '../domain/workdays'
@@ -270,8 +271,8 @@ export function MyCalendar() {
             )}
 
             <p className="text-xs text-[var(--color-ink-muted)]">
-              Quedan {balance.available} {balance.available === 1 ? 'día' : 'días'} disponibles de
-              los {balance.assigned} asignados para {year}.
+              Quedan {pluralDays(balance.available)} disponibles de los{' '}
+              {formatDays(balance.assigned)} asignados para {year}.
             </p>
           </div>
         </Modal>
