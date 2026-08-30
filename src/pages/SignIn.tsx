@@ -3,6 +3,7 @@ import { todayIso } from '../domain/dates'
 import type { Employee } from '../domain/types'
 import { displayName, sortByName } from '../state/actions'
 import { useApp } from '../state/appContext'
+import { ThemeToggle } from '../ui/ThemeToggle'
 
 function initials(employee: Employee): string {
   return `${employee.firstName.at(0) ?? ''}${employee.lastName.at(0) ?? ''}`.toUpperCase()
@@ -34,7 +35,11 @@ export function SignIn() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
+    <div className="relative mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
       <h1 className="text-2xl">{database.settings.organizationName}</h1>
       <p className="mt-1 text-[15px] text-[var(--color-ink-muted)]">
         {selected ? 'Introduce tu PIN para continuar.' : 'Elige tu perfil para continuar.'}

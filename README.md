@@ -61,20 +61,29 @@ Everyone signs in by picking their profile and entering a PIN.
 > The data lives in the browser's IndexedDB, and anyone with access to the device can read it.
 > Only the PIN's hash is stored, not the number itself, so it isn't exposed in backups.
 
+## Appearance
+
+The app ships with a light and a dark theme, **light by default**. It's an explicit choice rather
+than following the operating system: the switch sits in the header and on the sign-in screen, and
+the preference is remembered per browser.
+
 ## Getting started
 
 ```bash
 npm install
 npm run dev        # dev server
 npm test           # domain logic tests
+npm run lint       # ESLint with type-aware rules
+npm run format     # Prettier
 npm run build      # production build into dist/
 npm run preview    # serve dist/ as in production
 ```
 
 ## Deployment
 
-The `.github/workflows/deploy.yml` workflow builds and publishes on every push to `main`.
-It needs to be enabled once under **Settings → Pages → Source: GitHub Actions**.
+The `.github/workflows/deploy.yml` workflow runs lint, format check, tests and build, then
+publishes on every push to `main`. It needs to be enabled once under
+**Settings → Pages → Source: GitHub Actions**.
 
 The app is served from a subdirectory (`/timeoff-manager/`), configured in `vite.config.ts`.
 If you rename the repository, update `base` there or pass `BASE_PATH` at build time.
