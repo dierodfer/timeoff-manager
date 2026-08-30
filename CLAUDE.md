@@ -118,9 +118,15 @@ mover los datos. Tenerlo presente antes de prometer flujos multiusuario.
 
 ## Diseño
 
-Tokens en `src/index.css`: un `@theme` con la paleta clara y un bloque
-`@media (prefers-color-scheme: dark)` que solo redefine valores, de modo que el modo oscuro no
-duplica reglas. Jerarquía por tipografía y espacio en vez de por bordes, radios generosos y un
+Tokens en `src/index.css`: un `@theme` con la paleta clara y un bloque `:root[data-theme='dark']`
+que solo redefine valores, de modo que el modo oscuro no duplica reglas.
+
+**El tema es una elección explícita, no sigue al sistema:** claro por defecto, con un conmutador en
+la cabecera y en las pantallas previas al acceso. La preferencia vive en `localStorage`
+(`ui/theme.ts`), no en la base de datos, porque las pantallas de acceso y de primer arranque se
+pintan antes de que exista base de datos y porque es una preferencia del dispositivo, no del
+perfil. Un script en línea en `index.html` fija `data-theme` antes del primer pintado; sin él, abrir
+la aplicación en oscuro parpadearía en claro durante un instante. Jerarquía por tipografía y espacio en vez de por bordes, radios generosos y un
 único color de acento. Los componentes reutilizables (`.card`, `.btn`, `.field`, `.segmented`,
 `.chip`, `.day`, `.grid-day`) están en `@layer components`; preferirlos a repetir utilidades en el
 JSX y no pintar colores con `style` inline.

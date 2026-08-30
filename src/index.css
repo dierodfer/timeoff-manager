@@ -37,35 +37,38 @@
   --shadow-raised: 0 12px 40px rgba(0, 0, 0, 0.14);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-canvas: #000000;
-    --color-surface: #1c1c1e;
-    --color-surface-sunken: #141416;
-    --color-surface-raised: #2c2c2e;
-    --color-ink: #f5f5f7;
-    --color-ink-soft: #d1d1d6;
-    --color-ink-muted: #8e8e93;
-    --color-hairline: rgba(255, 255, 255, 0.11);
-    --color-hairline-strong: rgba(255, 255, 255, 0.2);
+:root {
+  color-scheme: light;
+}
 
-    --color-accent: #0a84ff;
-    --color-accent-soft: rgba(10, 132, 255, 0.18);
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-canvas: #000000;
+  --color-surface: #1c1c1e;
+  --color-surface-sunken: #141416;
+  --color-surface-raised: #2c2c2e;
+  --color-ink: #f5f5f7;
+  --color-ink-soft: #d1d1d6;
+  --color-ink-muted: #8e8e93;
+  --color-hairline: rgba(255, 255, 255, 0.11);
+  --color-hairline-strong: rgba(255, 255, 255, 0.2);
 
-    --color-approved: #30d158;
-    --color-approved-soft: rgba(48, 209, 88, 0.18);
-    --color-pending: #ff9f0a;
-    --color-pending-soft: rgba(255, 159, 10, 0.18);
-    --color-rejected: #ff453a;
-    --color-rejected-soft: rgba(255, 69, 58, 0.18);
-    --color-holiday: #bf9bff;
-    --color-holiday-soft: rgba(191, 155, 255, 0.18);
-    --color-grid-off: #3a3a3d;
-    --color-grid-holiday: #4a3a6b;
+  --color-accent: #0a84ff;
+  --color-accent-soft: rgba(10, 132, 255, 0.18);
 
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.4);
-    --shadow-raised: 0 12px 40px rgba(0, 0, 0, 0.6);
-  }
+  --color-approved: #30d158;
+  --color-approved-soft: rgba(48, 209, 88, 0.18);
+  --color-pending: #ff9f0a;
+  --color-pending-soft: rgba(255, 159, 10, 0.18);
+  --color-rejected: #ff453a;
+  --color-rejected-soft: rgba(255, 69, 58, 0.18);
+  --color-holiday: #bf9bff;
+  --color-holiday-soft: rgba(191, 155, 255, 0.18);
+  --color-grid-off: #3a3a3d;
+  --color-grid-holiday: #4a3a6b;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-raised: 0 12px 40px rgba(0, 0, 0, 0.6);
 }
 
 @layer base {

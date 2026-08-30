@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { isValidPin, PIN_RULE } from '../data/pin'
 import { useApp } from '../state/appContext'
+import { ThemeToggle } from '../ui/ThemeToggle'
 
 export function FirstRun() {
   const { bootstrap, notify } = useApp()
@@ -32,7 +33,11 @@ export function FirstRun() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-10">
+    <div className="relative mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-10">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
       <h1 className="text-3xl">Vacaciones</h1>
       <p className="mt-2 text-[15px] text-[var(--color-ink-muted)]">
         Configura la aplicación en este dispositivo. Los datos se guardan en este navegador; desde

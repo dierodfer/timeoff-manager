@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { displayName } from '../state/actions'
 import { useSession } from '../state/appContext'
+import { ThemeToggle } from './ThemeToggle'
 
 const EMPLOYEE_LINKS = [{ to: '/', label: 'Mi calendario', end: true }]
 
@@ -47,6 +48,8 @@ export function AppShell() {
                 ›
               </button>
             </div>
+
+            <ThemeToggle />
 
             <button type="button" className="btn btn-secondary btn-sm" onClick={signOut}>
               Salir
