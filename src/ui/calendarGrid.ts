@@ -1,6 +1,6 @@
 import { daysInMonth, isoOf, weekday } from '../domain/dates'
+import type { IsoDate, RequestStatus } from '../domain/types'
 import type { DayMark } from './MonthCalendar'
-import type { IsoDate } from '../domain/types'
 
 export const WEEK_COLUMNS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 
@@ -109,4 +109,10 @@ export const GRID_DAY_CLASS: Record<DayState, string> = {
   festivo: 'grid-day-holiday',
   'no-laborable': 'grid-day-off',
   libre: '',
+}
+
+export const STATUS_LABEL: Record<RequestStatus, string> = {
+  pendiente: 'Pendiente',
+  aprobada: 'Aprobada',
+  rechazada: 'Rechazada',
 }

@@ -21,11 +21,14 @@ needs to know.
 
 - **Working day:** Monday through Saturday, minus holidays. Sundays and holidays never count even
   if selected. The work week can be changed from Settings.
-- **Day estimate:** `annual base × active days in the year ÷ days in the year`, rounded.
-  The base is 23 days and is configurable in Settings.
+- **Day estimate:** `0.0737 × worked days`, **never rounded**, capped at the annual base (23 by
+  default, configurable in Settings). A "worked day" is a day of the configured work week inside
+  an active period; holidays are not deducted. A full Monday–Saturday year is 313 days → 23.07,
+  which the cap trims to 23.
   - A regular employee is active between their hire date and termination date.
   - A **seasonal (intermittent) employee** is only active during their call-up periods, defined
-    one by one on their profile.
+    one by one on their profile. The period in progress is projected to 31 December, assuming the
+    employee stays called up.
 - **Effective days:** the estimate is the default; the admin can override it with the `+` and `−`
   controls and revert to the estimate with "Reset". The override is per year.
 - **Balance:** assigned days minus approved and pending ones. A pending request reserves balance
@@ -60,12 +63,6 @@ Everyone signs in by picking their profile and entering a PIN.
 > **The PIN is not a security measure.** It only guards against switching profiles by accident.
 > The data lives in the browser's IndexedDB, and anyone with access to the device can read it.
 > Only the PIN's hash is stored, not the number itself, so it isn't exposed in backups.
-
-## Appearance
-
-The app ships with a light and a dark theme, **light by default**. It's an explicit choice rather
-than following the operating system: the switch sits in the header and on the sign-in screen, and
-the preference is remembered per browser.
 
 ## Getting started
 

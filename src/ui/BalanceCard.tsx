@@ -1,4 +1,5 @@
 import type { Balance } from '../domain/balance'
+import { formatDays } from '../domain/format'
 
 function Metric({ label, value, tone }: { label: string; value: number; tone?: string }) {
   return (
@@ -21,7 +22,7 @@ export function BalanceCard({ balance }: { balance: Balance }) {
         <h2 className="text-sm font-semibold">Saldo {balance.year}</h2>
         <span className="chip chip-neutral">
           {balance.isOverridden
-            ? `Ajustado · estimación ${balance.estimated}`
+            ? `Ajustado · estimación ${formatDays(balance.estimated)}`
             : 'Estimación automática'}
         </span>
       </div>

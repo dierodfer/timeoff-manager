@@ -1,5 +1,6 @@
 import { effectiveAnnualDays, estimateAnnualDays } from './accrual'
-import { yearOf } from './dates'
+import { todayIso, yearOf } from './dates'
+import { pluralDays } from './format'
 import type { Allowance, Employee, IsoDate, Settings, VacationRequest } from './types'
 
 export interface Balance {
@@ -39,9 +40,10 @@ export function computeBalance(
   settings: Settings,
   allowances: Allowance[],
   requests: VacationRequest[],
+  today: IsoDate = todayIso(),
 ): Balance {
-  const assigned = effectiveAnnualDays(employee, year, settings.defaultAnnualDays, allowances)
-  const estimated = estimateAnnualDays(employee, year, settings.defaultAnnualDays)
+  const assigned = effectiveAnnualDays(employee, year, settings, allowances, today)
+  const estimated = estimateAnnualDays(employee, year, settings, today)
   const mine = requestsOf(requests, employee.id, year)
 
   const approved = mine
@@ -73,10 +75,11 @@ export function withBalances(
   settings: Settings,
   allowances: Allowance[],
   requests: VacationRequest[],
+  today: IsoDate = todayIso(),
 ): EmployeeBalance[] {
   return employees.map((employee) => ({
     employee,
-    balance: computeBalance(employee, year, settings, allowances, requests),
+    balance: computeBalance(employee, year, settings, allowances, requests, today),
   }))
 }
 
@@ -90,6 +93,7 @@ export function checkSelection(
   settings: Settings,
   allowances: Allowance[],
   requests: VacationRequest[],
+  today: IsoDate = todayIso(),
 ): SelectionCheck {
   const yearDays = days.filter((day) => yearOf(day) === year).sort()
 
@@ -110,12 +114,13 @@ export function checkSelection(
     }
   }
 
-  const balance = computeBalance(employee, year, settings, allowances, requests)
-  if (yearDays.length > balance.available) {
+  const balance = computeBalance(employee, year, settings, allowances, requests, today)
+  // Margen para el ruido de coma flotante: evita rechazar 13 días contra un saldo de 12,999999999.
+  if (yearDays.length > balance.available + 1e-9) {
     return {
       ok: false,
       reason:
-        `Saldo insuficiente: quedan ${balance.available} ${balance.available === 1 ? 'día' : 'días'}` +
+        `Saldo insuficiente: quedan ${pluralDays(balance.available)}` +
         ` y se intentan reservar ${yearDays.length}.`,
       days: yearDays,
     }

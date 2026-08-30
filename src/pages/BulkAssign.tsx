@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react'
 import { employmentSpanInYear } from '../domain/accrual'
 import { withBalances } from '../domain/balance'
-import { yearEnd, yearStart } from '../domain/dates'
+import { formatDays } from '../domain/format'
+import { formatLongDate } from '../ui/calendarGrid'
 import { workingDaysInRange } from '../domain/workdays'
 import { bulkAssign, displayName, sortByName, type BulkAssignResult } from '../state/actions'
 import { useSession } from '../state/appContext'
-import { summarizeDays } from '../ui/calendarGrid'
+import { DateRangePicker, type DateRange } from '../ui/DateRangePicker'
 
 export function BulkAssign() {
   const { database, currentUser, year, calendar, commit, notify } = useSession()
-  const [start, setStart] = useState(() => yearStart(year))
-  const [end, setEnd] = useState(() => yearStart(year))
+  const [range, setRange] = useState<DateRange>({ start: null, end: null })
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set())
   const [comment, setComment] = useState('')
   const [result, setResult] = useState<BulkAssignResult | null>(null)
@@ -26,9 +26,9 @@ export function BulkAssign() {
   )
 
   const days = useMemo(() => {
-    if (!start || !end || end < start) return []
-    return workingDaysInRange(calendar, start, end)
-  }, [calendar, start, end])
+    if (!range.start || !range.end) return []
+    return workingDaysInRange(calendar, range.start, range.end)
+  }, [calendar, range])
 
   const toggleEmployee = (id: string) => {
     setSelectedIds((current) => {
@@ -56,6 +56,7 @@ export function BulkAssign() {
       )
       setSelectedIds(new Set())
       setComment('')
+      setRange({ start: null, end: null })
     } else {
       notify('No se ha podido asignar a ningún empleado.', 'error')
     }
@@ -77,45 +78,28 @@ export function BulkAssign() {
 
       <div className="grid gap-4 lg:grid-cols-[380px_minmax(0,1fr)]">
         <div className="card space-y-4 p-5">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label" htmlFor="bulk-start">
-                Desde
-              </label>
-              <input
-                id="bulk-start"
-                type="date"
-                className="field"
-                min={yearStart(year)}
-                max={yearEnd(year)}
-                value={start}
-                onChange={(event) => {
-                  setStart(event.target.value)
-                  if (end < event.target.value) setEnd(event.target.value)
-                }}
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="bulk-end">
-                Hasta
-              </label>
-              <input
-                id="bulk-end"
-                type="date"
-                className="field"
-                min={start}
-                max={yearEnd(year)}
-                value={end}
-                onChange={(event) => setEnd(event.target.value)}
-              />
-            </div>
+          <div>
+            <span className="label">Periodo</span>
+            <DateRangePicker year={year} calendar={calendar} value={range} onChange={setRange} />
           </div>
 
           <div className="hairline rounded-[var(--radius-control)] border bg-[var(--color-surface-sunken)] p-3 text-sm">
-            <p className="font-medium">
-              {days.length} {days.length === 1 ? 'día laborable' : 'días laborables'}
-            </p>
-            <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">{summarizeDays(days)}</p>
+            {range.start && range.end ? (
+              <>
+                <p className="font-medium">
+                  {days.length} {days.length === 1 ? 'día laborable' : 'días laborables'}
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                  {formatLongDate(range.start)} – {formatLongDate(range.end)}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-[var(--color-ink-muted)]">
+                {range.start
+                  ? 'Elige el día en el que termina el periodo.'
+                  : 'Elige el día en el que empieza el periodo.'}
+              </p>
+            )}
           </div>
 
           <div>
@@ -165,7 +149,7 @@ export function BulkAssign() {
 
           <ul className="divide-y divide-[var(--color-hairline)]">
             {rows.map(({ employee, balance }) => {
-              const short = days.length > balance.available
+              const short = days.length > balance.available + 1e-9
               return (
                 <li key={employee.id}>
                   <label className="flex cursor-pointer items-center gap-3 px-4 py-3 transition hover:bg-[var(--color-surface-sunken)]">
@@ -179,7 +163,8 @@ export function BulkAssign() {
                         {displayName(employee)}
                       </span>
                       <span className="block text-xs text-[var(--color-ink-muted)]">
-                        {balance.available} de {balance.assigned} días disponibles
+                        {formatDays(balance.available)} de {formatDays(balance.assigned)} días
+                        disponibles
                       </span>
                     </span>
                     {short && days.length > 0 && (

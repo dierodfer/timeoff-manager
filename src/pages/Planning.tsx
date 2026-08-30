@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { employmentSpanInYear } from '../domain/accrual'
 import { computeBalance } from '../domain/balance'
+import { formatDays } from '../domain/format'
 import { todayIso } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import { isWorkingDay } from '../domain/workdays'
@@ -115,7 +116,7 @@ export function Planning() {
               <span className="font-semibold">{displayName(target)}</span>{' '}
               <span className="text-[var(--color-ink-muted)]">
                 · {selectedDays.length} {selectedDays.length === 1 ? 'día' : 'días'} ·{' '}
-                {balance?.available ?? 0} disponibles
+                {formatDays(balance?.available ?? 0)} disponibles
               </span>
             </p>
             <div className="flex gap-2">
@@ -176,8 +177,8 @@ export function Planning() {
             </div>
             {balance && (
               <p className="text-xs text-[var(--color-ink-muted)]">
-                {displayName(target)} tiene {balance.assigned} días asignados en {year} y{' '}
-                {balance.available} disponibles.
+                {displayName(target)} tiene {formatDays(balance.assigned)} días asignados en {year}{' '}
+                y {formatDays(balance.available)} disponibles.
               </p>
             )}
           </div>

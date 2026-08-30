@@ -8,9 +8,6 @@ interface State {
   error: Error | null
 }
 
-// No hay servidor donde registrar los fallos: si algo revienta, el rastro solo
-// queda en la consola de quien lo sufre. Por eso la pantalla ofrece exportar la
-// copia de seguridad antes de recargar.
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
 

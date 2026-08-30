@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useState } from 'react'
+import { employmentSpanInYear } from '../domain/accrual'
 import { computeBalance, requestsOf } from '../domain/balance'
+import { formatDays, pluralDays } from '../domain/format'
 import { todayIso } from '../domain/dates'
-import type { IsoDate } from '../domain/types'
+import type { Employee, IsoDate } from '../domain/types'
 import { isWorkingDay } from '../domain/workdays'
-import { createVacation, removeRequest } from '../state/actions'
+import { createVacation, displayName, removeRequest, sortByName } from '../state/actions'
 import { useSession } from '../state/appContext'
 import { BalanceCard } from '../ui/BalanceCard'
 import { Modal } from '../ui/Modal'
@@ -15,6 +17,14 @@ import { YearCalendar } from '../ui/YearCalendar'
 
 export function MyCalendar() {
   const { database, currentUser, year, calendar, apply, notify } = useSession()
+  const isAdmin = currentUser.role === 'admin'
+
+  const viewableEmployees = useMemo(
+    () => sortByName(database.employees.filter((employee) => employmentSpanInYear(employee, year))),
+    [database.employees, year],
+  )
+
+  const [viewedEmployeeId, setViewedEmployeeId] = useState(currentUser.id)
   const [comment, setComment] = useState('')
   const [asApproved, setAsApproved] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -22,24 +32,44 @@ export function MyCalendar() {
   const canSelect = useCallback((date: IsoDate) => isWorkingDay(calendar, date), [calendar])
   const { selected, toggle, clear } = useDaySelection(canSelect)
 
-  const myRequests = useMemo(
-    () => requestsOf(database.requests, currentUser.id, year),
-    [database.requests, currentUser.id, year],
+  // Derivado, no estado: sincronizarlo con un efecto provoca renders en cascada.
+  const viewedEmployee: Employee =
+    (isAdmin && viewableEmployees.find((employee) => employee.id === viewedEmployeeId)) ||
+    currentUser
+  const viewingSelf = viewedEmployee.id === currentUser.id
+
+  const switchTo = (employeeId: string) => {
+    setViewedEmployeeId(employeeId)
+    clear()
+    setDialogOpen(false)
+    setComment('')
+    setAsApproved(false)
+  }
+
+  const requests = useMemo(
+    () => requestsOf(database.requests, viewedEmployee.id, year),
+    [database.requests, viewedEmployee.id, year],
   )
 
   const marks = useMemo(() => {
     const map = new Map<IsoDate, DayMark>()
-    for (const request of myRequests) {
+    for (const request of requests) {
       if (request.status === 'rechazada') continue
       for (const day of request.days) map.set(day, request.status)
     }
     return map
-  }, [myRequests])
+  }, [requests])
 
   const balance = useMemo(
     () =>
-      computeBalance(currentUser, year, database.settings, database.allowances, database.requests),
-    [currentUser, year, database],
+      computeBalance(
+        viewedEmployee,
+        year,
+        database.settings,
+        database.allowances,
+        database.requests,
+      ),
+    [viewedEmployee, year, database],
   )
 
   const selectedDays = useMemo(() => [...selected].sort(), [selected])
@@ -47,7 +77,7 @@ export function MyCalendar() {
   const submit = () => {
     const ok = apply((db) =>
       createVacation(db, {
-        employeeId: currentUser.id,
+        employeeId: viewedEmployee.id,
         days: selectedDays,
         status: asApproved ? 'aprobada' : 'pendiente',
         authorId: currentUser.id,
@@ -55,7 +85,10 @@ export function MyCalendar() {
       }),
     )
     if (ok) {
-      notify(asApproved ? 'Vacaciones creadas y aprobadas.' : 'Solicitud enviada.')
+      const forThem = viewingSelf ? '' : ` para ${displayName(viewedEmployee)}`
+      notify(
+        asApproved ? `Vacaciones creadas y aprobadas${forThem}.` : `Solicitud enviada${forThem}.`,
+      )
       clear()
       setComment('')
       setDialogOpen(false)
@@ -64,7 +97,7 @@ export function MyCalendar() {
 
   const cancel = (requestId: string) => {
     if (apply((db) => removeRequest(db, requestId, currentUser))) {
-      notify('Solicitud cancelada.')
+      notify(viewingSelf ? 'Solicitud cancelada.' : 'Solicitud eliminada.')
     }
   }
 
@@ -72,12 +105,37 @@ export function MyCalendar() {
     <div className="space-y-6 pb-24">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
-          <div>
-            <h1 className="text-2xl">Mi calendario</h1>
-            <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-              Pulsa un día para seleccionarlo. Con la tecla mayúsculas seleccionas el rango completo
-              desde el último día marcado. Los domingos y festivos no computan.
-            </p>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 className="text-2xl">
+                {viewingSelf ? 'Mi calendario' : `Calendario de ${displayName(viewedEmployee)}`}
+              </h1>
+              <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+                Pulsa un día para seleccionarlo. Con la tecla mayúsculas seleccionas el rango
+                completo desde el último día marcado. Los domingos y festivos no computan.
+              </p>
+            </div>
+
+            {isAdmin && (
+              <div>
+                <label className="label" htmlFor="viewed-employee">
+                  Ver calendario de
+                </label>
+                <select
+                  id="viewed-employee"
+                  className="field"
+                  value={viewedEmployee.id}
+                  onChange={(event) => switchTo(event.target.value)}
+                >
+                  {viewableEmployees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {displayName(employee)}
+                      {employee.id === currentUser.id ? ' (tú)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <Legend />
         </div>
@@ -96,21 +154,27 @@ export function MyCalendar() {
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-lg">Mis solicitudes de {year}</h2>
-        {myRequests.length === 0 ? (
+        <h2 className="text-lg">
+          {viewingSelf
+            ? `Mis solicitudes de ${year}`
+            : `Solicitudes de ${displayName(viewedEmployee)} en ${year}`}
+        </h2>
+        {requests.length === 0 ? (
           <p className="card p-6 text-sm text-[var(--color-ink-muted)]">
-            Todavía no has solicitado vacaciones este año.
+            {viewingSelf
+              ? 'Todavía no has solicitado vacaciones este año.'
+              : 'Sin vacaciones solicitadas este año.'}
           </p>
         ) : (
           <div className="grid gap-3 lg:grid-cols-2">
-            {[...myRequests]
+            {[...requests]
               .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
               .map((request) => (
                 <RequestCard
                   key={request.id}
                   request={request}
                   actions={
-                    request.status === 'pendiente' || currentUser.role === 'admin' ? (
+                    request.status === 'pendiente' || isAdmin ? (
                       <button
                         type="button"
                         className="btn btn-danger btn-sm"
@@ -159,7 +223,9 @@ export function MyCalendar() {
 
       {dialogOpen && (
         <Modal
-          title="Solicitar vacaciones"
+          title={
+            viewingSelf ? 'Solicitar vacaciones' : `Vacaciones de ${displayName(viewedEmployee)}`
+          }
           description={`${selectedDays.length} ${selectedDays.length === 1 ? 'día laborable' : 'días laborables'}: ${summarizeDays(selectedDays)}`}
           onClose={() => setDialogOpen(false)}
           footer={
@@ -192,7 +258,7 @@ export function MyCalendar() {
               />
             </div>
 
-            {currentUser.role === 'admin' && (
+            {isAdmin && (
               <label className="hairline flex items-center gap-3 rounded-[var(--radius-control)] border p-3 text-sm">
                 <input
                   type="checkbox"
@@ -204,8 +270,8 @@ export function MyCalendar() {
             )}
 
             <p className="text-xs text-[var(--color-ink-muted)]">
-              Quedan {balance.available} {balance.available === 1 ? 'día' : 'días'} disponibles de
-              los {balance.assigned} asignados para {year}.
+              Quedan {pluralDays(balance.available)} disponibles de los{' '}
+              {formatDays(balance.assigned)} asignados para {year}.
             </p>
           </div>
         </Modal>

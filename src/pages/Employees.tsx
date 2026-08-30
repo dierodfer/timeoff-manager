@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { hashPin, randomSalt } from '../data/pin'
 import { createEmployee } from '../data/seed'
-import { activeDaysInYear, employmentSpanInYear } from '../domain/accrual'
+import { employmentSpanInYear, workedDaysInYear } from '../domain/accrual'
 import { withBalances } from '../domain/balance'
+import { formatDays } from '../domain/format'
 import { todayIso } from '../domain/dates'
 import type { Employee } from '../domain/types'
 import {
@@ -151,9 +152,9 @@ export function Employees() {
                 </p>
                 {inYear && (
                   <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-                    {activeDaysInYear(employee, year)} días en activo en {year} · estimación{' '}
-                    {balance.estimated} · aprobados {balance.approved} · pendientes{' '}
-                    {balance.pending}
+                    {workedDaysInYear(employee, year, database.settings.workweek)} días trabajados
+                    en {year} · estimación {formatDays(balance.estimated)} · aprobados{' '}
+                    {balance.approved} · pendientes {balance.pending}
                   </p>
                 )}
               </div>
@@ -169,7 +170,7 @@ export function Employees() {
                     <button
                       type="button"
                       className="btn btn-quiet btn-sm"
-                      title={`Volver a la estimación (${balance.estimated} días)`}
+                      title={`Volver a la estimación (${formatDays(balance.estimated)} días)`}
                       onClick={() => {
                         commit(clearAllowance(database, employee.id, year))
                         notify('Días restablecidos a la estimación.')

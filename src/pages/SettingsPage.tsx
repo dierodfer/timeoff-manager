@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { BackupFormatError, downloadBackup, parseBackup } from '../data/backup'
 import { newId } from '../data/ids'
+import { yearOf, yearStart } from '../domain/dates'
 import { hasPreloadedHolidays, preloadedHolidays, SCOPE_LABELS } from '../domain/holidays.es'
-import { yearOf } from '../domain/dates'
 import type { Holiday } from '../domain/types'
 import { WEEKDAY_NAMES } from '../domain/workdays'
 import { useSession } from '../state/appContext'
@@ -10,11 +10,109 @@ import { Modal } from '../ui/Modal'
 import { Stepper } from '../ui/Stepper'
 import { formatLongDate } from '../ui/calendarGrid'
 
+function Section({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string
+  description?: string
+  action?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section>
+      <div className="mb-2 flex flex-wrap items-end justify-between gap-2 px-1">
+        <div>
+          <h2 className="text-[13px] font-semibold tracking-wide text-[var(--color-ink-muted)] uppercase">
+            {title}
+          </h2>
+          {description && (
+            <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">{description}</p>
+          )}
+        </div>
+        {action}
+      </div>
+      <div className="card divide-y divide-[var(--color-hairline)] overflow-hidden">{children}</div>
+    </section>
+  )
+}
+
+function Row({
+  label,
+  hint,
+  control,
+  stacked,
+}: {
+  label: string
+  hint?: string
+  control: ReactNode
+  stacked?: boolean
+}) {
+  return (
+    <div
+      className={`gap-3 px-5 py-4 ${stacked ? '' : 'flex flex-wrap items-center justify-between'}`}
+    >
+      <div className={stacked ? 'mb-2' : 'min-w-0'}>
+        <p className="text-[15px]">{label}</p>
+        {hint && <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">{hint}</p>}
+      </div>
+      {control}
+    </div>
+  )
+}
+
+// Se remonta con `key={year}`: sin eso la fecha propuesta se queda en el año
+// en que se montó y el festivo acaba en un año que no se está viendo.
+function AddHolidayForm({ year, onAdd }: { year: number; onAdd: (holiday: Holiday) => void }) {
+  const [date, setDate] = useState(() => yearStart(year))
+  const [name, setName] = useState('')
+
+  return (
+    <div className="flex flex-wrap items-end gap-3 bg-[var(--color-surface-sunken)] px-5 py-4">
+      <div>
+        <label className="label" htmlFor="holiday-date">
+          Fecha
+        </label>
+        <input
+          id="holiday-date"
+          type="date"
+          className="field"
+          value={date}
+          onChange={(event) => setDate(event.target.value)}
+        />
+      </div>
+      <div className="min-w-40 flex-1">
+        <label className="label" htmlFor="holiday-name">
+          Nombre
+        </label>
+        <input
+          id="holiday-name"
+          className="field"
+          value={name}
+          placeholder="Fiesta local"
+          onChange={(event) => setName(event.target.value)}
+        />
+      </div>
+      <button
+        type="button"
+        className="btn btn-primary"
+        onClick={() => {
+          onAdd({ id: newId('hol'), date, name: name.trim(), scope: 'algarrobo' })
+          setName('')
+        }}
+      >
+        Añadir festivo
+      </button>
+    </div>
+  )
+}
+
 export function SettingsPage() {
   const { database, year, commit, notify, replaceDatabase, wipe } = useSession()
   const fileInput = useRef<HTMLInputElement>(null)
   const [confirmWipe, setConfirmWipe] = useState(false)
-  const [newHoliday, setNewHoliday] = useState({ date: `${year}-01-01`, name: '' })
 
   const holidays = useMemo(
     () =>
@@ -36,20 +134,16 @@ export function SettingsPage() {
     updateSettings({ workweek })
   }
 
-  const addHoliday = () => {
-    if (!newHoliday.name.trim()) return notify('Ponle un nombre al festivo.', 'error')
-    if (database.holidays.some((holiday) => holiday.date === newHoliday.date)) {
-      return notify('Ya hay un festivo en esa fecha.', 'error')
+  const addHoliday = (holiday: Holiday) => {
+    if (!holiday.name) return notify('Ponle un nombre al festivo.', 'error')
+    if (yearOf(holiday.date) !== year) {
+      return notify(`Esa fecha no es de ${year}. Cambia de año arriba o corrige la fecha.`, 'error')
     }
-    const holiday: Holiday = {
-      id: newId('hol'),
-      date: newHoliday.date,
-      name: newHoliday.name.trim(),
-      scope: 'algarrobo',
-    }
+    const clash = database.holidays.find((item) => item.date === holiday.date)
+    if (clash) return notify(`Ese día ya es festivo: ${clash.name}.`, 'error')
+
     commit({ ...database, holidays: [...database.holidays, holiday] })
-    setNewHoliday({ date: `${year}-01-01`, name: '' })
-    notify('Festivo añadido.')
+    notify(`${holiday.name} añadido el ${formatLongDate(holiday.date)}.`)
   }
 
   const renameHoliday = (id: string, name: string) => {
@@ -61,20 +155,22 @@ export function SettingsPage() {
     })
   }
 
-  const removeHoliday = (id: string) => {
+  const removeHoliday = (holiday: Holiday) => {
     commit({
       ...database,
-      holidays: database.holidays.filter((holiday) => holiday.id !== id),
+      holidays: database.holidays.filter((item) => item.id !== holiday.id),
     })
-    notify('Festivo eliminado.')
+    notify(`${holiday.name} eliminado.`)
   }
 
   const loadOfficialHolidays = () => {
     const existing = new Set(database.holidays.map((holiday) => holiday.date))
     const missing = preloadedHolidays(year).filter((holiday) => !existing.has(holiday.date))
-    if (missing.length === 0) return notify('Ya están todos los festivos oficiales de ese año.')
+    if (missing.length === 0) {
+      return notify(`Los ${holidays.length} festivos oficiales de ${year} ya están cargados.`)
+    }
     commit({ ...database, holidays: [...database.holidays, ...missing] })
-    notify(`${missing.length} festivos añadidos.`)
+    notify(`${missing.length} festivos oficiales añadidos a ${year}.`)
   }
 
   const importBackup = async (file: File) => {
@@ -91,7 +187,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-3xl space-y-8">
       <div>
         <h1 className="text-2xl">Ajustes</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
@@ -99,198 +195,163 @@ export function SettingsPage() {
         </p>
       </div>
 
-      <section className="card space-y-5 p-5">
-        <h2 className="text-sm font-semibold">General</h2>
+      <Section title="General">
+        <Row
+          label="Nombre de la empresa"
+          control={
+            <input
+              className="field w-full sm:w-64"
+              defaultValue={database.settings.organizationName}
+              onBlur={(event) => updateSettings({ organizationName: event.target.value.trim() })}
+            />
+          }
+        />
 
-        <div>
-          <label className="label" htmlFor="org-name">
-            Nombre de la empresa
-          </label>
-          <input
-            id="org-name"
-            className="field max-w-sm"
-            defaultValue={database.settings.organizationName}
-            onBlur={(event) => updateSettings({ organizationName: event.target.value.trim() })}
-          />
-        </div>
+        <Row
+          label="Días de vacaciones al año"
+          hint="Tope anual. La estimación acumula 0,0737 días por día trabajado y nunca lo supera."
+          control={
+            <Stepper
+              label="tope anual"
+              value={database.settings.defaultAnnualDays}
+              min={1}
+              max={366}
+              onChange={(value) => updateSettings({ defaultAnnualDays: value })}
+            />
+          }
+        />
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium">Días de vacaciones al año</p>
-            <p className="text-xs text-[var(--color-ink-muted)]">
-              Base para la estimación automática, que después se prorratea según el periodo
-              trabajado.
-            </p>
-          </div>
-          <Stepper
-            label="base anual"
-            value={database.settings.defaultAnnualDays}
-            min={1}
-            max={366}
-            onChange={(value) => updateSettings({ defaultAnnualDays: value })}
-          />
-        </div>
+        <Row
+          stacked
+          label="Jornada semanal"
+          hint="Los días marcados descuentan saldo y son los que acumulan vacaciones."
+          control={
+            <div className="flex flex-wrap gap-2">
+              {[1, 2, 3, 4, 5, 6, 0].map((day) => {
+                const active = database.settings.workweek.includes(day)
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleWorkday(day)}
+                    className={`btn btn-sm capitalize ${active ? 'btn-primary' : 'btn-secondary'}`}
+                  >
+                    {WEEKDAY_NAMES[day]}
+                  </button>
+                )
+              })}
+            </div>
+          }
+        />
+      </Section>
 
-        <div>
-          <p className="text-sm font-medium">Jornada semanal</p>
-          <p className="mb-2 text-xs text-[var(--color-ink-muted)]">
-            Los días marcados son los que descuentan saldo al pedir vacaciones.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {[1, 2, 3, 4, 5, 6, 0].map((day) => {
-              const active = database.settings.workweek.includes(day)
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => toggleWorkday(day)}
-                  className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'} capitalize`}
-                >
-                  {WEEKDAY_NAMES[day]}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="card overflow-hidden">
-        <div className="hairline flex flex-wrap items-center justify-between gap-2 border-b px-5 py-4">
-          <div>
-            <h2 className="text-sm font-semibold">Festivos de {year}</h2>
-            <p className="text-xs text-[var(--color-ink-muted)]">
-              Comunes para toda la plantilla. No computan como vacaciones.
-            </p>
-          </div>
-          {hasPreloadedHolidays(year) && (
+      <Section
+        title={`Festivos de ${year}`}
+        description={`${holidays.length} en el calendario. Comunes para toda la plantilla; no computan como vacaciones.`}
+        action={
+          hasPreloadedHolidays(year) && (
             <button
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={loadOfficialHolidays}
             >
-              Cargar festivos oficiales
+              Cargar oficiales
             </button>
-          )}
-        </div>
-
-        {!hasPreloadedHolidays(year) && holidays.length === 0 && (
-          <p className="hairline border-b px-5 py-3 text-sm text-[var(--color-ink-muted)]">
-            No hay festivos precargados para {year}: añádelos a mano según el calendario laboral que
-            publiquen el BOE y el BOJA.
+          )
+        }
+      >
+        {holidays.length === 0 && (
+          <p className="px-5 py-4 text-sm text-[var(--color-ink-muted)]">
+            {hasPreloadedHolidays(year)
+              ? `No hay festivos en ${year}. Pulsa «Cargar oficiales» para traer los del BOE y el BOJA.`
+              : `No hay festivos precargados para ${year}: añádelos a mano según el calendario laboral que publiquen el BOE y el BOJA.`}
           </p>
         )}
 
-        <ul className="divide-y divide-[var(--color-hairline)]">
-          {holidays.map((holiday) => (
-            <li key={holiday.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
-              <span className="tabular w-44 text-sm text-[var(--color-ink-soft)]">
-                {formatLongDate(holiday.date)}
-              </span>
-              <input
-                className="field min-w-40 flex-1"
-                defaultValue={holiday.name}
-                onBlur={(event) => {
-                  const name = event.target.value.trim()
-                  if (name && name !== holiday.name) renameHoliday(holiday.id, name)
-                }}
-              />
-              <span className="chip chip-neutral">{SCOPE_LABELS[holiday.scope]}</span>
+        {holidays.map((holiday) => (
+          <div key={holiday.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+            <span className="tabular w-44 shrink-0 text-sm text-[var(--color-ink-soft)]">
+              {formatLongDate(holiday.date)}
+            </span>
+            <input
+              className="field-inline min-w-40 flex-1"
+              aria-label={`Nombre del festivo del ${holiday.date}`}
+              defaultValue={holiday.name}
+              onBlur={(event) => {
+                const name = event.target.value.trim()
+                if (name && name !== holiday.name) renameHoliday(holiday.id, name)
+              }}
+            />
+            <span className="chip chip-neutral">{SCOPE_LABELS[holiday.scope]}</span>
+            <button
+              type="button"
+              className="btn btn-danger btn-sm"
+              onClick={() => removeHoliday(holiday)}
+            >
+              Eliminar
+            </button>
+          </div>
+        ))}
+
+        <AddHolidayForm key={year} year={year} onAdd={addHoliday} />
+      </Section>
+
+      <Section
+        title="Datos"
+        description="Todo se guarda en este navegador. Exporta una copia para no perderla al borrar los datos de navegación o al cambiar de equipo."
+      >
+        <Row
+          label="Copia de seguridad"
+          hint="Un fichero JSON con empleados, solicitudes, festivos y ajustes."
+          control={
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                className="btn btn-danger btn-sm"
-                onClick={() => removeHoliday(holiday.id)}
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  downloadBackup(database)
+                  notify('Copia descargada.')
+                }}
               >
-                Eliminar
+                Exportar copia
               </button>
-            </li>
-          ))}
-        </ul>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => fileInput.current?.click()}
+              >
+                Importar copia
+              </button>
+              <input
+                ref={fileInput}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (file) void importBackup(file)
+                  event.target.value = ''
+                }}
+              />
+            </div>
+          }
+        />
 
-        <div className="hairline flex flex-wrap items-end gap-3 border-t bg-[var(--color-surface-sunken)] px-5 py-4">
-          <div>
-            <label className="label" htmlFor="holiday-date">
-              Fecha
-            </label>
-            <input
-              id="holiday-date"
-              type="date"
-              className="field"
-              value={newHoliday.date}
-              onChange={(event) =>
-                setNewHoliday((current) => ({ ...current, date: event.target.value }))
-              }
-            />
-          </div>
-          <div className="min-w-40 flex-1">
-            <label className="label" htmlFor="holiday-name">
-              Nombre
-            </label>
-            <input
-              id="holiday-name"
-              className="field"
-              value={newHoliday.name}
-              onChange={(event) =>
-                setNewHoliday((current) => ({ ...current, name: event.target.value }))
-              }
-              placeholder="Fiesta local"
-            />
-          </div>
-          <button type="button" className="btn btn-primary" onClick={addHoliday}>
-            Añadir festivo
-          </button>
-        </div>
-      </section>
-
-      <section className="card space-y-4 p-5">
-        <div>
-          <h2 className="text-sm font-semibold">Datos</h2>
-          <p className="text-xs text-[var(--color-ink-muted)]">
-            Todo se guarda en este navegador. Exporta una copia para no perderla al borrar los datos
-            de navegación o al cambiar de equipo.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => {
-              downloadBackup(database)
-              notify('Copia descargada.')
-            }}
-          >
-            Exportar copia
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => fileInput.current?.click()}
-          >
-            Importar copia
-          </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              if (file) void importBackup(file)
-              event.target.value = ''
-            }}
-          />
-
-          <button type="button" className="btn btn-danger" onClick={() => setConfirmWipe(true)}>
-            Borrar todo
-          </button>
-        </div>
-
-        <p className="text-xs text-[var(--color-ink-muted)]">
-          Al importar se reemplazan todos los datos actuales de este dispositivo.
-        </p>
-      </section>
+        <Row
+          label="Borrar todo"
+          hint="Elimina empleados, solicitudes, festivos y ajustes de este navegador."
+          control={
+            <button
+              type="button"
+              className="btn btn-danger btn-sm"
+              onClick={() => setConfirmWipe(true)}
+            >
+              Borrar todo
+            </button>
+          }
+        />
+      </Section>
 
       {confirmWipe && (
         <Modal

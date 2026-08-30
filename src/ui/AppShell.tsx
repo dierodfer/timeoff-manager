@@ -1,7 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { displayName } from '../state/actions'
 import { useSession } from '../state/appContext'
-import { ThemeToggle } from './ThemeToggle'
 
 const EMPLOYEE_LINKS = [{ to: '/', label: 'Mi calendario', end: true }]
 
@@ -18,9 +17,9 @@ export function AppShell() {
   const { database, currentUser, year, setYear, signOut } = useSession()
   const links = currentUser.role === 'admin' ? ADMIN_LINKS : EMPLOYEE_LINKS
 
-  const pendingCount = database.requests.filter(
-    (request) => request.status === 'pendiente' && request.year === year,
-  ).length
+  const pendingCount = database.requests
+    .filter((request) => request.status === 'pendiente' && request.year === year)
+    .reduce((total, request) => total + request.days.length, 0)
 
   return (
     <div className="min-h-dvh">
@@ -48,8 +47,6 @@ export function AppShell() {
                 ›
               </button>
             </div>
-
-            <ThemeToggle />
 
             <button type="button" className="btn btn-secondary btn-sm" onClick={signOut}>
               Salir
