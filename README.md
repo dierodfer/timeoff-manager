@@ -1,99 +1,96 @@
-# Vacaciones
+# Time Off Manager
 
-Aplicación para gestionar las vacaciones de una plantilla desde un calendario centralizado.
-Está pensada para desplegarse en **GitHub Pages**, así que es una aplicación de solo cliente:
-React + TypeScript, sin servidor y sin coste de alojamiento.
+An application for managing a team's vacation days through a shared calendar. It's built to run
+on **GitHub Pages**, so it's a client-only app: React + TypeScript, no server and no hosting cost.
 
-## Cómo se guardan los datos
+## How data is stored
 
-Todo se guarda en el **IndexedDB del navegador** como un único documento JSON.
+Everything is stored in the browser's **IndexedDB** as a single JSON document.
 
-Esto tiene una consecuencia importante que conviene tener clara antes de usarla:
+This has an important consequence worth understanding before using the app:
 
-> **Los datos no se sincronizan entre dispositivos.** Lo que registra el administrador en su
-> ordenador no lo ve un empleado desde su móvil. En la práctica la aplicación se usa desde un
-> equipo —o desde varios, cada uno con su propia copia— y los datos se mueven con el fichero de
-> copia de seguridad que se exporta desde Ajustes.
+> **Data does not sync across devices.** What the admin records on their computer is not visible
+> to an employee on their phone. In practice the app is used from one machine — or from several,
+> each with its own copy — and data moves between them via the backup file exported from Settings.
 
-El acceso a los datos está aislado detrás de la interfaz `VacationRepository`
-(`src/data/repository.ts`). Para pasar a un almacenamiento compartido basta con escribir otra
-implementación de esa interfaz: la interfaz de usuario no se entera.
+Data access is isolated behind the `VacationRepository` interface (`src/data/repository.ts`).
+Moving to shared storage is just writing another implementation of that interface; the UI never
+needs to know.
 
-## Reglas de negocio
+## Business rules
 
-- **Día laborable:** de lunes a sábado, descontando los festivos. Los domingos y festivos no
-  computan aunque se seleccionen. La jornada semanal se puede cambiar desde Ajustes.
-- **Estimación de días:** `base anual × días en activo en el año ÷ días del año`, redondeado.
-  La base son 23 días y se configura en Ajustes.
-  - Un empleado ordinario está en activo entre su fecha de alta y su fecha de baja.
-  - Un **fijo discontinuo** solo está en activo durante sus periodos de llamamiento, que se
-    definen uno a uno en su ficha.
-- **Días efectivos:** la estimación es el valor por defecto; el administrador la ajusta con los
-  controles `+` y `−` y puede volver a la estimación con «Restablecer». El ajuste es por año.
-- **Saldo:** días asignados menos los aprobados y los pendientes. Una solicitud pendiente reserva
-  saldo para que los mismos días no se puedan comprometer dos veces.
-- **Límite:** ninguna solicitud ni asignación puede dejar el saldo en negativo, **tampoco las del
-  administrador**. Para asignar más días hay que subir antes el contador del empleado.
-- **Cancelación:** el empleado solo retira sus solicitudes mientras están `Pendiente`. El
-  administrador puede eliminar cualquiera, incluidas las aprobadas, y los días vuelven al saldo.
-- Una selección a caballo entre dos años genera una solicitud por año, porque el saldo es anual.
+- **Working day:** Monday through Saturday, minus holidays. Sundays and holidays never count even
+  if selected. The work week can be changed from Settings.
+- **Day estimate:** `annual base × active days in the year ÷ days in the year`, rounded.
+  The base is 23 days and is configurable in Settings.
+  - A regular employee is active between their hire date and termination date.
+  - A **seasonal (intermittent) employee** is only active during their call-up periods, defined
+    one by one on their profile.
+- **Effective days:** the estimate is the default; the admin can override it with the `+` and `−`
+  controls and revert to the estimate with "Reset". The override is per year.
+- **Balance:** assigned days minus approved and pending ones. A pending request reserves balance
+  so the same days can't be committed twice.
+- **Limit:** no request or assignment can push the balance negative, **not even for the admin**.
+  To assign more days, raise the employee's count first.
+- **Cancellation:** an employee can only withdraw their own requests while `Pending`. The admin
+  can delete any request, including approved ones, and the days return to the balance.
+- A selection spanning two calendar years creates one request per year, since balances are annual.
 
-## Festivos
+## Holidays
 
-Vienen precargados los festivos de **Algarrobo (Málaga)**: nacionales, de Andalucía y las dos
-fiestas locales del municipio. Todos son editables desde Ajustes, donde también se añaden años
-nuevos.
+Holidays for **Algarrobo (Málaga, Spain)** come preloaded: national, Andalusia regional, and the
+municipality's two local holidays. All of them are editable from Settings, which is also where
+new years get added.
 
-- **2026:** Resolución de 17 de octubre de 2025 de la Dirección General de Trabajo
-  (BOE-A-2025-21667) y relación de fiestas locales de Andalucía para 2026.
-- **2027:** Decreto 84/2026, de 29 de abril (BOJA núm. 84, de 5 de mayo de 2026). Las **dos
-  fiestas locales de 2027 no están precargadas**: los ayuntamientos las proponen después de ese
-  decreto y se publican en una resolución posterior. Hay que añadirlas a mano cuando salgan.
+- **2026:** Resolution of 17 October 2025 from the Directorate-General of Labour
+  (BOE-A-2025-21667), plus the list of Andalusia local holidays for 2026.
+- **2027:** Decree 84/2026, of 29 April (BOJA no. 84, of 5 May 2026). The **two local holidays for
+  2027 are not preloaded**: municipalities propose them after that decree, and they're published
+  in a later resolution. Add them by hand once they're out.
 
-## Roles y acceso
+## Roles and access
 
-- **Empleado:** consulta su calendario anual, solicita días y cancela sus solicitudes pendientes.
-- **Administrador:** además gestiona empleados y días, aprueba o rechaza solicitudes, genera
-  vacaciones ya aprobadas y hace asignaciones masivas.
+- **Employee:** views their yearly calendar, requests days off, and cancels their own pending
+  requests.
+- **Admin:** additionally manages employees and day counts, approves or rejects requests, creates
+  already-approved vacations directly, and runs bulk assignments.
 
-Cada persona entra eligiendo su perfil e introduciendo un PIN.
+Everyone signs in by picking their profile and entering a PIN.
 
-> **El PIN no es una medida de seguridad.** Evita cambiar de perfil por descuido, nada más.
-> Los datos están en el IndexedDB del navegador y cualquiera con acceso al dispositivo puede
-> leerlos. Se guarda el hash del PIN, no el número, para no dejarlo a la vista en las copias.
+> **The PIN is not a security measure.** It only guards against switching profiles by accident.
+> The data lives in the browser's IndexedDB, and anyone with access to the device can read it.
+> Only the PIN's hash is stored, not the number itself, so it isn't exposed in backups.
 
-## Puesta en marcha
+## Getting started
 
 ```bash
 npm install
-npm run dev        # servidor de desarrollo
-npm test           # tests de la lógica de dominio
-npm run build      # build de producción en dist/
-npm run preview    # sirve dist/ como en producción
+npm run dev        # dev server
+npm test           # domain logic tests
+npm run build      # production build into dist/
+npm run preview    # serve dist/ as in production
 ```
 
-## Despliegue
+## Deployment
 
-El workflow `.github/workflows/deploy.yml` construye y publica en cada push a `main`.
-Hay que habilitarlo una sola vez en **Settings → Pages → Source: GitHub Actions**.
+The `.github/workflows/deploy.yml` workflow builds and publishes on every push to `main`.
+It needs to be enabled once under **Settings → Pages → Source: GitHub Actions**.
 
-La aplicación se sirve bajo un subdirectorio (`/timeoff-manager/`), configurado en
-`vite.config.ts`. Si renombras el repositorio, cambia ahí el `base` o define `BASE_PATH` al
-construir.
+The app is served from a subdirectory (`/timeoff-manager/`), configured in `vite.config.ts`.
+If you rename the repository, update `base` there or pass `BASE_PATH` at build time.
 
-Se usa `HashRouter` a propósito: GitHub Pages no sabe reescribir rutas y un refresco en
-`/solicitudes` daría un 404.
+`HashRouter` is used on purpose: GitHub Pages can't rewrite routes, and refreshing on
+`/requests` would otherwise return a 404.
 
-## Estructura
+## Structure
 
 ```
 src/
-  domain/     lógica pura: fechas, días laborables, estimación, saldo, festivos
-  data/       IndexedDB, copias de seguridad, PIN, datos iniciales
-  state/      operaciones de negocio y estado de la aplicación
-  ui/         componentes: calendarios, rejilla anual, formularios
-  pages/      pantallas
+  domain/     pure logic: dates, working days, estimates, balance, holidays
+  data/       IndexedDB, backups, PIN, seed data
+  state/      business operations and application state
+  ui/         components: calendars, year grid, forms
+  pages/      screens
 ```
 
-La carpeta `domain/` no depende de React ni del almacenamiento y es la que está cubierta por los
-tests.
+The `domain/` folder has no dependency on React or storage, and is the one covered by tests.
