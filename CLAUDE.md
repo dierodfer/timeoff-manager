@@ -4,21 +4,26 @@ Gestor de vacaciones desplegado en **GitHub Pages**. Pages solo sirve ficheros e
 no hay servidor ni base de datos remota: todo ocurre en el navegador.
 
 ```bash
-npm run dev      # desarrollo
-npm test         # tests del dominio (Vitest)
-npm run build    # tsc -b && vite build
-npm run preview  # sirve dist/ como en producción
+npm run dev           # desarrollo
+npm test              # tests del dominio (Vitest)
+npm run lint          # ESLint con reglas que usan tipos
+npm run format        # Prettier
+npm run build         # tsc -b && vite build
+npm run preview       # sirve dist/ como en producción
 ```
+
+El workflow de despliegue corre `lint`, `format:check`, `test` y `build`: si algo de eso falla en
+local, también falla el despliegue.
 
 ## Capas
 
-| Carpeta | Qué hace | Reglas |
-| --- | --- | --- |
+| Carpeta       | Qué hace                                             | Reglas                                                          |
+| ------------- | ---------------------------------------------------- | --------------------------------------------------------------- |
 | `src/domain/` | Fechas, días laborables, estimación, saldo, festivos | Código puro. Sin React ni almacenamiento. Es lo único con tests |
-| `src/data/` | IndexedDB, copias de seguridad, PIN, datos iniciales | Nadie más habla con el almacenamiento |
-| `src/state/` | Operaciones de negocio y estado de la aplicación | `actions.ts` son funciones puras `Database → Outcome` |
-| `src/ui/` | Componentes: calendarios, rejilla anual, formularios | |
-| `src/pages/` | Pantallas | |
+| `src/data/`   | IndexedDB, copias de seguridad, PIN, datos iniciales | Nadie más habla con el almacenamiento                           |
+| `src/state/`  | Operaciones de negocio y estado de la aplicación     | `actions.ts` son funciones puras `Database → Outcome`           |
+| `src/ui/`     | Componentes: calendarios, rejilla anual, formularios |                                                                 |
+| `src/pages/`  | Pantallas                                            |                                                                 |
 
 **`VacationRepository` (`src/data/repository.ts`) es el único punto de acceso a los datos.** La
 interfaz de usuario nunca toca IndexedDB. Cambiar a un almacenamiento compartido (Supabase u otro)
@@ -32,6 +37,13 @@ seguridad sale gratis. `StoredDatabase.version` y la función `migrate()` de
 **Las operaciones de negocio viven en `state/actions.ts` como transformaciones puras**, fuera de
 React. Eso permite encadenarlas: una asignación masiva son varias altas seguidas, cada una validada
 contra el estado que dejó la anterior.
+
+**El contexto y sus hooks están separados del proveedor:** `state/appContext.ts` define
+`AppContextValue`, `useApp` y `useSession`; `state/AppStore.tsx` solo exporta `AppProvider`. Si los
+hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estado al editarlo.
+
+**`ui/ErrorBoundary.tsx` envuelve toda la aplicación.** No hay servidor donde registrar fallos: sin
+él, cualquier excepción no controlada deja una pantalla en blanco sin rastro.
 
 ## Reglas de negocio
 
@@ -82,8 +94,8 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   pulsado, y el rango se reduce a sus dos extremos.
 - **`apply()` es síncrona a propósito.** Si vuelve a ser `async`, el estado que depende del
   resultado se actualiza en otro render y la selección anterior se queda a la vista.
-- **`commit()` no espera a IndexedDB.** La pantalla se actualiza al instante y la escritura va por
-  detrás, avisando si falla.
+- **`commit()` no espera a IndexedDB** y por eso devuelve `void`, no una promesa: la pantalla se
+  actualiza al instante y la escritura va por detrás, avisando con un aviso si falla.
 - **Fechas en UTC.** `src/domain/dates.ts` trabaja sobre cadenas `yyyy-MM-dd` con aritmética UTC.
   Con hora local, un 1 de enero cambia de día según la zona horaria.
 - **`HashRouter`, no `BrowserRouter`.** Pages no reescribe rutas: un refresco daría un 404.
@@ -110,7 +122,13 @@ Tokens en `src/index.css`: un `@theme` con la paleta clara y un bloque
 `@media (prefers-color-scheme: dark)` que solo redefine valores, de modo que el modo oscuro no
 duplica reglas. Jerarquía por tipografía y espacio en vez de por bordes, radios generosos y un
 único color de acento. Los componentes reutilizables (`.card`, `.btn`, `.field`, `.segmented`,
-`.chip`, `.day`) están en `@layer components`; preferirlos a repetir utilidades en el JSX.
+`.chip`, `.day`, `.grid-day`) están en `@layer components`; preferirlos a repetir utilidades en el
+JSX y no pintar colores con `style` inline.
+
+**Qué color gana en una celda de calendario lo decide `dayState()` (`ui/calendarGrid.ts`)**, no cada
+componente. `MONTH_DAY_CLASS` y `GRID_DAY_CLASS` traducen ese estado a las clases del calendario
+mensual y de la rejilla anual, y la leyenda de Planificación usa las mismas clases para no
+desincronizarse.
 
 ## Comentarios
 

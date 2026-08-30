@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { isValidPin, PIN_RULE } from '../data/pin'
-import { useApp } from '../state/AppStore'
+import { useApp } from '../state/appContext'
 
 export function FirstRun() {
   const { bootstrap, notify } = useApp()
@@ -39,7 +39,7 @@ export function FirstRun() {
         Ajustes podrás exportarlos a un fichero para copiarlos o llevarlos a otro equipo.
       </p>
 
-      <form onSubmit={onSubmit} className="card mt-6 space-y-4 p-6">
+      <form onSubmit={(event) => void onSubmit(event)} className="card mt-6 space-y-4 p-6">
         <div>
           <label className="label" htmlFor="org">
             Nombre de la empresa

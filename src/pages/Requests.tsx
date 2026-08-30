@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { RequestStatus } from '../domain/types'
 import { addRequestComment, displayName, removeRequest, resolveRequest } from '../state/actions'
-import { useSession } from '../state/AppStore'
+import { useSession } from '../state/appContext'
 import { Modal } from '../ui/Modal'
 import { RequestCard } from '../ui/RequestCard'
 
@@ -15,9 +15,7 @@ const FILTERS: { value: Filter; label: string }[] = [
 ]
 
 type Dialog =
-  | { kind: 'rechazar'; requestId: string }
-  | { kind: 'comentar'; requestId: string }
-  | null
+  { kind: 'rechazar'; requestId: string } | { kind: 'comentar'; requestId: string } | null
 
 export function Requests() {
   const { database, currentUser, year, apply, notify } = useSession()
@@ -55,9 +53,7 @@ export function Requests() {
     if (!dialog) return
     const ok =
       dialog.kind === 'rechazar'
-        ? apply((db) =>
-            resolveRequest(db, dialog.requestId, 'rechazada', currentUser.id, comment),
-          )
+        ? apply((db) => resolveRequest(db, dialog.requestId, 'rechazada', currentUser.id, comment))
         : apply((db) => addRequestComment(db, dialog.requestId, currentUser.id, comment))
 
     if (ok) {
@@ -155,9 +151,7 @@ export function Requests() {
         <Modal
           title={dialog.kind === 'rechazar' ? 'Rechazar solicitud' : 'Añadir comentario'}
           description={
-            dialog.kind === 'rechazar'
-              ? 'Los días vuelven al saldo del empleado.'
-              : undefined
+            dialog.kind === 'rechazar' ? 'Los días vuelven al saldo del empleado.' : undefined
           }
           onClose={() => setDialog(null)}
           footer={

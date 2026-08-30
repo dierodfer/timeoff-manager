@@ -35,13 +35,7 @@ interface EmployeeFormProps {
   onError: (message: string) => void
 }
 
-export function EmployeeForm({
-  employee,
-  year,
-  onSubmit,
-  formId,
-  onError,
-}: EmployeeFormProps) {
+export function EmployeeForm({ employee, year, onSubmit, formId, onError }: EmployeeFormProps) {
   const [values, setValues] = useState(() => initialValues(employee, year))
   const isNew = employee === null
 

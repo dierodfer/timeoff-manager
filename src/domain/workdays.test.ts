@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { preloadedHolidays } from './holidays.es'
 import { testSettings } from './fixtures'
-import { buildWorkCalendar, isWorkingDay, nonWorkingReason, workingDaysInRange } from './workdays'
+import { buildWorkCalendar, isWorkingDay, workingDaysInRange } from './workdays'
 
 const calendar = buildWorkCalendar(preloadedHolidays(2026), testSettings)
 
@@ -15,12 +15,6 @@ describe('calendario laboral de lunes a sábado', () => {
     expect(isWorkingDay(calendar, '2026-04-02')).toBe(false) // Jueves Santo
     expect(isWorkingDay(calendar, '2026-08-03')).toBe(false) // fiesta local, lunes
     expect(isWorkingDay(calendar, '2026-08-15')).toBe(false) // Asunción, sábado
-  })
-
-  it('distingue el motivo por el que un día no computa', () => {
-    expect(nonWorkingReason(calendar, '2026-04-03')).toBe('festivo')
-    expect(nonWorkingReason(calendar, '2026-04-05')).toBe('no-laborable')
-    expect(nonWorkingReason(calendar, '2026-04-06')).toBeNull()
   })
 
   it('filtra domingos y festivos de un rango', () => {

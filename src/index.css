@@ -2,8 +2,8 @@
 
 @theme {
   --font-sans:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, sans-serif;
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
 
   --color-canvas: #f5f5f7;
   --color-surface: #ffffff;
@@ -320,6 +320,33 @@
     background: var(--color-accent-soft);
     color: var(--color-accent);
     font-weight: 600;
+  }
+
+  .grid-day {
+    display: block;
+    height: 1.75rem;
+    width: 19px;
+    transition: background-color 0.12s ease;
+  }
+
+  .grid-day-off {
+    background: var(--color-grid-off);
+  }
+
+  .grid-day-holiday {
+    background: var(--color-grid-holiday);
+  }
+
+  .grid-day-aprobada {
+    background: var(--color-approved);
+  }
+
+  .grid-day-pendiente {
+    background: var(--color-pending);
+  }
+
+  .grid-day-selected {
+    background: var(--color-accent);
   }
 
   .day-today::after {

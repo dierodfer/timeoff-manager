@@ -4,7 +4,10 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: s
   return (
     <div>
       <p className="text-xs text-[var(--color-ink-muted)]">{label}</p>
-      <p className="tabular mt-0.5 text-2xl font-semibold" style={tone ? { color: tone } : undefined}>
+      <p
+        className="tabular mt-0.5 text-2xl font-semibold"
+        style={tone ? { color: tone } : undefined}
+      >
         {value}
       </p>
     </div>
@@ -17,7 +20,9 @@ export function BalanceCard({ balance }: { balance: Balance }) {
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-semibold">Saldo {balance.year}</h2>
         <span className="chip chip-neutral">
-          {balance.isOverridden ? `Ajustado · estimación ${balance.estimated}` : 'Estimación automática'}
+          {balance.isOverridden
+            ? `Ajustado · estimación ${balance.estimated}`
+            : 'Estimación automática'}
         </span>
       </div>
 

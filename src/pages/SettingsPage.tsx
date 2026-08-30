@@ -5,7 +5,7 @@ import { hasPreloadedHolidays, preloadedHolidays, SCOPE_LABELS } from '../domain
 import { yearOf } from '../domain/dates'
 import type { Holiday } from '../domain/types'
 import { WEEKDAY_NAMES } from '../domain/workdays'
-import { useSession } from '../state/AppStore'
+import { useSession } from '../state/appContext'
 import { Modal } from '../ui/Modal'
 import { Stepper } from '../ui/Stepper'
 import { formatLongDate } from '../ui/calendarGrid'
@@ -80,7 +80,7 @@ export function SettingsPage() {
   const importBackup = async (file: File) => {
     try {
       const imported = parseBackup(await file.text())
-      await replaceDatabase(imported)
+      replaceDatabase(imported)
       notify('Copia importada. Vuelve a identificarte.')
     } catch (error) {
       notify(
@@ -164,7 +164,11 @@ export function SettingsPage() {
             </p>
           </div>
           {hasPreloadedHolidays(year) && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={loadOfficialHolidays}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={loadOfficialHolidays}
+            >
               Cargar festivos oficiales
             </button>
           )}
@@ -213,7 +217,9 @@ export function SettingsPage() {
               type="date"
               className="field"
               value={newHoliday.date}
-              onChange={(event) => setNewHoliday((current) => ({ ...current, date: event.target.value }))}
+              onChange={(event) =>
+                setNewHoliday((current) => ({ ...current, date: event.target.value }))
+              }
             />
           </div>
           <div className="min-w-40 flex-1">
@@ -224,7 +230,9 @@ export function SettingsPage() {
               id="holiday-name"
               className="field"
               value={newHoliday.name}
-              onChange={(event) => setNewHoliday((current) => ({ ...current, name: event.target.value }))}
+              onChange={(event) =>
+                setNewHoliday((current) => ({ ...current, name: event.target.value }))
+              }
               placeholder="Fiesta local"
             />
           </div>
@@ -269,7 +277,7 @@ export function SettingsPage() {
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0]
-              if (file) importBackup(file)
+              if (file) void importBackup(file)
               event.target.value = ''
             }}
           />
@@ -298,7 +306,7 @@ export function SettingsPage() {
               >
                 Cancelar
               </button>
-              <button type="button" className="btn btn-danger" onClick={() => wipe()}>
+              <button type="button" className="btn btn-danger" onClick={() => void wipe()}>
                 Borrar definitivamente
               </button>
             </>

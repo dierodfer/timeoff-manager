@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { displayName } from '../state/actions'
-import { useSession } from '../state/AppStore'
+import { useSession } from '../state/appContext'
 
 const EMPLOYEE_LINKS = [{ to: '/', label: 'Mi calendario', end: true }]
 
@@ -26,7 +26,9 @@ export function AppShell() {
       <header className="glass hairline sticky top-0 z-40 border-b">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold">{database.settings.organizationName}</p>
+            <p className="truncate text-[15px] font-semibold">
+              {database.settings.organizationName}
+            </p>
             <p className="truncate text-xs text-[var(--color-ink-muted)]">
               {displayName(currentUser)} ·{' '}
               {currentUser.role === 'admin' ? 'Administrador' : 'Empleado'}

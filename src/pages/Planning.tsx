@@ -4,10 +4,10 @@ import { computeBalance } from '../domain/balance'
 import { todayIso } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import { isWorkingDay } from '../domain/workdays'
-import { createVacation, displayName } from '../state/actions'
-import { useSession } from '../state/AppStore'
+import { createVacation, displayName, sortByName } from '../state/actions'
+import { useSession } from '../state/appContext'
 import { Modal } from '../ui/Modal'
-import { summarizeDays } from '../ui/calendarGrid'
+import { GRID_DAY_CLASS, summarizeDays, type DayState } from '../ui/calendarGrid'
 import type { DayMark } from '../ui/MonthCalendar'
 import { useDaySelection } from '../ui/useDaySelection'
 import { YearGrid } from '../ui/YearGrid'
@@ -22,10 +22,7 @@ export function Planning() {
   const { selected, toggle, clear } = useDaySelection(canSelect)
 
   const employees = useMemo(
-    () =>
-      database.employees
-        .filter((employee) => employmentSpanInYear(employee, year))
-        .sort((a, b) => displayName(a).localeCompare(displayName(b), 'es')),
+    () => sortByName(database.employees.filter((employee) => employmentSpanInYear(employee, year))),
     [database.employees, year],
   )
 
@@ -191,12 +188,12 @@ export function Planning() {
 }
 
 function Legend() {
-  const items = [
-    { label: 'Aprobadas', background: 'var(--color-approved)' },
-    { label: 'Pendientes', background: 'var(--color-pending)' },
-    { label: 'Festivo', background: 'var(--color-grid-holiday)' },
-    { label: 'No laborable', background: 'var(--color-grid-off)' },
-    { label: 'Selección', background: 'var(--color-accent)' },
+  const items: { label: string; state: DayState }[] = [
+    { label: 'Aprobadas', state: 'aprobada' },
+    { label: 'Pendientes', state: 'pendiente' },
+    { label: 'Festivo', state: 'festivo' },
+    { label: 'No laborable', state: 'no-laborable' },
+    { label: 'Selección', state: 'selected' },
   ]
 
   return (
@@ -204,8 +201,7 @@ function Legend() {
       {items.map((item) => (
         <li key={item.label} className="flex items-center gap-1.5">
           <span
-            className="hairline inline-block size-3 rounded-[4px] border"
-            style={{ background: item.background }}
+            className={`${GRID_DAY_CLASS[item.state]} hairline inline-block size-3 rounded-[4px] border`}
           />
           {item.label}
         </li>

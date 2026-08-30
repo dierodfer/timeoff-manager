@@ -11,9 +11,7 @@ import type {
 import { buildWorkCalendar, filterWorkingDays } from '../domain/workdays'
 import { newId } from '../data/ids'
 
-export type Outcome<T = Database> =
-  | { ok: true; database: T }
-  | { ok: false; reason: string }
+export type Outcome<T = Database> = { ok: true; database: T } | { ok: false; reason: string }
 
 export interface CreateVacationInput {
   employeeId: string
@@ -30,6 +28,10 @@ function findEmployee(database: Database, employeeId: string): Employee | undefi
 
 export function displayName(employee: Employee): string {
   return `${employee.firstName} ${employee.lastName}`.trim()
+}
+
+export function sortByName(employees: Employee[]): Employee[] {
+  return [...employees].sort((a, b) => displayName(a).localeCompare(displayName(b), 'es'))
 }
 
 function makeComment(database: Database, authorId: string, text: string): RequestComment {
@@ -172,11 +174,7 @@ export function resolveRequest(
   }
 }
 
-export function removeRequest(
-  database: Database,
-  requestId: string,
-  actor: Employee,
-): Outcome {
+export function removeRequest(database: Database, requestId: string, actor: Employee): Outcome {
   const request = database.requests.find((item) => item.id === requestId)
   if (!request) return { ok: false, reason: 'La solicitud no existe.' }
 

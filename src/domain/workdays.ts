@@ -22,15 +22,6 @@ export function isWorkingDay(calendar: WorkCalendar, date: IsoDate): boolean {
   return !calendar.holidaysByDate.has(date)
 }
 
-export function nonWorkingReason(
-  calendar: WorkCalendar,
-  date: IsoDate,
-): 'festivo' | 'no-laborable' | null {
-  if (calendar.holidaysByDate.has(date)) return 'festivo'
-  if (!calendar.workweek.has(weekday(date))) return 'no-laborable'
-  return null
-}
-
 export function filterWorkingDays(calendar: WorkCalendar, dates: Iterable<IsoDate>): IsoDate[] {
   return [...dates].filter((date) => isWorkingDay(calendar, date)).sort()
 }

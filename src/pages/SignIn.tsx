@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { todayIso } from '../domain/dates'
 import type { Employee } from '../domain/types'
-import { displayName } from '../state/actions'
-import { useApp } from '../state/AppStore'
+import { displayName, sortByName } from '../state/actions'
+import { useApp } from '../state/appContext'
 
 function initials(employee: Employee): string {
   return `${employee.firstName.at(0) ?? ''}${employee.lastName.at(0) ?? ''}`.toUpperCase()
@@ -17,9 +17,7 @@ export function SignIn() {
   if (!database) return null
 
   const today = todayIso()
-  const employees = [...database.employees].sort((a, b) =>
-    displayName(a).localeCompare(displayName(b), 'es'),
-  )
+  const employees = sortByName(database.employees)
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -72,7 +70,7 @@ export function SignIn() {
           })}
         </ul>
       ) : (
-        <form onSubmit={onSubmit} className="card mt-6 space-y-4 p-6">
+        <form onSubmit={(event) => void onSubmit(event)} className="card mt-6 space-y-4 p-6">
           <div className="flex items-center gap-3">
             <span className="flex size-10 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-sm font-semibold text-[var(--color-accent)]">
               {initials(selected)}

@@ -1,48 +1,12 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { indexedDbRepository } from '../data/indexedDbRepository'
 import { verifyPin } from '../data/pin'
 import { createInitialDatabase, type FirstRunInput } from '../data/seed'
-import type { Database, Employee } from '../domain/types'
+import type { Database } from '../domain/types'
 import { buildWorkCalendar, type WorkCalendar } from '../domain/workdays'
 import type { Outcome } from './actions'
+import { AppContext, type AppContextValue, type Status, type Toast } from './appContext'
 
-type Status = 'loading' | 'empty' | 'ready'
-
-export interface Toast {
-  id: number
-  message: string
-  tone: 'success' | 'error'
-}
-
-interface AppContextValue {
-  status: Status
-  database: Database | null
-  currentUser: Employee | null
-  year: number
-  calendar: WorkCalendar
-  toasts: Toast[]
-  setYear: (year: number) => void
-  notify: (message: string, tone?: Toast['tone']) => void
-  dismissToast: (id: number) => void
-  bootstrap: (input: FirstRunInput) => Promise<void>
-  signIn: (employeeId: string, pin: string) => Promise<boolean>
-  signOut: () => void
-  commit: (next: Database) => Promise<void>
-  /** Síncrona a propósito: esperar al disco dejaba la selección anterior a la vista. */
-  apply: (mutation: (database: Database) => Outcome) => boolean
-  replaceDatabase: (next: Database) => Promise<void>
-  wipe: () => Promise<void>
-}
-
-const AppContext = createContext<AppContextValue | null>(null)
 const SESSION_KEY = 'timeoff:user'
 
 const EMPTY_CALENDAR: WorkCalendar = {
@@ -88,7 +52,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const commit = useCallback(
     (next: Database) => {
       setDatabase(next)
-      return indexedDbRepository.save(next).catch((error: unknown) => {
+      void indexedDbRepository.save(next).catch((error: unknown) => {
         console.error(error)
         notify('No se han podido guardar los cambios en este navegador.', 'error')
       })
@@ -113,7 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const bootstrap = useCallback(
     async (input: FirstRunInput) => {
       const initial = await createInitialDatabase(input)
-      await commit(initial)
+      commit(initial)
       setStatus('ready')
       setCurrentUserId(initial.employees[0].id)
       sessionStorage.setItem(SESSION_KEY, initial.employees[0].id)
@@ -140,8 +104,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const replaceDatabase = useCallback(
-    async (next: Database) => {
-      await commit(next)
+    (next: Database) => {
+      commit(next)
       setStatus('ready')
       setCurrentUserId(null)
       sessionStorage.removeItem(SESSION_KEY)
@@ -206,18 +170,4 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   return <AppContext value={value}>{children}</AppContext>
-}
-
-export function useApp(): AppContextValue {
-  const context = useContext(AppContext)
-  if (!context) throw new Error('useApp debe usarse dentro de AppProvider')
-  return context
-}
-
-export function useSession() {
-  const app = useApp()
-  if (!app.database || !app.currentUser) {
-    throw new Error('useSession requiere datos cargados y sesión iniciada')
-  }
-  return { ...app, database: app.database, currentUser: app.currentUser }
 }

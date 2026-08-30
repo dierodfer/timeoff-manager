@@ -1,4 +1,4 @@
-import { useApp } from '../state/AppStore'
+import { useApp } from '../state/appContext'
 
 export function Toasts() {
   const { toasts, dismissToast } = useApp()

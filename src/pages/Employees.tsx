@@ -2,24 +2,23 @@ import { useMemo, useState } from 'react'
 import { hashPin, randomSalt } from '../data/pin'
 import { createEmployee } from '../data/seed'
 import { activeDaysInYear, employmentSpanInYear } from '../domain/accrual'
-import { computeBalance } from '../domain/balance'
+import { withBalances } from '../domain/balance'
 import { todayIso } from '../domain/dates'
 import type { Employee } from '../domain/types'
 import {
   clearAllowance,
   displayName,
   setAllowance,
+  sortByName,
   terminateEmployee,
 } from '../state/actions'
-import { useSession } from '../state/AppStore'
+import { useSession } from '../state/appContext'
 import { EmployeeForm, type EmployeeFormValues } from '../ui/EmployeeForm'
 import { Modal } from '../ui/Modal'
 import { Stepper } from '../ui/Stepper'
 
 type Dialog =
-  | { kind: 'form'; employee: Employee | null }
-  | { kind: 'delete'; employee: Employee }
-  | null
+  { kind: 'form'; employee: Employee | null } | { kind: 'delete'; employee: Employee } | null
 
 export function Employees() {
   const { database, currentUser, year, commit, apply, notify } = useSession()
@@ -31,10 +30,15 @@ export function Employees() {
   const employees = useMemo(() => {
     const isInactive = (employee: Employee) =>
       Boolean(employee.terminationDate && employee.terminationDate < today)
-    return database.employees
-      .filter((employee) => showInactive || !isInactive(employee))
-      .sort((a, b) => displayName(a).localeCompare(displayName(b), 'es'))
+    return sortByName(
+      database.employees.filter((employee) => showInactive || !isInactive(employee)),
+    )
   }, [database.employees, showInactive, today])
+
+  const rows = useMemo(
+    () => withBalances(employees, year, database.settings, database.allowances, database.requests),
+    [employees, year, database.settings, database.allowances, database.requests],
+  )
 
   const saveEmployee = async (values: EmployeeFormValues) => {
     if (dialog?.kind !== 'form') return
@@ -122,14 +126,7 @@ export function Employees() {
       </div>
 
       <div className="card divide-y divide-[var(--color-hairline)] overflow-hidden">
-        {employees.map((employee) => {
-          const balance = computeBalance(
-            employee,
-            year,
-            database.settings,
-            database.allowances,
-            database.requests,
-          )
+        {rows.map(({ employee, balance }) => {
           const inYear = employmentSpanInYear(employee, year)
           const isInactive = Boolean(employee.terminationDate && employee.terminationDate < today)
 
@@ -227,9 +224,7 @@ export function Employees() {
         })}
 
         {employees.length === 0 && (
-          <p className="p-6 text-sm text-[var(--color-ink-muted)]">
-            No hay empleados que mostrar.
-          </p>
+          <p className="p-6 text-sm text-[var(--color-ink-muted)]">No hay empleados que mostrar.</p>
         )}
       </div>
 
@@ -254,7 +249,7 @@ export function Employees() {
             formId="employee-form"
             employee={dialog.employee}
             year={year}
-            onSubmit={saveEmployee}
+            onSubmit={(values) => void saveEmployee(values)}
             onError={(message) => notify(message, 'error')}
           />
         </Modal>

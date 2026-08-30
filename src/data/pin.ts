@@ -1,4 +1,3 @@
-
 const FALLBACK_PREFIX = 'fnv1a:'
 
 function fallbackHash(input: string): string {

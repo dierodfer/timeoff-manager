@@ -43,7 +43,9 @@ export function Modal({ title, description, onClose, children, footer, wide }: M
       >
         <header className="hairline border-b px-6 py-4">
           <h2 className="text-lg">{title}</h2>
-          {description && <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{description}</p>}
+          {description && (
+            <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{description}</p>
+          )}
         </header>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>

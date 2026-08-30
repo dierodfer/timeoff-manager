@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { employmentSpanInYear } from '../domain/accrual'
-import { computeBalance } from '../domain/balance'
+import { withBalances } from '../domain/balance'
 import { yearEnd, yearStart } from '../domain/dates'
 import { workingDaysInRange } from '../domain/workdays'
-import { bulkAssign, displayName, type BulkAssignResult } from '../state/actions'
-import { useSession } from '../state/AppStore'
+import { bulkAssign, displayName, sortByName, type BulkAssignResult } from '../state/actions'
+import { useSession } from '../state/appContext'
 import { summarizeDays } from '../ui/calendarGrid'
 
 export function BulkAssign() {
@@ -16,11 +16,13 @@ export function BulkAssign() {
   const [result, setResult] = useState<BulkAssignResult | null>(null)
 
   const employees = useMemo(
-    () =>
-      database.employees
-        .filter((employee) => employmentSpanInYear(employee, year))
-        .sort((a, b) => displayName(a).localeCompare(displayName(b), 'es')),
+    () => sortByName(database.employees.filter((employee) => employmentSpanInYear(employee, year))),
     [database.employees, year],
+  )
+
+  const rows = useMemo(
+    () => withBalances(employees, year, database.settings, database.allowances, database.requests),
+    [employees, year, database.settings, database.allowances, database.requests],
   )
 
   const days = useMemo(() => {
@@ -37,7 +39,7 @@ export function BulkAssign() {
     })
   }
 
-  const assign = async () => {
+  const assign = () => {
     const outcome = bulkAssign(database, {
       employeeIds: [...selectedIds],
       days,
@@ -46,7 +48,7 @@ export function BulkAssign() {
     })
 
     if (outcome.assigned.length > 0) {
-      await commit(outcome.database)
+      commit(outcome.database)
       notify(
         `Vacaciones asignadas a ${outcome.assigned.length} ${
           outcome.assigned.length === 1 ? 'empleado' : 'empleados'
@@ -68,8 +70,8 @@ export function BulkAssign() {
       <div>
         <h1 className="text-2xl">Asignación masiva</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-          Asigna el mismo periodo a varios empleados como vacaciones ya aprobadas. Los días
-          computan en el límite individual de cada uno, así que quien no tenga saldo se queda fuera.
+          Asigna el mismo periodo a varios empleados como vacaciones ya aprobadas. Los días computan
+          en el límite individual de cada uno, así que quien no tenga saldo se queda fuera.
         </p>
       </div>
 
@@ -130,7 +132,12 @@ export function BulkAssign() {
             />
           </div>
 
-          <button type="button" className="btn btn-primary w-full" disabled={!canAssign} onClick={assign}>
+          <button
+            type="button"
+            className="btn btn-primary w-full"
+            disabled={!canAssign}
+            onClick={assign}
+          >
             Asignar a {selectedIds.size} {selectedIds.size === 1 ? 'empleado' : 'empleados'}
           </button>
         </div>
@@ -157,14 +164,7 @@ export function BulkAssign() {
           </div>
 
           <ul className="divide-y divide-[var(--color-hairline)]">
-            {employees.map((employee) => {
-              const balance = computeBalance(
-                employee,
-                year,
-                database.settings,
-                database.allowances,
-                database.requests,
-              )
+            {rows.map(({ employee, balance }) => {
               const short = days.length > balance.available
               return (
                 <li key={employee.id}>

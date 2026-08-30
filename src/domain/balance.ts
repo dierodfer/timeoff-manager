@@ -17,9 +17,7 @@ export function requestsOf(
   employeeId: string,
   year: number,
 ): VacationRequest[] {
-  return requests.filter(
-    (request) => request.employeeId === employeeId && request.year === year,
-  )
+  return requests.filter((request) => request.employeeId === employeeId && request.year === year)
 }
 
 export function committedDays(
@@ -64,9 +62,26 @@ export function computeBalance(
   }
 }
 
+export interface EmployeeBalance {
+  employee: Employee
+  balance: Balance
+}
+
+export function withBalances(
+  employees: Employee[],
+  year: number,
+  settings: Settings,
+  allowances: Allowance[],
+  requests: VacationRequest[],
+): EmployeeBalance[] {
+  return employees.map((employee) => ({
+    employee,
+    balance: computeBalance(employee, year, settings, allowances, requests),
+  }))
+}
+
 export type SelectionCheck =
-  | { ok: true; days: IsoDate[] }
-  | { ok: false; reason: string; days: IsoDate[] }
+  { ok: true; days: IsoDate[] } | { ok: false; reason: string; days: IsoDate[] }
 
 export function checkSelection(
   employee: Employee,

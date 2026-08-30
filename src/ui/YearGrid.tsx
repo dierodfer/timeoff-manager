@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { dayOf, daysInMonth, monthOf, weekday } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import { holidayOn, isWorkingDay, WEEKDAY_LABELS, type WorkCalendar } from '../domain/workdays'
-import { MONTH_NAMES, yearDays } from './calendarGrid'
+import { GRID_DAY_CLASS, MONTH_NAMES, dayState, yearDays } from './calendarGrid'
 import type { DayMark } from './MonthCalendar'
 
 interface YearGridProps {
@@ -108,12 +108,12 @@ export function YearGrid({
                     const mark = markOf(employee.id, date)
                     const isSelected = isActiveRow && selected.has(date)
 
-                    let background = 'transparent'
-                    if (isSelected) background = 'var(--color-accent)'
-                    else if (mark === 'aprobada') background = 'var(--color-approved)'
-                    else if (mark === 'pendiente') background = 'var(--color-pending)'
-                    else if (holiday) background = 'var(--color-grid-holiday)'
-                    else if (!workable) background = 'var(--color-grid-off)'
+                    const state = dayState({
+                      isSelected,
+                      mark,
+                      isHoliday: Boolean(holiday),
+                      isWorkable: workable,
+                    })
 
                     return (
                       <td
@@ -130,10 +130,9 @@ export function YearGrid({
                           onClick={(event) => onToggle(employee.id, date, event.shiftKey)}
                           title={holiday ? holiday.name : date}
                           aria-label={`${employee.firstName} ${employee.lastName}, ${date}`}
-                          className={`block h-7 w-[19px] transition-[background-color] ${
+                          className={`grid-day ${GRID_DAY_CLASS[state]} ${
                             workable ? 'cursor-pointer hover:brightness-90' : 'cursor-default'
                           } ${date === today ? 'ring-1 ring-inset ring-[var(--color-accent)]' : ''}`}
-                          style={{ background }}
                         />
                       </td>
                     )

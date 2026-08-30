@@ -37,8 +37,6 @@ const SEEDS: Record<number, readonly Seed[]> = {
   ],
 }
 
-export const PRELOADED_YEARS = Object.keys(SEEDS).map(Number).sort()
-
 export function hasPreloadedHolidays(year: number): boolean {
   return year in SEEDS
 }

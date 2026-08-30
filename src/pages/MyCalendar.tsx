@@ -4,7 +4,7 @@ import { todayIso } from '../domain/dates'
 import type { IsoDate } from '../domain/types'
 import { isWorkingDay } from '../domain/workdays'
 import { createVacation, removeRequest } from '../state/actions'
-import { useSession } from '../state/AppStore'
+import { useSession } from '../state/appContext'
 import { BalanceCard } from '../ui/BalanceCard'
 import { Modal } from '../ui/Modal'
 import { RequestCard } from '../ui/RequestCard'
@@ -37,7 +37,8 @@ export function MyCalendar() {
   }, [myRequests])
 
   const balance = useMemo(
-    () => computeBalance(currentUser, year, database.settings, database.allowances, database.requests),
+    () =>
+      computeBalance(currentUser, year, database.settings, database.allowances, database.requests),
     [currentUser, year, database],
   )
 

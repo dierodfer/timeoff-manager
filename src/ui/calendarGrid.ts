@@ -1,4 +1,5 @@
 import { daysInMonth, isoOf, weekday } from '../domain/dates'
+import type { DayMark } from './MonthCalendar'
 import type { IsoDate } from '../domain/types'
 
 export const WEEK_COLUMNS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
@@ -61,17 +62,51 @@ export function summarizeDays(days: IsoDate[]): string {
   }
 
   return ranges
-    .map(([start, end]) => (start === end ? formatShort(start) : `${formatShort(start)} – ${formatShort(end)}`))
+    .map(([start, end]) =>
+      start === end ? formatShort(start) : `${formatShort(start)} – ${formatShort(end)}`,
+    )
     .join(', ')
 }
 
 function isNextCalendarDay(previous: IsoDate, next: IsoDate): boolean {
-  const gap =
-    (Date.parse(`${next}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`)) / 86_400_000
+  const gap = (Date.parse(`${next}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`)) / 86_400_000
   return gap === 1
 }
 
 function formatShort(date: IsoDate): string {
   const [, month, day] = date.split('-').map(Number)
   return `${day} ${MONTH_NAMES[month - 1].slice(0, 3).toLowerCase()}`
+}
+
+export type DayState = 'selected' | 'aprobada' | 'pendiente' | 'festivo' | 'no-laborable' | 'libre'
+
+export function dayState(options: {
+  isSelected: boolean
+  mark: DayMark
+  isHoliday: boolean
+  isWorkable: boolean
+}): DayState {
+  if (options.isSelected) return 'selected'
+  if (options.mark) return options.mark
+  if (options.isHoliday) return 'festivo'
+  if (!options.isWorkable) return 'no-laborable'
+  return 'libre'
+}
+
+export const MONTH_DAY_CLASS: Record<DayState, string> = {
+  selected: 'day-selected',
+  aprobada: 'day-aprobada',
+  pendiente: 'day-pendiente',
+  festivo: 'day-holiday',
+  'no-laborable': 'day-off',
+  libre: '',
+}
+
+export const GRID_DAY_CLASS: Record<DayState, string> = {
+  selected: 'grid-day-selected',
+  aprobada: 'grid-day-aprobada',
+  pendiente: 'grid-day-pendiente',
+  festivo: 'grid-day-holiday',
+  'no-laborable': 'grid-day-off',
+  libre: '',
 }

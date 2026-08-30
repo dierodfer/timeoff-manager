@@ -8,7 +8,7 @@ import { Planning } from './pages/Planning'
 import { Requests } from './pages/Requests'
 import { SettingsPage } from './pages/SettingsPage'
 import { SignIn } from './pages/SignIn'
-import { useApp } from './state/AppStore'
+import { useApp } from './state/appContext'
 import { AppShell } from './ui/AppShell'
 import { Toasts } from './ui/Toasts'
 

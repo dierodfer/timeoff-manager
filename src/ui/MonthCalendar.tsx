@@ -1,7 +1,14 @@
 import type { IsoDate } from '../domain/types'
 import { dayOf } from '../domain/dates'
 import { holidayOn, isWorkingDay, type WorkCalendar } from '../domain/workdays'
-import { MONTH_NAMES, WEEK_COLUMNS, formatLongDate, monthCells } from './calendarGrid'
+import {
+  MONTH_DAY_CLASS,
+  MONTH_NAMES,
+  WEEK_COLUMNS,
+  dayState,
+  formatLongDate,
+  monthCells,
+} from './calendarGrid'
 
 export type DayMark = 'aprobada' | 'pendiente' | undefined
 
@@ -52,11 +59,13 @@ export function MonthCalendar({
           const mark = markOf(date)
           const isSelected = selected.has(date)
 
-          const classes = ['day', 'aspect-square']
-          if (isSelected) classes.push('day-selected')
-          else if (mark) classes.push(`day-${mark}`)
-          else if (holiday) classes.push('day-holiday')
-          else if (!workable) classes.push('day-off')
+          const state = dayState({
+            isSelected,
+            mark,
+            isHoliday: Boolean(holiday),
+            isWorkable: workable,
+          })
+          const classes = ['day', 'aspect-square', MONTH_DAY_CLASS[state]]
           if (date === today) classes.push('day-today')
 
           const title = holiday
