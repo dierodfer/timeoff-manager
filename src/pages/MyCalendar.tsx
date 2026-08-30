@@ -32,8 +32,7 @@ export function MyCalendar() {
   const canSelect = useCallback((date: IsoDate) => isWorkingDay(calendar, date), [calendar])
   const { selected, toggle, clear } = useDaySelection(canSelect)
 
-  // Derivado, no guardado en estado: si el empleado que se estaba viendo deja
-  // de tener actividad ese año, cae de vuelta al propio calendario sin más.
+  // Derivado, no estado: sincronizarlo con un efecto provoca renders en cascada.
   const viewedEmployee: Employee =
     (isAdmin && viewableEmployees.find((employee) => employee.id === viewedEmployeeId)) ||
     currentUser

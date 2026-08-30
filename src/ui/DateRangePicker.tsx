@@ -16,11 +16,6 @@ interface DateRangePickerProps {
   onChange: (range: DateRange) => void
 }
 
-/**
- * Selección de un periodo sobre un calendario mensual: el primer clic fija el
- * inicio, el segundo el fin. Si el segundo día es anterior al primero, se
- * invierte en lugar de rechazarlo.
- */
 export function DateRangePicker({ year, calendar, value, onChange }: DateRangePickerProps) {
   const today = todayIso()
   const [month, setMonth] = useState(() =>
@@ -38,7 +33,6 @@ export function DateRangePicker({ year, calendar, value, onChange }: DateRangePi
     )
   }
 
-  // Mientras solo hay inicio, el rango se previsualiza con el día bajo el ratón.
   const previewEnd = value.end ?? (value.start && hovered ? hovered : null)
   const from =
     value.start && previewEnd ? (value.start < previewEnd ? value.start : previewEnd) : value.start

@@ -116,6 +116,9 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   equivocado, donde no se ve.
 - **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva:
   al abrir la aplicación por IP en la red local no está disponible.
+- **`checkSelection()` compara el saldo con un margen de `1e-9`.** El saldo es decimal: sin ese
+  margen, el ruido de coma flotante puede rechazar 13 días contra un saldo real de 13 pero
+  representado como 12,999999999.
 
 ## El PIN no es seguridad
 

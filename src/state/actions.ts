@@ -174,11 +174,6 @@ export function resolveRequest(
   }
 }
 
-/**
- * Resuelve un único día de una solicitud, no la solicitud entera. Si quedan
- * otros días pendientes en ella, se separan en una solicitud aparte con el
- * resto de los días, sin tocar su estado.
- */
 export function resolveRequestDay(
   database: Database,
   requestId: string,
@@ -235,7 +230,6 @@ export function resolveRequestDay(
   }
 }
 
-/** Resuelve de una vez todas las solicitudes pendientes de un empleado en un año. */
 export function resolveAllPending(
   database: Database,
   employeeId: string,

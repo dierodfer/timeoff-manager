@@ -115,8 +115,7 @@ export function checkSelection(
   }
 
   const balance = computeBalance(employee, year, settings, allowances, requests, today)
-  // El saldo es decimal: el margen absorbe el ruido de la coma flotante para
-  // que 13 días no se rechacen contra un saldo de 12,999999999.
+  // Margen para el ruido de coma flotante: evita rechazar 13 días contra un saldo de 12,999999999.
   if (yearDays.length > balance.available + 1e-9) {
     return {
       ok: false,

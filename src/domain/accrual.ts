@@ -1,10 +1,6 @@
 import { expandRange, todayIso, weekday, yearEnd, yearStart } from './dates'
 import type { Allowance, Employee, IsoDate, Settings } from './types'
 
-/**
- * Días de vacaciones que genera cada día trabajado. Con la jornada de lunes a
- * sábado —312 días al año— sale la base anual de 23 días.
- */
 export const ACCRUAL_PER_WORKED_DAY = 0.0737
 
 export interface Interval {
@@ -38,11 +34,6 @@ export function employmentSpanInYear(employee: Employee, year: number): Interval
   return start <= end ? { start, end } : null
 }
 
-/**
- * Tramos en activo dentro del año. El periodo de llamamiento en curso de un
- * fijo discontinuo se proyecta hasta fin de año: se asume que seguirá llamado,
- * así que su estimación no baja cada vez que se acerca la fecha de fin.
- */
 export function activeIntervalsInYear(
   employee: Employee,
   year: number,
@@ -66,11 +57,6 @@ export function activeIntervalsInYear(
   return mergeIntervals(projected)
 }
 
-/**
- * Días de la jornada semanal (`Settings.workweek`) dentro de los tramos en
- * activo. Los festivos no se descuentan: la base anual se define sobre los días
- * de jornada, no sobre los efectivamente trabajados.
- */
 export function workedDaysInYear(
   employee: Employee,
   year: number,
@@ -87,10 +73,6 @@ export function workedDaysInYear(
   )
 }
 
-/**
- * Estimación de días de vacaciones: `0,0737 × días trabajados`, sin redondear y
- * limitada a la base anual. `today` se inyecta para poder fijarlo en los tests.
- */
 export function estimateAnnualDays(
   employee: Employee,
   year: number,

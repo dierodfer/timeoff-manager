@@ -9,8 +9,7 @@ interface StepperProps {
 }
 
 export function Stepper({ value, onChange, min = 0, max = 366, label }: StepperProps) {
-  // La estimación es decimal, pero un ajuste a mano siempre es un número
-  // entero de días: desde 11,64 el − lleva a 11 y el + a 12.
+  // Un ajuste a mano siempre es entero: desde 11,64 el − lleva a 11 y el + a 12.
   const decrement = Math.max(min, Math.ceil(value - 1))
   const increment = Math.min(max, Math.floor(value + 1))
 

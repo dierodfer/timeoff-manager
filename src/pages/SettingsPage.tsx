@@ -63,10 +63,8 @@ function Row({
   )
 }
 
-/**
- * El formulario se remonta al cambiar de año (`key={year}` en el llamante), que
- * es lo que mantiene la fecha propuesta dentro del año que se está viendo.
- */
+// Se remonta con `key={year}`: sin eso la fecha propuesta se queda en el año
+// en que se montó y el festivo acaba en un año que no se está viendo.
 function AddHolidayForm({ year, onAdd }: { year: number; onAdd: (holiday: Holiday) => void }) {
   const [date, setDate] = useState(() => yearStart(year))
   const [name, setName] = useState('')
