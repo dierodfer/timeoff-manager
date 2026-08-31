@@ -21,6 +21,12 @@ import { Stepper } from '../ui/Stepper'
 type Dialog =
   { kind: 'form'; employee: Employee | null } | { kind: 'delete'; employee: Employee } | null
 
+function seasonalSummary(employee: Employee): string {
+  if (!employee.isSeasonal) return ''
+  const count = employee.activityPeriods.length
+  return ` · fijo discontinuo (${count} ${count === 1 ? 'periodo' : 'periodos'})`
+}
+
 export function Employees() {
   const { database, currentUser, year, commit, apply, notify } = useSession()
   const [dialog, setDialog] = useState<Dialog>(null)
@@ -144,11 +150,7 @@ export function Employees() {
                   {employee.role === 'admin' ? 'Administrador' : 'Empleado'} · alta{' '}
                   {employee.hireDate}
                   {employee.terminationDate ? ` · baja ${employee.terminationDate}` : ''}
-                  {employee.isSeasonal
-                    ? ` · fijo discontinuo (${employee.activityPeriods.length} ${
-                        employee.activityPeriods.length === 1 ? 'periodo' : 'periodos'
-                      })`
-                    : ''}
+                  {seasonalSummary(employee)}
                 </p>
                 {inYear && (
                   <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">

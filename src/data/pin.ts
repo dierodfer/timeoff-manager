@@ -3,18 +3,15 @@ const FALLBACK_PREFIX = 'fnv1a:'
 function fallbackHash(input: string): string {
   let hash = 0x811c9dc5
   for (let index = 0; index < input.length; index += 1) {
-    hash ^= input.charCodeAt(index)
+    hash ^= input.codePointAt(index) ?? 0
     hash = Math.imul(hash, 0x01000193) >>> 0
   }
   return FALLBACK_PREFIX + hash.toString(16).padStart(8, '0')
 }
 
 export function randomSalt(): string {
-  if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
-    const bytes = crypto.getRandomValues(new Uint8Array(8))
-    return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
-  }
-  return Math.random().toString(16).slice(2, 18)
+  const bytes = crypto.getRandomValues(new Uint8Array(8))
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 export async function hashPin(pin: string, salt: string): Promise<string> {

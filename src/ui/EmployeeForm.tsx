@@ -152,8 +152,9 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
       </div>
 
       <div className="hairline rounded-[var(--radius-control)] border p-4">
-        <label className="flex items-start gap-3 text-sm">
+        <label className="flex items-start gap-3 text-sm" htmlFor="is-seasonal">
           <input
+            id="is-seasonal"
             type="checkbox"
             className="mt-0.5"
             checked={values.isSeasonal}

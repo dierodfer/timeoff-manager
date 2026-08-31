@@ -1,4 +1,4 @@
-import { expandRange, weekday } from './dates'
+import { compareIso, expandRange, weekday } from './dates'
 import type { Holiday, IsoDate, Settings } from './types'
 
 export interface WorkCalendar {
@@ -23,9 +23,7 @@ export function isWorkingDay(calendar: WorkCalendar, date: IsoDate): boolean {
 }
 
 export function filterWorkingDays(calendar: WorkCalendar, dates: Iterable<IsoDate>): IsoDate[] {
-  return [...dates]
-    .filter((date) => isWorkingDay(calendar, date))
-    .sort((a, b) => a.localeCompare(b))
+  return [...dates].filter((date) => isWorkingDay(calendar, date)).sort(compareIso)
 }
 
 export function workingDaysInRange(

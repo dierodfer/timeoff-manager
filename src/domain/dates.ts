@@ -90,5 +90,5 @@ export function expandRange(start: IsoDate, end: IsoDate): IsoDate[] {
 }
 
 export function compareIso(a: IsoDate, b: IsoDate): number {
-  return a < b ? -1 : a > b ? 1 : 0
+  return a.localeCompare(b)
 }

@@ -1,5 +1,5 @@
-import { daysInMonth, isoOf, weekday } from '../domain/dates'
-import type { IsoDate, RequestStatus } from '../domain/types'
+import { compareIso, daysInMonth, isoOf, weekday } from '../domain/dates'
+import type { Holiday, IsoDate, RequestStatus } from '../domain/types'
 import type { DayMark } from './MonthCalendar'
 
 export const WEEK_COLUMNS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
@@ -23,13 +23,16 @@ export function columnOf(date: IsoDate): number {
   return (weekday(date) + 6) % 7
 }
 
-export function monthCells(year: number, month: number): (IsoDate | null)[] {
-  const first = isoOf(year, month, 1)
-  const cells: (IsoDate | null)[] = Array.from({ length: columnOf(first) }, () => null)
+export function monthCells(year: number, month: number): IsoDate[] {
+  const cells: IsoDate[] = []
   for (let day = 1; day <= daysInMonth(year, month); day += 1) {
     cells.push(isoOf(year, month, day))
   }
   return cells
+}
+
+export function firstDayOffset(date: IsoDate): { gridColumnStart: number } {
+  return { gridColumnStart: columnOf(date) + 1 }
 }
 
 export function yearDays(year: number): IsoDate[] {
@@ -49,7 +52,7 @@ export function formatLongDate(date: IsoDate): string {
 
 export function summarizeDays(days: IsoDate[]): string {
   if (days.length === 0) return '—'
-  const sorted = [...days].sort((a, b) => a.localeCompare(b))
+  const sorted = [...days].sort(compareIso)
   const ranges: [IsoDate, IsoDate][] = []
 
   for (const day of sorted) {
@@ -115,4 +118,14 @@ export const STATUS_LABEL: Record<RequestStatus, string> = {
   pendiente: 'Pendiente',
   aprobada: 'Aprobada',
   rechazada: 'Rechazada',
+}
+
+const MARK_TITLE = {
+  aprobada: 'Vacaciones aprobadas',
+  pendiente: 'Solicitud pendiente',
+} as const
+
+export function dayTitle(holiday: Holiday | undefined, mark: DayMark): string | undefined {
+  if (holiday) return holiday.name
+  return mark ? MARK_TITLE[mark] : undefined
 }

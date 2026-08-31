@@ -14,9 +14,8 @@ export function Stepper({ value, onChange, min = 0, max = 366, label }: StepperP
   const increment = Math.min(max, Math.floor(value + 1))
 
   return (
-    <div
+    <fieldset
       className="hairline inline-flex items-center gap-1 rounded-full border bg-[var(--color-surface-sunken)] p-1"
-      role="group"
       aria-label={label}
     >
       <button
@@ -38,6 +37,6 @@ export function Stepper({ value, onChange, min = 0, max = 366, label }: StepperP
       >
         +
       </button>
-    </div>
+    </fieldset>
   )
 }

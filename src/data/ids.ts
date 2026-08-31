@@ -1,7 +1,5 @@
 export function newId(prefix = 'id'): string {
-  const random =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2) + Date.now().toString(36)
+  const bytes = crypto.getRandomValues(new Uint8Array(12))
+  const random = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
   return `${prefix}_${random}`
 }

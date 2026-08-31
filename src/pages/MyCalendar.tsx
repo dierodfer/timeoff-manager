@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { employmentSpanInYear } from '../domain/accrual'
 import { computeBalance, requestsOf } from '../domain/balance'
 import { formatDays, pluralDays } from '../domain/format'
-import { todayIso } from '../domain/dates'
+import { compareIso, todayIso } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import { isWorkingDay } from '../domain/workdays'
 import { createVacation, displayName, removeRequest, sortByName } from '../state/actions'
@@ -72,7 +72,7 @@ export function MyCalendar() {
     [viewedEmployee, year, database],
   )
 
-  const selectedDays = useMemo(() => [...selected].sort(), [selected])
+  const selectedDays = useMemo(() => [...selected].sort(compareIso), [selected])
 
   const submit = () => {
     const ok = apply((db) =>
@@ -264,7 +264,7 @@ export function MyCalendar() {
                   type="checkbox"
                   checked={asApproved}
                   onChange={(event) => setAsApproved(event.target.checked)}
-                />
+                />{' '}
                 Crear directamente como aprobadas, sin pasar por solicitud
               </label>
             )}
