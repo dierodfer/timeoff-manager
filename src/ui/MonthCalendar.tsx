@@ -6,6 +6,8 @@ import {
   MONTH_NAMES,
   WEEK_COLUMNS,
   dayState,
+  dayTitle,
+  firstDayOffset,
   formatLongDate,
   monthCells,
 } from './calendarGrid'
@@ -52,8 +54,6 @@ export function MonthCalendar({
 
       <div className="grid grid-cols-7 gap-1 px-1">
         {cells.map((date, index) => {
-          if (!date) return <span key={`empty-${index}`} />
-
           const holiday = holidayOn(calendar, date)
           const workable = isWorkingDay(calendar, date)
           const mark = markOf(date)
@@ -68,17 +68,12 @@ export function MonthCalendar({
           const classes = ['day', 'aspect-square', MONTH_DAY_CLASS[state]]
           if (date === today) classes.push('day-today')
 
-          const title = holiday
-            ? holiday.name
-            : mark === 'aprobada'
-              ? 'Vacaciones aprobadas'
-              : mark === 'pendiente'
-                ? 'Solicitud pendiente'
-                : undefined
+          const title = dayTitle(holiday, mark)
+          const style = index === 0 ? firstDayOffset(date) : undefined
 
           if (!onToggle || !workable) {
             return (
-              <span key={date} className={classes.join(' ')} title={title}>
+              <span key={date} className={classes.join(' ')} title={title} style={style}>
                 {dayOf(date)}
               </span>
             )
@@ -89,6 +84,7 @@ export function MonthCalendar({
               key={date}
               type="button"
               title={title}
+              style={style}
               aria-label={formatLongDate(date)}
               aria-pressed={isSelected}
               onClick={(event) => onToggle(date, event.shiftKey)}

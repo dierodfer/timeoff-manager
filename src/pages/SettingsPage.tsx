@@ -135,7 +135,7 @@ export function SettingsPage() {
   const toggleWorkday = (day: number) => {
     const workweek = database.settings.workweek.includes(day)
       ? database.settings.workweek.filter((item) => item !== day)
-      : [...database.settings.workweek, day].sort()
+      : [...database.settings.workweek, day].sort((a, b) => a - b)
     if (workweek.length === 0) return notify('Tiene que quedar al menos un día laborable.', 'error')
     updateSettings({ workweek })
   }

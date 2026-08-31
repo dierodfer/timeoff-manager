@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { employmentSpanInYear } from '../domain/accrual'
 import { computeBalance } from '../domain/balance'
 import { formatDays } from '../domain/format'
-import { todayIso } from '../domain/dates'
+import { compareIso, todayIso } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import { isWorkingDay } from '../domain/workdays'
 import { createVacation, displayName, sortByName } from '../state/actions'
@@ -37,7 +37,7 @@ export function Planning() {
   }, [database.requests, year])
 
   const target: Employee | undefined = employees.find((employee) => employee.id === employeeId)
-  const selectedDays = useMemo(() => [...selected].sort(), [selected])
+  const selectedDays = useMemo(() => [...selected].sort(compareIso), [selected])
 
   const balance = useMemo(
     () =>

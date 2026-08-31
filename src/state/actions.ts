@@ -60,7 +60,6 @@ export function createVacation(database: Database, input: CreateVacationInput): 
   }
 
   let draft = database
-  const created: VacationRequest[] = []
 
   for (const [year, days] of groupByYear(workingDays)) {
     const check = checkSelection(
@@ -90,7 +89,6 @@ export function createVacation(database: Database, input: CreateVacationInput): 
       batchId: input.batchId ?? null,
     }
 
-    created.push(request)
     draft = { ...draft, requests: [...draft.requests, request] }
   }
 

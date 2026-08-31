@@ -1,4 +1,4 @@
-import { expandRange, todayIso, weekday, yearEnd, yearStart } from './dates'
+import { compareIso, expandRange, todayIso, weekday, yearEnd, yearStart } from './dates'
 import type { Allowance, Employee, IsoDate, Settings } from './types'
 
 export const ACCRUAL_PER_WORKED_DAY = 0.0737
@@ -11,7 +11,7 @@ export interface Interval {
 function mergeIntervals(intervals: Interval[]): Interval[] {
   const sorted = [...intervals]
     .filter((interval) => interval.start <= interval.end)
-    .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))
+    .sort((a, b) => compareIso(a.start, b.start))
 
   const merged: Interval[] = []
   for (const interval of sorted) {

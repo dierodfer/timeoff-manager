@@ -14,6 +14,8 @@ const EMPTY_CALENDAR: WorkCalendar = {
   holidaysByDate: new Map(),
 }
 
+let lastToastId = 0
+
 export function AppProvider({ children }: { readonly children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading')
   const [database, setDatabase] = useState<Database | null>(null)
@@ -38,7 +40,8 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
   }, [])
 
   const notify = useCallback((message: string, tone: Toast['tone'] = 'success') => {
-    const toast: Toast = { id: Date.now() + Math.random(), message, tone }
+    lastToastId += 1
+    const toast: Toast = { id: lastToastId, message, tone }
     setToasts((current) => [...current, toast].slice(-3))
     setTimeout(() => {
       setToasts((current) => current.filter((item) => item.id !== toast.id))

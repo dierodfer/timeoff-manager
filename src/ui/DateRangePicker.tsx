@@ -1,8 +1,14 @@
 import { useState } from 'react'
-import { dayOf, monthOf, todayIso, yearOf } from '../domain/dates'
+import { compareIso, dayOf, monthOf, todayIso, yearOf } from '../domain/dates'
 import type { IsoDate } from '../domain/types'
 import { holidayOn, isWorkingDay, type WorkCalendar } from '../domain/workdays'
-import { MONTH_NAMES, WEEK_COLUMNS, formatLongDate, monthCells } from './calendarGrid'
+import {
+  MONTH_NAMES,
+  WEEK_COLUMNS,
+  firstDayOffset,
+  formatLongDate,
+  monthCells,
+} from './calendarGrid'
 
 export interface DateRange {
   start: IsoDate | null
@@ -14,6 +20,14 @@ interface DateRangePickerProps {
   readonly calendar: WorkCalendar
   readonly value: DateRange
   readonly onChange: (range: DateRange) => void
+}
+
+function orderedRange(
+  start: IsoDate | null,
+  end: IsoDate | null,
+): [IsoDate | null, IsoDate | null] {
+  if (!start || !end) return [start, start]
+  return compareIso(start, end) <= 0 ? [start, end] : [end, start]
 }
 
 export function DateRangePicker({ year, calendar, value, onChange }: DateRangePickerProps) {
@@ -28,16 +42,12 @@ export function DateRangePicker({ year, calendar, value, onChange }: DateRangePi
       onChange({ start: date, end: null })
       return
     }
-    onChange(
-      date < value.start ? { start: date, end: value.start } : { start: value.start, end: date },
-    )
+    const [start, end] = orderedRange(value.start, date)
+    onChange({ start, end })
   }
 
   const previewEnd = value.end ?? (value.start && hovered ? hovered : null)
-  const from =
-    value.start && previewEnd ? (value.start < previewEnd ? value.start : previewEnd) : value.start
-  const to =
-    value.start && previewEnd ? (value.start < previewEnd ? previewEnd : value.start) : value.start
+  const [from, to] = orderedRange(value.start, previewEnd)
 
   const cells = monthCells(year, month)
 
@@ -82,8 +92,6 @@ export function DateRangePicker({ year, calendar, value, onChange }: DateRangePi
 
       <div className="grid grid-cols-7 gap-1" onMouseLeave={() => setHovered(null)}>
         {cells.map((date, index) => {
-          if (!date) return <span key={`empty-${index}`} />
-
           const holiday = holidayOn(calendar, date)
           const workable = isWorkingDay(calendar, date)
           const inRange = Boolean(from && to && date >= from && date <= to)
@@ -100,6 +108,7 @@ export function DateRangePicker({ year, calendar, value, onChange }: DateRangePi
             <button
               key={date}
               type="button"
+              style={index === 0 ? firstDayOffset(date) : undefined}
               aria-label={formatLongDate(date)}
               aria-pressed={inRange}
               title={holiday?.name}

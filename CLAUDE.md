@@ -116,6 +116,8 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   equivocado, donde no se ve.
 - **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva:
   al abrir la aplicación por IP en la red local no está disponible.
+- **`crypto.randomUUID()` también exige contexto seguro**, así que los identificadores (`ids.ts`) y
+  la sal del PIN salen de `crypto.getRandomValues()`, que sí funciona por IP en la red local.
 - **`checkSelection()` compara el saldo con un margen de `1e-9`.** El saldo es decimal: sin ese
   margen, el ruido de coma flotante puede rechazar 13 días contra un saldo real de 13 pero
   representado como 12,999999999.
@@ -142,6 +144,10 @@ declara `color-scheme: light` y la paleta vive en un único `@theme`. Jerarquía
 único color de acento. Los componentes reutilizables (`.card`, `.btn`, `.field`, `.segmented`,
 `.chip`, `.day`, `.grid-day`) están en `@layer components`; preferirlos a repetir utilidades en el
 JSX y no pintar colores con `style` inline.
+
+**El hueco previo al día 1 de cada mes es `grid-column-start`, no celdas vacías.** `monthCells()`
+devuelve solo días reales y `firstDayOffset()` coloca el primero en su columna. Añadir huecos de
+relleno obligaría a inventarles una clave y a filtrarlos en cada `map`.
 
 **Qué color gana en una celda de calendario lo decide `dayState()` (`ui/calendarGrid.ts`)**, no cada
 componente. `MONTH_DAY_CLASS` y `GRID_DAY_CLASS` traducen ese estado a las clases del calendario

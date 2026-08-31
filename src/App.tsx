@@ -13,67 +13,68 @@ import { AppShell } from './ui/AppShell'
 import { Toasts } from './ui/Toasts'
 
 export default function App() {
-  const { status, database, currentUser } = useApp()
-
   return (
     <>
-      {status === 'loading' ? (
-        <Splash />
-      ) : !database ? (
-        <FirstRun />
-      ) : !currentUser ? (
-        <SignIn />
-      ) : (
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route index element={<MyCalendar />} />
-            <Route
-              path="planificacion"
-              element={
-                <AdminOnly>
-                  <Planning />
-                </AdminOnly>
-              }
-            />
-            <Route
-              path="solicitudes"
-              element={
-                <AdminOnly>
-                  <Requests />
-                </AdminOnly>
-              }
-            />
-            <Route
-              path="empleados"
-              element={
-                <AdminOnly>
-                  <Employees />
-                </AdminOnly>
-              }
-            />
-            <Route
-              path="asignacion"
-              element={
-                <AdminOnly>
-                  <BulkAssign />
-                </AdminOnly>
-              }
-            />
-            <Route
-              path="ajustes"
-              element={
-                <AdminOnly>
-                  <SettingsPage />
-                </AdminOnly>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      )}
-
+      <CurrentScreen />
       <Toasts />
     </>
+  )
+}
+
+function CurrentScreen() {
+  const { status, database, currentUser } = useApp()
+
+  if (status === 'loading') return <Splash />
+  if (!database) return <FirstRun />
+  if (!currentUser) return <SignIn />
+
+  return (
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<MyCalendar />} />
+        <Route
+          path="planificacion"
+          element={
+            <AdminOnly>
+              <Planning />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="solicitudes"
+          element={
+            <AdminOnly>
+              <Requests />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="empleados"
+          element={
+            <AdminOnly>
+              <Employees />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="asignacion"
+          element={
+            <AdminOnly>
+              <BulkAssign />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="ajustes"
+          element={
+            <AdminOnly>
+              <SettingsPage />
+            </AdminOnly>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   )
 }
 
