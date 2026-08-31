@@ -69,9 +69,6 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
     if (values.terminationDate && values.terminationDate < values.hireDate) {
       return onError('La fecha de baja no puede ser anterior a la de alta.')
     }
-    if (values.isSeasonal && values.activityPeriods.length === 0) {
-      return onError('Un fijo discontinuo necesita al menos un periodo de actividad.')
-    }
     if (values.activityPeriods.some((period) => period.end < period.start)) {
       return onError('Hay un periodo de actividad con la fecha final anterior a la inicial.')
     }
