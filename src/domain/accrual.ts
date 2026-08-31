@@ -15,7 +15,7 @@ function mergeIntervals(intervals: Interval[]): Interval[] {
 
   const merged: Interval[] = []
   for (const interval of sorted) {
-    const last = merged[merged.length - 1]
+    const last = merged.at(-1)
     if (last && interval.start <= last.end) {
       if (interval.end > last.end) last.end = interval.end
     } else {

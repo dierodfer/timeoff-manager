@@ -1,11 +1,11 @@
 import { formatDays } from '../domain/format'
 
 interface StepperProps {
-  value: number
-  onChange: (value: number) => void
-  min?: number
-  max?: number
-  label: string
+  readonly value: number
+  readonly onChange: (value: number) => void
+  readonly min?: number
+  readonly max?: number
+  readonly label: string
 }
 
 export function Stepper({ value, onChange, min = 0, max = 366, label }: StepperProps) {

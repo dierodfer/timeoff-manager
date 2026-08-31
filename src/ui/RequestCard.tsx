@@ -3,9 +3,9 @@ import type { VacationRequest } from '../domain/types'
 import { STATUS_LABEL, summarizeDays } from './calendarGrid'
 
 interface RequestCardProps {
-  request: VacationRequest
-  employeeName?: string
-  actions?: ReactNode
+  readonly request: VacationRequest
+  readonly employeeName?: string
+  readonly actions?: ReactNode
 }
 
 export function RequestCard({ request, employeeName, actions }: RequestCardProps) {

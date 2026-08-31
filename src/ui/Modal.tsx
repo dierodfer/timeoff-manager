@@ -1,12 +1,12 @@
 import { useEffect, type ReactNode } from 'react'
 
 interface ModalProps {
-  title: string
-  description?: string
-  onClose: () => void
-  children: ReactNode
-  footer?: ReactNode
-  wide?: boolean
+  readonly title: string
+  readonly description?: string
+  readonly onClose: () => void
+  readonly children: ReactNode
+  readonly footer?: ReactNode
+  readonly wide?: boolean
 }
 
 export function Modal({ title, description, onClose, children, footer, wide }: ModalProps) {

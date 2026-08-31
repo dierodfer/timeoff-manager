@@ -13,13 +13,13 @@ import {
 export type DayMark = 'aprobada' | 'pendiente' | undefined
 
 interface MonthCalendarProps {
-  year: number
-  month: number
-  calendar: WorkCalendar
-  markOf: (date: IsoDate) => DayMark
-  selected: ReadonlySet<IsoDate>
-  today: IsoDate
-  onToggle?: (date: IsoDate, extendRange: boolean) => void
+  readonly year: number
+  readonly month: number
+  readonly calendar: WorkCalendar
+  readonly markOf: (date: IsoDate) => DayMark
+  readonly selected: ReadonlySet<IsoDate>
+  readonly today: IsoDate
+  readonly onToggle?: (date: IsoDate, extendRange: boolean) => void
 }
 
 export function MonthCalendar({

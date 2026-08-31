@@ -10,10 +10,10 @@ export interface DateRange {
 }
 
 interface DateRangePickerProps {
-  year: number
-  calendar: WorkCalendar
-  value: DateRange
-  onChange: (range: DateRange) => void
+  readonly year: number
+  readonly calendar: WorkCalendar
+  readonly value: DateRange
+  readonly onChange: (range: DateRange) => void
 }
 
 export function DateRangePicker({ year, calendar, value, onChange }: DateRangePickerProps) {

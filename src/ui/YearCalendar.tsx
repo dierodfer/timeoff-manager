@@ -3,12 +3,12 @@ import type { WorkCalendar } from '../domain/workdays'
 import { MonthCalendar, type DayMark } from './MonthCalendar'
 
 interface YearCalendarProps {
-  year: number
-  calendar: WorkCalendar
-  markOf: (date: IsoDate) => DayMark
-  selected: ReadonlySet<IsoDate>
-  today: IsoDate
-  onToggle?: (date: IsoDate, extendRange: boolean) => void
+  readonly year: number
+  readonly calendar: WorkCalendar
+  readonly markOf: (date: IsoDate) => DayMark
+  readonly selected: ReadonlySet<IsoDate>
+  readonly today: IsoDate
+  readonly onToggle?: (date: IsoDate, extendRange: boolean) => void
 }
 
 export function YearCalendar(props: YearCalendarProps) {

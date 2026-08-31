@@ -77,7 +77,7 @@ export default function App() {
   )
 }
 
-function AdminOnly({ children }: { children: ReactNode }) {
+function AdminOnly({ children }: { readonly children: ReactNode }) {
   const { currentUser } = useApp()
   if (currentUser?.role !== 'admin') return <Navigate to="/" replace />
   return <>{children}</>

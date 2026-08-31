@@ -290,8 +290,8 @@ export function addRequestComment(
   text: string,
 ): Outcome {
   if (!text.trim()) return { ok: false, reason: 'El comentario está vacío.' }
-  const request = database.requests.find((item) => item.id === requestId)
-  if (!request) return { ok: false, reason: 'La solicitud no existe.' }
+  const exists = database.requests.some((item) => item.id === requestId)
+  if (!exists) return { ok: false, reason: 'La solicitud no existe.' }
 
   const comment = makeComment(database, authorId, text.trim())
   return {

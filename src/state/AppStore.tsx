@@ -14,7 +14,7 @@ const EMPTY_CALENDAR: WorkCalendar = {
   holidaysByDate: new Map(),
 }
 
-export function AppProvider({ children }: { children: ReactNode }) {
+export function AppProvider({ children }: { readonly children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading')
   const [database, setDatabase] = useState<Database | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
