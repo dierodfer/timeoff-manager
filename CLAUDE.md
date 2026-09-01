@@ -74,7 +74,10 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   cubre el propio selector nativo (`<input type="date">`): su formato de fecha lo decide el
   navegador según el idioma configurado en el dispositivo, no la página.
 - **Los días de vacaciones son decimales.** `formatDays()` (`domain/format.ts`) es lo único que los
-  pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado.
+  pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado. La tarjeta de saldo
+  de Mi calendario trunca «Asignados» y «Disponibles» con `truncateDays()` en vez de mostrar los
+  decimales: solo cambia lo que se pinta, el saldo real sigue siendo decimal para las comprobaciones
+  de `checkSelection()` y `useDaySelection()`.
 - **Días efectivos:** si existe un registro en `allowances` para ese empleado y año, manda ese
   valor; si no, la estimación. Borrar el registro devuelve al empleado a la estimación.
 - **Saldo:** asignados − aprobados − pendientes. Las pendientes reservan saldo para que los mismos

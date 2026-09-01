@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatDays, pluralDays } from './format'
+import { formatDate, formatDays, pluralDays, truncateDays } from './format'
 
 describe('formatDate', () => {
   it('reordena yyyy-MM-dd a dd-mm-aaaa', () => {
@@ -27,5 +27,17 @@ describe('pluralDays', () => {
     expect(pluralDays(1)).toBe('1 día')
     expect(pluralDays(2)).toBe('2 días')
     expect(pluralDays(0)).toBe('0 días')
+  })
+})
+
+describe('truncateDays', () => {
+  it('corta los decimales sin redondear', () => {
+    expect(truncateDays(15.9999)).toBe(15)
+    expect(truncateDays(22.92)).toBe(22)
+  })
+
+  it('no toca un valor ya entero', () => {
+    expect(truncateDays(23)).toBe(23)
+    expect(truncateDays(0)).toBe(0)
   })
 })
