@@ -29,7 +29,7 @@ export async function verifyPin(pin: string, salt: string, expectedHash: string)
 }
 
 export function isValidPin(pin: string): boolean {
-  return /^\d{4,8}$/.test(pin)
+  return pin === '' || /^\d{4,8}$/.test(pin)
 }
 
-export const PIN_RULE = 'El PIN debe tener entre 4 y 8 dígitos.'
+export const PIN_RULE = 'El PIN debe tener entre 4 y 8 dígitos, o dejarse en blanco para no usarlo.'

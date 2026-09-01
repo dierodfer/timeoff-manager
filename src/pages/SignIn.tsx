@@ -92,6 +92,9 @@ export function SignIn() {
               value={pin}
               onChange={(event) => setPin(event.target.value)}
             />
+            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+              Si este perfil no tiene PIN, entra dejándolo en blanco.
+            </p>
           </div>
 
           <div className="flex gap-2">
@@ -105,7 +108,7 @@ export function SignIn() {
             >
               Cambiar
             </button>
-            <button type="submit" className="btn btn-primary flex-1" disabled={busy || !pin}>
+            <button type="submit" className="btn btn-primary flex-1" disabled={busy}>
               Entrar
             </button>
           </div>
