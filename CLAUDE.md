@@ -87,6 +87,10 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
 - Al dar de baja se marca `terminationDate` en vez de borrar el registro, para conservar el
   histórico de vacaciones disfrutadas. Se confirma en un diálogo con la fecha propuesta en hoy,
   editable entre la fecha de alta y hoy; no se da de baja al pulsar el botón directamente.
+- **Liquidación al dar de baja:** `terminationSettlement()` (`domain/balance.ts`) compara los días
+  aprobados y ya pasados (disfrutados de verdad, no los aprobados a futuro) contra la estimación
+  recalculada como si `terminationDate` fuera la fecha elegida en el diálogo, no la de hoy ni el 31
+  de diciembre. Si la estimación es mayor, se le deben días; si es menor, los debe el empleado.
 
 ### Invariantes de los datos
 
