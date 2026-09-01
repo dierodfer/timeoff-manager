@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { hashPin, randomSalt } from '../data/pin'
 import { createEmployee } from '../data/seed'
 import { employmentSpanInYear, workedDaysInYear } from '../domain/accrual'
 import { withBalances } from '../domain/balance'
-import { formatDays } from '../domain/format'
+import { formatDate, formatDays } from '../domain/format'
 import { todayIso } from '../domain/dates'
 import type { Employee } from '../domain/types'
 import {
@@ -19,7 +19,10 @@ import { Modal } from '../ui/Modal'
 import { Stepper } from '../ui/Stepper'
 
 type Dialog =
-  { kind: 'form'; employee: Employee | null } | { kind: 'delete'; employee: Employee } | null
+  | { kind: 'form'; employee: Employee | null }
+  | { kind: 'baja'; employee: Employee }
+  | { kind: 'delete'; employee: Employee }
+  | null
 
 function seasonalSummary(employee: Employee): string {
   if (!employee.isSeasonal) return ''
@@ -33,6 +36,7 @@ export function Employees() {
   const [showInactive, setShowInactive] = useState(false)
 
   const today = todayIso()
+  const [bajaDate, setBajaDate] = useState(today)
 
   const employees = useMemo(() => {
     const isInactive = (employee: Employee) =>
@@ -86,6 +90,13 @@ export function Employees() {
       notify('Cambios guardados.')
     }
 
+    setDialog(null)
+  }
+
+  const confirmBaja = (event: FormEvent, employee: Employee) => {
+    event.preventDefault()
+    commit(terminateEmployee(database, employee.id, bajaDate))
+    notify(`${displayName(employee)} dado de baja el ${formatDate(bajaDate)}.`)
     setDialog(null)
   }
 
@@ -148,8 +159,10 @@ export function Employees() {
                 </p>
                 <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
                   {employee.role === 'admin' ? 'Administrador' : 'Empleado'} · alta{' '}
-                  {employee.hireDate}
-                  {employee.terminationDate ? ` · baja ${employee.terminationDate}` : ''}
+                  {formatDate(employee.hireDate)}
+                  {employee.terminationDate
+                    ? ` · baja ${formatDate(employee.terminationDate)}`
+                    : ''}
                   {seasonalSummary(employee)}
                 </p>
                 {inYear && (
@@ -200,8 +213,8 @@ export function Employees() {
                     type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={() => {
-                      commit(terminateEmployee(database, employee.id))
-                      notify(`${displayName(employee)} dado de baja con fecha de hoy.`)
+                      setBajaDate(today)
+                      setDialog({ kind: 'baja', employee })
                     }}
                   >
                     Dar de baja
@@ -255,6 +268,40 @@ export function Employees() {
             onSubmit={(values) => void saveEmployee(values)}
             onError={(message) => notify(message, 'error')}
           />
+        </Modal>
+      )}
+
+      {dialog?.kind === 'baja' && (
+        <Modal
+          title={`Dar de baja a ${displayName(dialog.employee)}`}
+          description="Se conserva su histórico de vacaciones; solo deja de estar en activo a partir de la fecha elegida."
+          onClose={() => setDialog(null)}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setDialog(null)}>
+                Cancelar
+              </button>
+              <button type="submit" form="baja-form" className="btn btn-primary">
+                Confirmar baja
+              </button>
+            </>
+          }
+        >
+          <form id="baja-form" onSubmit={(event) => confirmBaja(event, dialog.employee)}>
+            <label className="label" htmlFor="baja-date">
+              Fecha de baja
+            </label>
+            <input
+              id="baja-date"
+              type="date"
+              className="field"
+              required
+              min={dialog.employee.hireDate}
+              max={today}
+              value={bajaDate}
+              onChange={(event) => setBajaDate(event.target.value)}
+            />
+          </form>
         </Modal>
       )}
 

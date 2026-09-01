@@ -69,6 +69,10 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   envío antes de que se ejecute el `onSubmit`: nombre y fecha de alta del empleado, fechas de un
   periodo de llamamiento, y fecha y nombre de un festivo nuevo. Un campo con validación cruzada
   (rango de fechas, solapes, saldo) no tiene equivalente nativo y sigue comprobándose en JavaScript.
+- **Las fechas se muestran siempre como `dd-mm-aaaa`.** `formatDate()` (`domain/format.ts`) es lo
+  único que las pinta; nadie más formatea una fecha a mano ni llama a `toLocaleDateString()`. No
+  cubre el propio selector nativo (`<input type="date">`): su formato de fecha lo decide el
+  navegador según el idioma configurado en el dispositivo, no la página.
 - **Los días de vacaciones son decimales.** `formatDays()` (`domain/format.ts`) es lo único que los
   pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado.
 - **Días efectivos:** si existe un registro en `allowances` para ese empleado y año, manda ese
@@ -81,7 +85,8 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   cualquiera, incluidas las aprobadas, y los días vuelven al saldo.
 - **Una selección a caballo entre dos años genera una solicitud por año**, porque el saldo es anual.
 - Al dar de baja se marca `terminationDate` en vez de borrar el registro, para conservar el
-  histórico de vacaciones disfrutadas.
+  histórico de vacaciones disfrutadas. Se confirma en un diálogo con la fecha propuesta en hoy,
+  editable entre la fecha de alta y hoy; no se da de baja al pulsar el botón directamente.
 
 ### Invariantes de los datos
 

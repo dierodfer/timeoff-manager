@@ -7,3 +7,8 @@ export function formatDays(value: number): string {
 export function pluralDays(value: number): string {
   return `${formatDays(value)} ${value === 1 ? 'día' : 'días'}`
 }
+
+export function formatDate(date: string): string {
+  const [year, month, day] = date.slice(0, 10).split('-')
+  return `${day}-${month}-${year}`
+}

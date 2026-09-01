@@ -387,12 +387,16 @@ export function clearAllowance(database: Database, employeeId: string, year: num
   }
 }
 
-export function terminateEmployee(database: Database, employeeId: string): Database {
+export function terminateEmployee(
+  database: Database,
+  employeeId: string,
+  date: IsoDate = todayIso(),
+): Database {
   return {
     ...database,
     employees: database.employees.map((employee) =>
       employee.id === employeeId
-        ? { ...employee, terminationDate: employee.terminationDate ?? todayIso() }
+        ? { ...employee, terminationDate: employee.terminationDate ?? date }
         : employee,
     ),
   }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { formatDate } from '../domain/format'
 import type { Employee, IsoDate, RequestComment, RequestStatus } from '../domain/types'
 import {
   addRequestComment,
@@ -9,7 +10,7 @@ import {
   sortByName,
 } from '../state/actions'
 import { useSession } from '../state/appContext'
-import { STATUS_LABEL, formatLongDate } from '../ui/calendarGrid'
+import { STATUS_LABEL } from '../ui/calendarGrid'
 import { Modal } from '../ui/Modal'
 
 type Filter = RequestStatus | 'todas'
@@ -192,7 +193,7 @@ export function Requests() {
                     className="flex flex-wrap items-center gap-3 px-5 py-3"
                   >
                     <span className="tabular w-44 shrink-0 text-sm text-[var(--color-ink-soft)]">
-                      {formatLongDate(row.day)}
+                      {formatDate(row.day)}
                     </span>
                     <span className={`chip chip-${row.status}`}>{STATUS_LABEL[row.status]}</span>
 

@@ -2,13 +2,13 @@ import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react
 import { BackupFormatError, downloadBackup, parseBackup } from '../data/backup'
 import { newId } from '../data/ids'
 import { yearOf, yearStart } from '../domain/dates'
+import { formatDate } from '../domain/format'
 import { hasPreloadedHolidays, preloadedHolidays, SCOPE_LABELS } from '../domain/holidays.es'
 import type { Holiday } from '../domain/types'
 import { WEEKDAY_NAMES } from '../domain/workdays'
 import { useSession } from '../state/appContext'
 import { Modal } from '../ui/Modal'
 import { Stepper } from '../ui/Stepper'
-import { formatLongDate } from '../ui/calendarGrid'
 
 function Section({
   title,
@@ -153,7 +153,7 @@ export function SettingsPage() {
     if (clash) return notify(`Ese día ya es festivo: ${clash.name}.`, 'error')
 
     commit({ ...database, holidays: [...database.holidays, holiday] })
-    notify(`${holiday.name} añadido el ${formatLongDate(holiday.date)}.`)
+    notify(`${holiday.name} añadido el ${formatDate(holiday.date)}.`)
   }
 
   const renameHoliday = (id: string, name: string) => {
@@ -282,7 +282,7 @@ export function SettingsPage() {
         {holidays.map((holiday) => (
           <div key={holiday.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
             <span className="tabular w-44 shrink-0 text-sm text-[var(--color-ink-soft)]">
-              {formatLongDate(holiday.date)}
+              {formatDate(holiday.date)}
             </span>
             <input
               className="field-inline min-w-40 flex-1"

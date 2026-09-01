@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { makeEmployee, makeRequest, testSettings } from '../domain/fixtures'
 import type { Database } from '../domain/types'
-import { removeRequestDay, resolveAllPending, resolveRequestDay } from './actions'
+import {
+  removeRequestDay,
+  resolveAllPending,
+  resolveRequestDay,
+  terminateEmployee,
+} from './actions'
 
 const employee = makeEmployee()
 
@@ -165,5 +170,27 @@ describe('resolveAllPending', () => {
 
     const outcome = resolveAllPending(database, employee.id, 2026, 'aprobada', 'admin-1')
     expect(outcome.ok).toBe(false)
+  })
+})
+
+describe('terminateEmployee', () => {
+  it('marca la fecha de baja indicada', () => {
+    const database = makeDatabase()
+    const updated = terminateEmployee(database, employee.id, '2026-03-15')
+    expect(updated.employees[0].terminationDate).toBe('2026-03-15')
+  })
+
+  it('usa hoy si no se indica fecha', () => {
+    const database = makeDatabase()
+    const updated = terminateEmployee(database, employee.id)
+    expect(updated.employees[0].terminationDate).not.toBeNull()
+  })
+
+  it('no pisa una baja ya registrada', () => {
+    const database = makeDatabase({
+      employees: [{ ...employee, terminationDate: '2026-01-10' }],
+    })
+    const updated = terminateEmployee(database, employee.id, '2026-03-15')
+    expect(updated.employees[0].terminationDate).toBe('2026-01-10')
   })
 })
