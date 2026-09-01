@@ -3,6 +3,7 @@ import {
   ACCRUAL_PER_WORKED_DAY,
   effectiveAnnualDays,
   estimateAnnualDays,
+  hasOverlap,
   workedDaysInYear,
 } from './accrual'
 import { makeEmployee, testSettings } from './fixtures'
@@ -15,6 +16,40 @@ const worked = (employee: ReturnType<typeof makeEmployee>, year = 2026) =>
   workedDaysInYear(employee, year, WORKWEEK, TODAY)
 const estimate = (employee: ReturnType<typeof makeEmployee>, year = 2026) =>
   estimateAnnualDays(employee, year, testSettings, TODAY)
+
+describe('hasOverlap', () => {
+  it('no detecta solape entre periodos separados', () => {
+    expect(
+      hasOverlap([
+        { start: '2026-01-05', end: '2026-01-31' },
+        { start: '2026-02-01', end: '2026-02-28' },
+      ]),
+    ).toBe(false)
+  })
+
+  it('detecta el solape aunque sea de un solo día', () => {
+    expect(
+      hasOverlap([
+        { start: '2026-01-05', end: '2026-01-20' },
+        { start: '2026-01-20', end: '2026-02-28' },
+      ]),
+    ).toBe(true)
+  })
+
+  it('detecta un periodo contenido dentro de otro', () => {
+    expect(
+      hasOverlap([
+        { start: '2026-01-01', end: '2026-12-31' },
+        { start: '2026-06-01', end: '2026-06-30' },
+      ]),
+    ).toBe(true)
+  })
+
+  it('no falla con un único periodo o ninguno', () => {
+    expect(hasOverlap([])).toBe(false)
+    expect(hasOverlap([{ start: '2026-01-01', end: '2026-01-31' }])).toBe(false)
+  })
+})
 
 describe('días trabajados', () => {
   it('cuenta los días de la jornada semanal, sin domingos', () => {

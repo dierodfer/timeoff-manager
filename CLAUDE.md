@@ -57,6 +57,18 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   sus periodos de llamamiento, que se fusionan antes de sumar para no contar dos veces los
   solapados. **El periodo en curso se proyecta hasta el 31 de diciembre**, asumiendo que seguirá
   llamado, así que su estimación no baja según se acerca la fecha de fin.
+- **El formulario de empleado solo admite periodos de llamamiento ya transcurridos.** Ni la fecha de
+  inicio ni la de fin pueden ser posteriores a hoy, y dos periodos del mismo empleado no pueden
+  solaparse. El periodo en curso se representa con la fecha de fin en el día de hoy: la proyección a
+  31 de diciembre la calcula `activeIntervalsInYear()`, no hace falta anticiparla a mano.
+- **La fecha futura se bloquea con `max` en el propio datepicker, no con un error tras enviar.** Los
+  campos `Desde`/`Hasta` de un periodo llevan `max={today}`: el selector nativo ya no deja elegir un
+  día futuro, así que ese caso no necesita comprobación en `submit()`. El solape entre periodos sí la
+  necesita, porque no hay forma de expresarlo con atributos HTML.
+- **Los campos obligatorios de un formulario llevan `required`**, para que el navegador bloquee el
+  envío antes de que se ejecute el `onSubmit`: nombre y fecha de alta del empleado, fechas de un
+  periodo de llamamiento, y fecha y nombre de un festivo nuevo. Un campo con validación cruzada
+  (rango de fechas, solapes, saldo) no tiene equivalente nativo y sigue comprobándose en JavaScript.
 - **Los días de vacaciones son decimales.** `formatDays()` (`domain/format.ts`) es lo único que los
   pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado.
 - **Días efectivos:** si existe un registro en `allowances` para ese empleado y año, manda ese
@@ -127,6 +139,13 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
 Evita cambiar de perfil por descuido, nada más. Los datos están en el IndexedDB del navegador y
 cualquiera con acceso al dispositivo puede leerlos. Se guarda el hash y no el número para no
 dejarlo a la vista en las copias de seguridad. No presentarlo como control de acceso.
+
+**El PIN es opcional.** `isValidPin()` acepta la cadena vacía además de 4-8 dígitos, así que un
+empleado sin PIN entra en Acceso dejando el campo en blanco. Ojo al editar: el campo de PIN en
+blanco del formulario de edición ya significaba «no cambiar el PIN actual», así que para quitarle
+el PIN a un empleado que ya tiene uno hay que teclear un PIN válido y luego, en otra edición,
+volver a dejarlo en blanco no sirve — hace falta pasar por la baja y un alta nueva, o editar el JSON
+exportado a mano.
 
 ## Los datos no se sincronizan
 

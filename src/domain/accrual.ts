@@ -1,4 +1,12 @@
-import { compareIso, expandRange, todayIso, weekday, yearEnd, yearStart } from './dates'
+import {
+  compareIso,
+  expandRange,
+  overlapDays,
+  todayIso,
+  weekday,
+  yearEnd,
+  yearStart,
+} from './dates'
 import type { Allowance, Employee, IsoDate, Settings } from './types'
 
 export const ACCRUAL_PER_WORKED_DAY = 0.0737
@@ -23,6 +31,14 @@ function mergeIntervals(intervals: Interval[]): Interval[] {
     }
   }
   return merged
+}
+
+export function hasOverlap(intervals: Interval[]): boolean {
+  return intervals.some((interval, index) =>
+    intervals
+      .slice(index + 1)
+      .some((other) => overlapDays(interval.start, interval.end, other.start, other.end) > 0),
+  )
 }
 
 export function employmentSpanInYear(employee: Employee, year: number): Interval | null {

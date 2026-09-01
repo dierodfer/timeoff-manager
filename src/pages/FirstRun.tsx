@@ -91,7 +91,6 @@ export function FirstRun() {
               type="password"
               inputMode="numeric"
               autoComplete="new-password"
-              required
               value={pin}
               onChange={(event) => setPin(event.target.value)}
             />
@@ -106,7 +105,6 @@ export function FirstRun() {
               type="password"
               inputMode="numeric"
               autoComplete="new-password"
-              required
               value={confirmation}
               onChange={(event) => setConfirmation(event.target.value)}
             />

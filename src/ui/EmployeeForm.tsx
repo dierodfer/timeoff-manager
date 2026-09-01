@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { newId } from '../data/ids'
 import { isValidPin, PIN_RULE } from '../data/pin'
+import { hasOverlap } from '../domain/accrual'
+import { todayIso, yearEnd, yearStart } from '../domain/dates'
 import type { ActivityPeriod, Employee, Role } from '../domain/types'
 
 export interface EmployeeFormValues {
@@ -38,17 +40,18 @@ interface EmployeeFormProps {
 export function EmployeeForm({ employee, year, onSubmit, formId, onError }: EmployeeFormProps) {
   const [values, setValues] = useState(() => initialValues(employee, year))
   const isNew = employee === null
+  const today = todayIso()
 
   const patch = (changes: Partial<EmployeeFormValues>) =>
     setValues((current) => ({ ...current, ...changes }))
 
-  const addPeriod = () =>
+  const addPeriod = () => {
+    const start = yearStart(year) > today ? today : yearStart(year)
+    const end = yearEnd(year) > today ? today : yearEnd(year)
     patch({
-      activityPeriods: [
-        ...values.activityPeriods,
-        { id: newId('per'), start: `${year}-01-01`, end: `${year}-12-31` },
-      ],
+      activityPeriods: [...values.activityPeriods, { id: newId('per'), start, end }],
     })
+  }
 
   const updatePeriod = (id: string, changes: Partial<ActivityPeriod>) =>
     patch({
@@ -72,6 +75,9 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
     if (values.activityPeriods.some((period) => period.end < period.start)) {
       return onError('Hay un periodo de actividad con la fecha final anterior a la inicial.')
     }
+    if (hasOverlap(values.activityPeriods)) {
+      return onError('Hay dos periodos de llamamiento que se solapan entre sí.')
+    }
 
     onSubmit(values)
   }
@@ -86,6 +92,7 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
           <input
             id="first-name"
             className="field"
+            required
             value={values.firstName}
             onChange={(event) => patch({ firstName: event.target.value })}
             autoFocus
@@ -133,6 +140,7 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
             id="hire-date"
             type="date"
             className="field"
+            required
             value={values.hireDate}
             onChange={(event) => patch({ hireDate: event.target.value })}
           />
@@ -170,6 +178,11 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
 
         {values.isSeasonal && (
           <div className="mt-4 space-y-3">
+            <p className="text-xs text-[var(--color-ink-muted)]">
+              Añade aquí los periodos de llamamiento ya transcurridos este año. No se admiten fechas
+              futuras ni periodos que se solapen entre sí; el periodo en curso se detecta solo y su
+              estimación se proyecta hasta el 31 de diciembre.
+            </p>
             {values.activityPeriods.map((period) => (
               <div key={period.id} className="flex flex-wrap items-end gap-2">
                 <div className="min-w-32 flex-1">
@@ -180,6 +193,8 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
                     id={`start-${period.id}`}
                     type="date"
                     className="field"
+                    required
+                    max={today}
                     value={period.start}
                     onChange={(event) => updatePeriod(period.id, { start: event.target.value })}
                   />
@@ -192,6 +207,8 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
                     id={`end-${period.id}`}
                     type="date"
                     className="field"
+                    required
+                    max={today}
                     value={period.end}
                     onChange={(event) => updatePeriod(period.id, { end: event.target.value })}
                   />
@@ -215,7 +232,7 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
 
       <div>
         <label className="label" htmlFor="employee-pin">
-          {isNew ? 'PIN de acceso' : 'Nuevo PIN (dejar vacío para no cambiarlo)'}
+          {isNew ? 'PIN de acceso (opcional)' : 'Nuevo PIN (dejar vacío para no cambiarlo)'}
         </label>
         <input
           id="employee-pin"
