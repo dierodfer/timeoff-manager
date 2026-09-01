@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeEmployee, makeRequest, testSettings } from '../domain/fixtures'
 import type { Database } from '../domain/types'
-import { resolveAllPending, resolveRequestDay } from './actions'
+import { removeRequestDay, resolveAllPending, resolveRequestDay } from './actions'
 
 const employee = makeEmployee()
 
@@ -65,6 +65,60 @@ describe('resolveRequestDay', () => {
     const database = makeDatabase({ requests: [request] })
 
     const outcome = resolveRequestDay(database, request.id, '2026-05-04', 'rechazada', 'admin-1')
+    expect(outcome.ok).toBe(false)
+  })
+})
+
+describe('removeRequestDay', () => {
+  it('quita solo el día indicado y deja el resto de la solicitud intacto', () => {
+    const request = makeRequest({
+      status: 'aprobada',
+      days: ['2026-01-12', '2026-01-13', '2026-01-14'],
+    })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = removeRequestDay(database, request.id, '2026-01-13', {
+      ...employee,
+      role: 'admin',
+    })
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    expect(outcome.database.requests).toHaveLength(1)
+    expect(outcome.database.requests[0].id).toBe(request.id)
+    expect(outcome.database.requests[0].days).toEqual(['2026-01-12', '2026-01-14'])
+  })
+
+  it('elimina la solicitud entera cuando es su único día', () => {
+    const request = makeRequest({ status: 'aprobada', days: ['2026-01-12'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = removeRequestDay(database, request.id, '2026-01-12', {
+      ...employee,
+      role: 'admin',
+    })
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    expect(outcome.database.requests).toHaveLength(0)
+  })
+
+  it('rechaza un día que no pertenece a la solicitud', () => {
+    const request = makeRequest({ status: 'aprobada', days: ['2026-01-12'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = removeRequestDay(database, request.id, '2026-06-01', {
+      ...employee,
+      role: 'admin',
+    })
+    expect(outcome.ok).toBe(false)
+  })
+
+  it('un empleado no admin solo puede quitar días de sus solicitudes pendientes', () => {
+    const request = makeRequest({ status: 'aprobada', days: ['2026-01-12', '2026-01-13'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = removeRequestDay(database, request.id, '2026-01-12', employee)
     expect(outcome.ok).toBe(false)
   })
 })

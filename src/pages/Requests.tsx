@@ -3,7 +3,7 @@ import type { Employee, IsoDate, RequestComment, RequestStatus } from '../domain
 import {
   addRequestComment,
   displayName,
-  removeRequest,
+  removeRequestDay,
   resolveAllPending,
   resolveRequestDay,
   sortByName,
@@ -87,8 +87,8 @@ export function Requests() {
     }
   }
 
-  const removeDay = (requestId: string) => {
-    if (apply((db) => removeRequest(db, requestId, currentUser))) {
+  const removeDay = (requestId: string, day: IsoDate) => {
+    if (apply((db) => removeRequestDay(db, requestId, day, currentUser))) {
       notify('Día eliminado.')
     }
   }
@@ -242,7 +242,7 @@ export function Requests() {
                         <button
                           type="button"
                           className="btn btn-danger btn-sm"
-                          onClick={() => removeDay(row.requestId)}
+                          onClick={() => removeDay(row.requestId, row.day)}
                         >
                           Eliminar
                         </button>

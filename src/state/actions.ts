@@ -258,6 +258,50 @@ export function resolveAllPending(
   return { ok: true, database: draft }
 }
 
+export function removeRequestDay(
+  database: Database,
+  requestId: string,
+  day: IsoDate,
+  actor: Employee,
+): Outcome {
+  const request = database.requests.find((item) => item.id === requestId)
+  if (!request) return { ok: false, reason: 'La solicitud no existe.' }
+  if (!request.days.includes(day)) {
+    return { ok: false, reason: 'Ese día no pertenece a la solicitud.' }
+  }
+
+  const isAdmin = actor.role === 'admin'
+  if (!isAdmin) {
+    if (request.employeeId !== actor.id) {
+      return { ok: false, reason: 'Solo puedes cancelar tus propias solicitudes.' }
+    }
+    if (request.status !== 'pendiente') {
+      return { ok: false, reason: 'Solo se pueden cancelar las solicitudes pendientes.' }
+    }
+  }
+
+  const remainingDays = request.days.filter((item) => item !== day)
+  if (remainingDays.length === 0) {
+    return {
+      ok: true,
+      database: {
+        ...database,
+        requests: database.requests.filter((item) => item.id !== requestId),
+      },
+    }
+  }
+
+  return {
+    ok: true,
+    database: {
+      ...database,
+      requests: database.requests.map((item) =>
+        item.id === requestId ? { ...item, days: remainingDays } : item,
+      ),
+    },
+  }
+}
+
 export function removeRequest(database: Database, requestId: string, actor: Employee): Outcome {
   const request = database.requests.find((item) => item.id === requestId)
   if (!request) return { ok: false, reason: 'La solicitud no existe.' }
