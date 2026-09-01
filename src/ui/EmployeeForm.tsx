@@ -10,7 +10,6 @@ export interface EmployeeFormValues {
   lastName: string
   role: Role
   hireDate: string
-  terminationDate: string
   isSeasonal: boolean
   activityPeriods: ActivityPeriod[]
   pin: string
@@ -22,7 +21,6 @@ function initialValues(employee: Employee | null, year: number): EmployeeFormVal
     lastName: employee?.lastName ?? '',
     role: employee?.role ?? 'employee',
     hireDate: employee?.hireDate ?? `${year}-01-01`,
-    terminationDate: employee?.terminationDate ?? '',
     isSeasonal: employee?.isSeasonal ?? false,
     activityPeriods: employee?.activityPeriods ?? [],
     pin: '',
@@ -69,9 +67,6 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
     if (!values.firstName.trim()) return onError('El nombre es obligatorio.')
     if (isNew && !isValidPin(values.pin)) return onError(PIN_RULE)
     if (values.pin && !isValidPin(values.pin)) return onError(PIN_RULE)
-    if (values.terminationDate && values.terminationDate < values.hireDate) {
-      return onError('La fecha de baja no puede ser anterior a la de alta.')
-    }
     if (values.activityPeriods.some((period) => period.end < period.start)) {
       return onError('Hay un periodo de actividad con la fecha final anterior a la inicial.')
     }
@@ -131,32 +126,18 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="label" htmlFor="hire-date">
-            Fecha de alta
-          </label>
-          <input
-            id="hire-date"
-            type="date"
-            className="field"
-            required
-            value={values.hireDate}
-            onChange={(event) => patch({ hireDate: event.target.value })}
-          />
-        </div>
-        <div>
-          <label className="label" htmlFor="termination-date">
-            Fecha de baja (opcional)
-          </label>
-          <input
-            id="termination-date"
-            type="date"
-            className="field"
-            value={values.terminationDate}
-            onChange={(event) => patch({ terminationDate: event.target.value })}
-          />
-        </div>
+      <div>
+        <label className="label" htmlFor="hire-date">
+          Fecha de alta
+        </label>
+        <input
+          id="hire-date"
+          type="date"
+          className="field"
+          required
+          value={values.hireDate}
+          onChange={(event) => patch({ hireDate: event.target.value })}
+        />
       </div>
 
       <div className="hairline rounded-[var(--radius-control)] border p-4">
