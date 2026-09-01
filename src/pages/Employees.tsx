@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { hashPin, randomSalt } from '../data/pin'
 import { createEmployee } from '../data/seed'
 import { employmentSpanInYear, workedDaysInYear } from '../domain/accrual'
-import { withBalances } from '../domain/balance'
-import { formatDays } from '../domain/format'
+import { terminationSettlement, withBalances } from '../domain/balance'
+import { formatDate, formatDays, pluralDays } from '../domain/format'
 import { todayIso } from '../domain/dates'
 import type { Employee } from '../domain/types'
 import {
@@ -19,7 +19,10 @@ import { Modal } from '../ui/Modal'
 import { Stepper } from '../ui/Stepper'
 
 type Dialog =
-  { kind: 'form'; employee: Employee | null } | { kind: 'delete'; employee: Employee } | null
+  | { kind: 'form'; employee: Employee | null }
+  | { kind: 'baja'; employee: Employee }
+  | { kind: 'delete'; employee: Employee }
+  | null
 
 function seasonalSummary(employee: Employee): string {
   if (!employee.isSeasonal) return ''
@@ -33,6 +36,7 @@ export function Employees() {
   const [showInactive, setShowInactive] = useState(false)
 
   const today = todayIso()
+  const [bajaDate, setBajaDate] = useState(today)
 
   const employees = useMemo(() => {
     const isInactive = (employee: Employee) =>
@@ -86,6 +90,25 @@ export function Employees() {
       notify('Cambios guardados.')
     }
 
+    setDialog(null)
+  }
+
+  const bajaSettlement = useMemo(() => {
+    if (dialog?.kind !== 'baja') return null
+    return terminationSettlement(
+      dialog.employee,
+      year,
+      database.settings,
+      database.requests,
+      bajaDate,
+      today,
+    )
+  }, [dialog, bajaDate, year, database.settings, database.requests, today])
+
+  const confirmBaja = (event: FormEvent, employee: Employee) => {
+    event.preventDefault()
+    commit(terminateEmployee(database, employee.id, bajaDate))
+    notify(`${displayName(employee)} dado de baja el ${formatDate(bajaDate)}.`)
     setDialog(null)
   }
 
@@ -148,8 +171,10 @@ export function Employees() {
                 </p>
                 <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
                   {employee.role === 'admin' ? 'Administrador' : 'Empleado'} · alta{' '}
-                  {employee.hireDate}
-                  {employee.terminationDate ? ` · baja ${employee.terminationDate}` : ''}
+                  {formatDate(employee.hireDate)}
+                  {employee.terminationDate
+                    ? ` · baja ${formatDate(employee.terminationDate)}`
+                    : ''}
                   {seasonalSummary(employee)}
                 </p>
                 {inYear && (
@@ -200,8 +225,8 @@ export function Employees() {
                     type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={() => {
-                      commit(terminateEmployee(database, employee.id))
-                      notify(`${displayName(employee)} dado de baja con fecha de hoy.`)
+                      setBajaDate(today)
+                      setDialog({ kind: 'baja', employee })
                     }}
                   >
                     Dar de baja
@@ -255,6 +280,65 @@ export function Employees() {
             onSubmit={(values) => void saveEmployee(values)}
             onError={(message) => notify(message, 'error')}
           />
+        </Modal>
+      )}
+
+      {dialog?.kind === 'baja' && bajaSettlement && (
+        <Modal
+          title={`Dar de baja a ${displayName(dialog.employee)}`}
+          onClose={() => setDialog(null)}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setDialog(null)}>
+                Cancelar
+              </button>
+              <button type="submit" form="baja-form" className="btn btn-primary">
+                Confirmar baja
+              </button>
+            </>
+          }
+        >
+          <form
+            id="baja-form"
+            onSubmit={(event) => confirmBaja(event, dialog.employee)}
+            className="space-y-4"
+          >
+            <div>
+              <label className="label" htmlFor="baja-date">
+                Fecha de baja
+              </label>
+              <input
+                id="baja-date"
+                type="date"
+                className="field"
+                required
+                min={dialog.employee.hireDate}
+                max={today}
+                value={bajaDate}
+                onChange={(event) => setBajaDate(event.target.value)}
+              />
+            </div>
+
+            <div className="hairline space-y-1 rounded-[var(--radius-control)] border p-3 text-sm">
+              <p>{pluralDays(bajaSettlement.taken)} disfrutados hasta hoy.</p>
+              <p>
+                Le corresponden {pluralDays(bajaSettlement.entitlement)} con esta fecha de baja.
+              </p>
+              {bajaSettlement.difference > 1e-9 ? (
+                <p className="font-medium text-[var(--color-approved)]">
+                  Se le deben {pluralDays(bajaSettlement.difference)}.
+                </p>
+              ) : bajaSettlement.difference < -1e-9 ? (
+                <p className="font-medium text-[var(--color-rejected)]">
+                  El empleado debe {pluralDays(Math.abs(bajaSettlement.difference))}.
+                </p>
+              ) : (
+                <p className="text-[var(--color-ink-muted)]">
+                  Está en paz: ha disfrutado justo lo que le correspondía.
+                </p>
+              )}
+            </div>
+          </form>
         </Modal>
       )}
 

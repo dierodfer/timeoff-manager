@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { formatDate } from '../domain/format'
 import type { VacationRequest } from '../domain/types'
 import { STATUS_LABEL, summarizeDays } from './calendarGrid'
 
@@ -17,7 +18,7 @@ export function RequestCard({ request, employeeName, actions }: RequestCardProps
           <p className="text-sm text-[var(--color-ink-soft)]">{summarizeDays(request.days)}</p>
           <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
             {request.days.length} {request.days.length === 1 ? 'día' : 'días'} · {request.year} ·
-            solicitada el {new Date(request.createdAt).toLocaleDateString('es-ES')}
+            solicitada el {formatDate(request.createdAt)}
             {request.batchId ? ' · asignación masiva' : ''}
           </p>
         </div>
@@ -31,7 +32,7 @@ export function RequestCard({ request, employeeName, actions }: RequestCardProps
             <li key={comment.id} className="text-sm">
               <span className="font-medium">{comment.authorName}</span>{' '}
               <span className="text-[var(--color-ink-muted)]">
-                · {new Date(comment.createdAt).toLocaleDateString('es-ES')}
+                · {formatDate(comment.createdAt)}
               </span>
               <p className="text-[var(--color-ink-soft)]">{comment.text}</p>
             </li>

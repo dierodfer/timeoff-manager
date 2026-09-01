@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { checkSelection, committedDays, computeBalance, groupByYear } from './balance'
+import {
+  checkSelection,
+  committedDays,
+  computeBalance,
+  groupByYear,
+  terminationSettlement,
+} from './balance'
 import { makeEmployee, makeRequest, testSettings } from './fixtures'
 
 const employee = makeEmployee()
@@ -70,6 +76,89 @@ describe('validación de una selección', () => {
   it('rechaza una selección vacía', () => {
     const check = checkSelection(employee, [], 2026, testSettings, [], [])
     expect(check.ok).toBe(false)
+  })
+})
+
+describe('liquidación al dar de baja', () => {
+  it('sin días disfrutados, se le deben los acumulados hasta la fecha de baja', () => {
+    const settlement = terminationSettlement(
+      employee,
+      2026,
+      testSettings,
+      [],
+      '2026-06-30',
+      '2026-06-30',
+    )
+    expect(settlement.taken).toBe(0)
+    expect(settlement.entitlement).toBeCloseTo(11.42, 1)
+    expect(settlement.difference).toBeCloseTo(11.42, 1)
+  })
+
+  it('detecta cuando el empleado ha disfrutado más de lo que le correspondía', () => {
+    const requests = [
+      makeRequest({
+        status: 'aprobada',
+        days: [
+          '2026-01-05',
+          '2026-01-06',
+          '2026-01-07',
+          '2026-01-08',
+          '2026-01-09',
+          '2026-01-10',
+          '2026-01-12',
+          '2026-01-13',
+          '2026-01-14',
+          '2026-01-15',
+          '2026-01-16',
+          '2026-01-17',
+          '2026-01-19',
+          '2026-01-20',
+          '2026-01-21',
+        ],
+      }),
+    ]
+    const settlement = terminationSettlement(
+      employee,
+      2026,
+      testSettings,
+      requests,
+      '2026-06-30',
+      '2026-06-30',
+    )
+    expect(settlement.taken).toBe(15)
+    expect(settlement.difference).toBeLessThan(0)
+  })
+
+  it('no cuenta los días aprobados que todavía no han llegado', () => {
+    const requests = [
+      makeRequest({ id: 'req-pasado', status: 'aprobada', days: ['2026-01-05'] }),
+      makeRequest({ id: 'req-futuro', status: 'aprobada', days: ['2026-12-20'] }),
+    ]
+    const settlement = terminationSettlement(
+      employee,
+      2026,
+      testSettings,
+      requests,
+      '2026-06-30',
+      '2026-06-15',
+    )
+    expect(settlement.taken).toBe(1)
+  })
+
+  it('ignora las solicitudes pendientes o rechazadas', () => {
+    const requests = [
+      makeRequest({ id: 'req-pendiente', status: 'pendiente', days: ['2026-01-05'] }),
+      makeRequest({ id: 'req-rechazada', status: 'rechazada', days: ['2026-01-06'] }),
+    ]
+    const settlement = terminationSettlement(
+      employee,
+      2026,
+      testSettings,
+      requests,
+      '2026-06-30',
+      '2026-06-15',
+    )
+    expect(settlement.taken).toBe(0)
   })
 })
 

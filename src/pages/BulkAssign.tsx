@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
 import { employmentSpanInYear } from '../domain/accrual'
 import { withBalances } from '../domain/balance'
-import { formatDays } from '../domain/format'
-import { formatLongDate } from '../ui/calendarGrid'
+import { formatDate, formatDays } from '../domain/format'
 import { workingDaysInRange } from '../domain/workdays'
 import { bulkAssign, displayName, sortByName, type BulkAssignResult } from '../state/actions'
 import { useSession } from '../state/appContext'
@@ -90,7 +89,7 @@ export function BulkAssign() {
                   {days.length} {days.length === 1 ? 'día laborable' : 'días laborables'}
                 </p>
                 <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-                  {formatLongDate(range.start)} – {formatLongDate(range.end)}
+                  {formatDate(range.start)} – {formatDate(range.end)}
                 </p>
               </>
             ) : (

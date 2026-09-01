@@ -1,4 +1,5 @@
 import { compareIso, daysInMonth, isoOf, weekday } from '../domain/dates'
+import { formatDate } from '../domain/format'
 import type { Holiday, IsoDate, RequestStatus } from '../domain/types'
 import type { DayMark } from './MonthCalendar'
 
@@ -66,7 +67,7 @@ export function summarizeDays(days: IsoDate[]): string {
 
   return ranges
     .map(([start, end]) =>
-      start === end ? formatShort(start) : `${formatShort(start)} – ${formatShort(end)}`,
+      start === end ? formatDate(start) : `${formatDate(start)} – ${formatDate(end)}`,
     )
     .join(', ')
 }
@@ -74,11 +75,6 @@ export function summarizeDays(days: IsoDate[]): string {
 function isNextCalendarDay(previous: IsoDate, next: IsoDate): boolean {
   const gap = (Date.parse(`${next}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`)) / 86_400_000
   return gap === 1
-}
-
-function formatShort(date: IsoDate): string {
-  const [, month, day] = date.split('-').map(Number)
-  return `${day} ${MONTH_NAMES[month - 1].slice(0, 3).toLowerCase()}`
 }
 
 export type DayState = 'selected' | 'aprobada' | 'pendiente' | 'festivo' | 'no-laborable' | 'libre'

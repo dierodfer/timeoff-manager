@@ -83,6 +83,29 @@ export function withBalances(
   }))
 }
 
+export interface TerminationSettlement {
+  taken: number
+  entitlement: number
+  difference: number
+}
+
+export function terminationSettlement(
+  employee: Employee,
+  year: number,
+  settings: Settings,
+  requests: VacationRequest[],
+  terminationDate: IsoDate,
+  today: IsoDate = todayIso(),
+): TerminationSettlement {
+  const taken = requestsOf(requests, employee.id, year)
+    .filter((request) => request.status === 'aprobada')
+    .reduce((total, request) => total + request.days.filter((day) => day <= today).length, 0)
+
+  const entitlement = estimateAnnualDays({ ...employee, terminationDate }, year, settings, today)
+
+  return { taken, entitlement, difference: entitlement - taken }
+}
+
 export type SelectionCheck =
   { ok: true; days: IsoDate[] } | { ok: false; reason: string; days: IsoDate[] }
 
