@@ -40,12 +40,12 @@ interface EmployeeFormProps {
 export function EmployeeForm({ employee, year, onSubmit, formId, onError }: EmployeeFormProps) {
   const [values, setValues] = useState(() => initialValues(employee, year))
   const isNew = employee === null
+  const today = todayIso()
 
   const patch = (changes: Partial<EmployeeFormValues>) =>
     setValues((current) => ({ ...current, ...changes }))
 
   const addPeriod = () => {
-    const today = todayIso()
     const start = yearStart(year) > today ? today : yearStart(year)
     const end = yearEnd(year) > today ? today : yearEnd(year)
     patch({
@@ -75,12 +75,6 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
     if (values.activityPeriods.some((period) => period.end < period.start)) {
       return onError('Hay un periodo de actividad con la fecha final anterior a la inicial.')
     }
-    const today = todayIso()
-    if (values.activityPeriods.some((period) => period.start > today || period.end > today)) {
-      return onError(
-        'Los periodos de llamamiento no admiten fechas futuras: solo los ya transcurridos.',
-      )
-    }
     if (hasOverlap(values.activityPeriods)) {
       return onError('Hay dos periodos de llamamiento que se solapan entre sí.')
     }
@@ -98,6 +92,7 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
           <input
             id="first-name"
             className="field"
+            required
             value={values.firstName}
             onChange={(event) => patch({ firstName: event.target.value })}
             autoFocus
@@ -145,6 +140,7 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
             id="hire-date"
             type="date"
             className="field"
+            required
             value={values.hireDate}
             onChange={(event) => patch({ hireDate: event.target.value })}
           />
@@ -197,6 +193,8 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
                     id={`start-${period.id}`}
                     type="date"
                     className="field"
+                    required
+                    max={today}
                     value={period.start}
                     onChange={(event) => updatePeriod(period.id, { start: event.target.value })}
                   />
@@ -209,6 +207,8 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
                     id={`end-${period.id}`}
                     type="date"
                     className="field"
+                    required
+                    max={today}
                     value={period.end}
                     onChange={(event) => updatePeriod(period.id, { end: event.target.value })}
                   />

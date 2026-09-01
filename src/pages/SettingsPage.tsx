@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { BackupFormatError, downloadBackup, parseBackup } from '../data/backup'
 import { newId } from '../data/ids'
 import { yearOf, yearStart } from '../domain/dates'
@@ -75,8 +75,17 @@ function AddHolidayForm({
   const [date, setDate] = useState(() => yearStart(year))
   const [name, setName] = useState('')
 
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    onAdd({ id: newId('hol'), date, name: name.trim(), scope: 'algarrobo' })
+    setName('')
+  }
+
   return (
-    <div className="flex flex-wrap items-end gap-3 bg-[var(--color-surface-sunken)] px-5 py-4">
+    <form
+      onSubmit={submit}
+      className="flex flex-wrap items-end gap-3 bg-[var(--color-surface-sunken)] px-5 py-4"
+    >
       <div>
         <label className="label" htmlFor="holiday-date">
           Fecha
@@ -85,6 +94,7 @@ function AddHolidayForm({
           id="holiday-date"
           type="date"
           className="field"
+          required
           value={date}
           onChange={(event) => setDate(event.target.value)}
         />
@@ -96,22 +106,16 @@ function AddHolidayForm({
         <input
           id="holiday-name"
           className="field"
+          required
           value={name}
           placeholder="Fiesta local"
           onChange={(event) => setName(event.target.value)}
         />
       </div>
-      <button
-        type="button"
-        className="btn btn-primary"
-        onClick={() => {
-          onAdd({ id: newId('hol'), date, name: name.trim(), scope: 'algarrobo' })
-          setName('')
-        }}
-      >
+      <button type="submit" className="btn btn-primary">
         Añadir festivo
       </button>
-    </div>
+    </form>
   )
 }
 
