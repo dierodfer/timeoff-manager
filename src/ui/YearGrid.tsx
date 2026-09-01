@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { dayOf, daysInMonth, monthOf, weekday } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import { holidayOn, isWorkingDay, WEEKDAY_LABELS, type WorkCalendar } from '../domain/workdays'
@@ -34,6 +34,13 @@ export function YearGrid({
     if (!target || !scroller.current) return
     scroller.current.scrollTo({ left: Math.max(0, target.offsetLeft - 200), behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    const target = scroller.current?.querySelector<HTMLElement>(`[data-date="${today}"]`)
+    if (!target || !scroller.current) return
+    const offset = target.offsetLeft - scroller.current.clientWidth / 2
+    scroller.current.scrollTo({ left: Math.max(0, offset) })
+  }, [year, today])
 
   return (
     <div className="card overflow-hidden">
@@ -71,15 +78,24 @@ export function YearGrid({
               <th className="sticky left-0 z-20 bg-[var(--color-surface)]" />
               {days.map((date) => {
                 const isSunday = weekday(date) === 0
+                const isToday = date === today
                 return (
                   <th
                     key={date}
+                    data-date={date}
                     data-month-start={dayOf(date) === 1 ? monthOf(date) : undefined}
-                    className={`w-[19px] min-w-[19px] pb-1 text-center text-[10px] font-normal ${
-                      dayOf(date) === 1 ? 'hairline border-l' : ''
+                    className={`w-[19px] min-w-[19px] py-1 text-center text-[10px] font-normal ${
+                      isToday
+                        ? 'border-x border-[var(--color-accent)]/60'
+                        : dayOf(date) === 1
+                          ? 'hairline border-l'
+                          : ''
                     } ${isSunday ? 'text-[var(--color-ink-muted)]/50' : 'text-[var(--color-ink-muted)]'}`}
                   >
-                    {WEEKDAY_LABELS[weekday(date)]}
+                    <span className="block leading-tight">{dayOf(date)}</span>
+                    <span className="block leading-tight text-[9px] opacity-70">
+                      {WEEKDAY_LABELS[weekday(date)]}
+                    </span>
                   </th>
                 )
               })}
@@ -107,6 +123,7 @@ export function YearGrid({
                     const workable = isWorkingDay(calendar, date)
                     const mark = markOf(employee.id, date)
                     const isSelected = isActiveRow && selected.has(date)
+                    const isToday = date === today
 
                     const state = dayState({
                       isSelected,
@@ -119,9 +136,11 @@ export function YearGrid({
                       <td
                         key={date}
                         className={`hairline border-t p-0 ${
-                          dayOf(date) === 1
-                            ? 'border-l border-l-[var(--color-hairline-strong)]'
-                            : ''
+                          isToday
+                            ? 'border-x border-[var(--color-accent)]/60'
+                            : dayOf(date) === 1
+                              ? 'border-l border-l-[var(--color-hairline-strong)]'
+                              : ''
                         }`}
                       >
                         <button
@@ -132,7 +151,7 @@ export function YearGrid({
                           aria-label={`${employee.firstName} ${employee.lastName}, ${date}`}
                           className={`grid-day ${GRID_DAY_CLASS[state]} ${
                             workable ? 'cursor-pointer hover:brightness-90' : 'cursor-default'
-                          } ${date === today ? 'ring-1 ring-inset ring-[var(--color-accent)]' : ''}`}
+                          }`}
                         />
                       </td>
                     )

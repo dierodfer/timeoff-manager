@@ -1,5 +1,5 @@
 import type { Balance } from '../domain/balance'
-import { formatDays } from '../domain/format'
+import { formatDays, truncateDays } from '../domain/format'
 
 function Metric({
   label,
@@ -27,19 +27,23 @@ export function BalanceCard({ balance }: { readonly balance: Balance }) {
   return (
     <div className="card p-5">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold">Saldo {balance.year}</h2>
-        <span className="chip chip-neutral">
-          {balance.isOverridden
-            ? `Ajustado · estimación ${formatDays(balance.estimated)}`
-            : 'Estimación automática'}
-        </span>
+        <h2 className="text-sm font-semibold">Días de vacaciones {balance.year}</h2>
+        {balance.isOverridden && (
+          <span className="chip chip-neutral">
+            Ajustado · estimación {formatDays(balance.estimated)}
+          </span>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Metric label="Asignados" value={balance.assigned} />
+        <Metric label="Asignados" value={truncateDays(balance.assigned)} />
         <Metric label="Aprobados" value={balance.approved} tone="var(--color-approved)" />
         <Metric label="Pendientes" value={balance.pending} tone="var(--color-pending)" />
-        <Metric label="Disponibles" value={balance.available} tone="var(--color-accent)" />
+        <Metric
+          label="Disponibles"
+          value={truncateDays(balance.available)}
+          tone="var(--color-accent)"
+        />
       </div>
 
       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[var(--color-surface-sunken)]">

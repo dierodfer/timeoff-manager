@@ -74,11 +74,17 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   cubre el propio selector nativo (`<input type="date">`): su formato de fecha lo decide el
   navegador según el idioma configurado en el dispositivo, no la página.
 - **Los días de vacaciones son decimales.** `formatDays()` (`domain/format.ts`) es lo único que los
-  pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado.
+  pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado. La tarjeta de saldo
+  de Mi calendario trunca «Asignados» y «Disponibles» con `truncateDays()` en vez de mostrar los
+  decimales: solo cambia lo que se pinta, el saldo real sigue siendo decimal para las comprobaciones
+  de `checkSelection()` y `useDaySelection()`.
 - **Días efectivos:** si existe un registro en `allowances` para ese empleado y año, manda ese
   valor; si no, la estimación. Borrar el registro devuelve al empleado a la estimación.
 - **Saldo:** asignados − aprobados − pendientes. Las pendientes reservan saldo para que los mismos
   días no se comprometan dos veces.
+- **En Mi calendario no se puede marcar más días de los disponibles.** `useDaySelection()` rechaza
+  el clic (o el rango) que se pasaría del saldo y avisa con un error, en vez de dejar marcar de más
+  y fallar solo al enviar la solicitud.
 - **El límite se aplica también al administrador.** Para asignar más días hay que subir antes el
   contador del empleado. Tampoco se puede bajar el contador por debajo de lo ya comprometido.
 - **Cancelación:** el empleado solo retira solicitudes `pendiente`. El administrador puede eliminar
@@ -141,7 +147,8 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   la sal del PIN salen de `crypto.getRandomValues()`, que sí funciona por IP en la red local.
 - **`checkSelection()` compara el saldo con un margen de `1e-9`.** El saldo es decimal: sin ese
   margen, el ruido de coma flotante puede rechazar 13 días contra un saldo real de 13 pero
-  representado como 12,999999999.
+  representado como 12,999999999. `useDaySelection()` aplica el mismo margen al tope de días
+  seleccionables en Mi calendario, por la misma razón.
 
 ## El PIN no es seguridad
 
@@ -164,8 +171,7 @@ mover los datos. Tenerlo presente antes de prometer flujos multiusuario.
 
 ## Diseño
 
-Tokens en `src/index.css`: un `@theme` con la paleta clara y un bloque `:root[data-theme='dark']`
-que solo redefine valores, de modo que el modo oscuro no duplica reglas.
+Tokens en `src/index.css`: un único `@theme` con toda la paleta.
 
 **Solo hay tema claro.** No se sigue a `prefers-color-scheme` ni hay conmutador: `index.html`
 declara `color-scheme: light` y la paleta vive en un único `@theme`. Jerarquía por tipografía y espacio en vez de por bordes, radios generosos y un
@@ -180,7 +186,15 @@ relleno obligaría a inventarles una clave y a filtrarlos en cada `map`.
 **Qué color gana en una celda de calendario lo decide `dayState()` (`ui/calendarGrid.ts`)**, no cada
 componente. `MONTH_DAY_CLASS` y `GRID_DAY_CLASS` traducen ese estado a las clases del calendario
 mensual y de la rejilla anual, y la leyenda de Planificación usa las mismas clases para no
-desincronizarse.
+desincronizarse. **Festivo es rojo y pendiente es amarillo** (`--color-holiday`, `--color-pending`
+en `index.css`): son los únicos dos tokens de estado que no coinciden con su nombre de variable
+histórico, así que al tocar uno hay que tocar también su versión `-soft` y, si aplica, la de la
+rejilla anual (`--color-grid-holiday`).
+
+**La rejilla anual de Planificación centra la columna de hoy al montar.** `YearGrid` marca cada
+columna con `data-date` y usa ese atributo para calcular el scroll inicial y para dibujarle un
+borde sutil (cabecera y celdas); sin el atributo, el `useEffect` no encuentra la columna y no
+mueve el scroll.
 
 ## Comentarios
 
