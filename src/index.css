@@ -21,14 +21,14 @@
 
   --color-approved: #248a3d;
   --color-approved-soft: rgba(36, 138, 61, 0.12);
-  --color-pending: #b25000;
-  --color-pending-soft: rgba(178, 80, 0, 0.12);
+  --color-pending: #8a6d00;
+  --color-pending-soft: rgba(138, 109, 0, 0.14);
   --color-rejected: #b3261e;
   --color-rejected-soft: rgba(179, 38, 30, 0.1);
-  --color-holiday: #7c4dff;
-  --color-holiday-soft: rgba(124, 77, 255, 0.12);
+  --color-holiday: #b3261e;
+  --color-holiday-soft: rgba(179, 38, 30, 0.1);
   --color-grid-off: #e3e3e8;
-  --color-grid-holiday: #ddd0ff;
+  --color-grid-holiday: #f0d4d2;
 
   --radius-card: 18px;
   --radius-control: 12px;

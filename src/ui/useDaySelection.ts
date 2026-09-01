@@ -2,7 +2,12 @@ import { useCallback, useRef, useState } from 'react'
 import { expandRange } from '../domain/dates'
 import type { IsoDate } from '../domain/types'
 
-export function useDaySelection(canSelect: (date: IsoDate) => boolean) {
+export interface SelectionLimit {
+  max: number
+  onExceeded: () => void
+}
+
+export function useDaySelection(canSelect: (date: IsoDate) => boolean, limit?: SelectionLimit) {
   const [selected, setSelected] = useState<ReadonlySet<IsoDate>>(() => new Set())
   const anchor = useRef<IsoDate | null>(null)
 
@@ -15,23 +20,27 @@ export function useDaySelection(canSelect: (date: IsoDate) => boolean) {
       const from = anchor.current
       anchor.current = date
 
+      const additions =
+        extendRange && from
+          ? expandRange(from, date).filter((day) => canSelect(day) && !selected.has(day))
+          : selected.has(date)
+            ? []
+            : [date]
+
+      if (limit && selected.size + additions.length > limit.max + 1e-9) {
+        limit.onExceeded()
+        return
+      }
+
       setSelected((current) => {
+        if (extendRange && from) return new Set([...current, ...additions])
         const next = new Set(current)
-
-        if (extendRange && from) {
-          for (const day of expandRange(from, date)) {
-            if (canSelect(day)) next.add(day)
-          }
-        } else if (next.has(date)) {
-          next.delete(date)
-        } else {
-          next.add(date)
-        }
-
+        if (next.has(date)) next.delete(date)
+        else next.add(date)
         return next
       })
     },
-    [canSelect],
+    [canSelect, selected, limit],
   )
 
   const clear = useCallback(() => {

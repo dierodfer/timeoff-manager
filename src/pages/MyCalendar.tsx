@@ -12,7 +12,7 @@ import { Modal } from '../ui/Modal'
 import { RequestCard } from '../ui/RequestCard'
 import { summarizeDays } from '../ui/calendarGrid'
 import type { DayMark } from '../ui/MonthCalendar'
-import { useDaySelection } from '../ui/useDaySelection'
+import { useDaySelection, type SelectionLimit } from '../ui/useDaySelection'
 import { YearCalendar } from '../ui/YearCalendar'
 
 export function MyCalendar() {
@@ -29,22 +29,11 @@ export function MyCalendar() {
   const [asApproved, setAsApproved] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const canSelect = useCallback((date: IsoDate) => isWorkingDay(calendar, date), [calendar])
-  const { selected, toggle, clear } = useDaySelection(canSelect)
-
   // Derivado, no estado: sincronizarlo con un efecto provoca renders en cascada.
   const viewedEmployee: Employee =
     (isAdmin && viewableEmployees.find((employee) => employee.id === viewedEmployeeId)) ||
     currentUser
   const viewingSelf = viewedEmployee.id === currentUser.id
-
-  const switchTo = (employeeId: string) => {
-    setViewedEmployeeId(employeeId)
-    clear()
-    setDialogOpen(false)
-    setComment('')
-    setAsApproved(false)
-  }
 
   const requests = useMemo(
     () => requestsOf(database.requests, viewedEmployee.id, year),
@@ -71,6 +60,25 @@ export function MyCalendar() {
       ),
     [viewedEmployee, year, database],
   )
+
+  const canSelect = useCallback((date: IsoDate) => isWorkingDay(calendar, date), [calendar])
+  const selectionLimit: SelectionLimit = useMemo(
+    () => ({
+      max: balance.available,
+      onExceeded: () =>
+        notify('No quedan días disponibles: no se puede seleccionar ninguno más.', 'error'),
+    }),
+    [balance.available, notify],
+  )
+  const { selected, toggle, clear } = useDaySelection(canSelect, selectionLimit)
+
+  const switchTo = (employeeId: string) => {
+    setViewedEmployeeId(employeeId)
+    clear()
+    setDialogOpen(false)
+    setComment('')
+    setAsApproved(false)
+  }
 
   const selectedDays = useMemo(() => [...selected].sort(compareIso), [selected])
 
@@ -105,18 +113,8 @@ export function MyCalendar() {
     <div className="space-y-6 pb-24">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h1 className="text-2xl">
-                {viewingSelf ? 'Mi calendario' : `Calendario de ${displayName(viewedEmployee)}`}
-              </h1>
-              <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-                Pulsa un día para seleccionarlo. Con la tecla mayúsculas seleccionas el rango
-                completo desde el último día marcado. Los domingos y festivos no computan.
-              </p>
-            </div>
-
-            {isAdmin && (
+          {isAdmin && (
+            <div className="flex justify-end">
               <div>
                 <label className="label" htmlFor="viewed-employee">
                   Ver calendario de
@@ -135,8 +133,8 @@ export function MyCalendar() {
                   ))}
                 </select>
               </div>
-            )}
-          </div>
+            </div>
+          )}
           <Legend />
         </div>
         <BalanceCard balance={balance} />
