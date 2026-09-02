@@ -61,6 +61,14 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   inicio ni la de fin pueden ser posteriores a hoy, y dos periodos del mismo empleado no pueden
   solaparse. El periodo en curso se representa con la fecha de fin en el día de hoy: la proyección a
   31 de diciembre la calcula `activeIntervalsInYear()`, no hace falta anticiparla a mano.
+- **El tipo de contrato (Fijo / Fijo discontinuo) es un segmentado, no un checkbox**, a juego con el
+  de Rol. Cambiar de tipo fija también la fecha de alta a su valor por defecto: 1 de enero del año en
+  curso para Fijo, hoy para Fijo discontinuo — pero solo si el tipo cambia de verdad, para no pisar
+  una fecha ya editada a mano si se vuelve a pulsar el botón ya activo. Al elegir Fijo discontinuo
+  solo se explica que los periodos son de este último año; ya no se repite ahí la validación de
+  fechas futuras y solapes, que vive en el propio datepicker y en `submit()`.
+- **El campo `Desde` de un periodo limita su calendario al año en curso**, para no invitar a
+  añadir periodos de años anteriores desde este formulario.
 - **La fecha futura se bloquea con `max` en el propio datepicker, no con un error tras enviar.** Los
   campos `Desde`/`Hasta` de un periodo llevan `max={today}`: el selector nativo ya no deja elegir un
   día futuro, así que ese caso no necesita comprobación en `submit()`. El solape entre periodos sí la
@@ -151,6 +159,10 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   margen, el ruido de coma flotante puede rechazar 13 días contra un saldo real de 13 pero
   representado como 12,999999999. `useDaySelection()` aplica el mismo margen al tope de días
   seleccionables en Mi calendario, por la misma razón.
+- **El `min` del campo `Desde` de un periodo es `min(fechaYaGuardada, inicioDelAño)`, nunca solo
+  `inicioDelAño`.** Un periodo histórico de un año anterior (guardado cuando ese año era el actual)
+  seguiría teniendo una fecha por debajo del `min` si este fuera fijo: el datepicker lo marcaría
+  inválido y bloquearía el envío del formulario solo por reabrirlo y guardar sin tocarlo.
 
 ## El PIN no es seguridad
 

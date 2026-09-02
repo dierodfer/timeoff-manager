@@ -140,29 +140,35 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
         />
       </div>
 
-      <div className="hairline rounded-[var(--radius-control)] border p-4">
-        <label className="flex items-start gap-3 text-sm" htmlFor="is-seasonal">
-          <input
-            id="is-seasonal"
-            type="checkbox"
-            className="mt-0.5"
-            checked={values.isSeasonal}
-            onChange={(event) => patch({ isSeasonal: event.target.checked })}
-          />
-          <span>
-            <span className="font-medium">Fijo discontinuo</span>
-            <span className="block text-xs text-[var(--color-ink-muted)]">
-              La estimación se prorratea solo sobre sus periodos de llamamiento.
-            </span>
-          </span>
-        </label>
+      <div>
+        <span className="label">Tipo de contrato</span>
+        <div className="segmented">
+          <button
+            type="button"
+            aria-pressed={!values.isSeasonal}
+            onClick={() => {
+              if (values.isSeasonal) patch({ isSeasonal: false, hireDate: `${year}-01-01` })
+            }}
+          >
+            Fijo
+          </button>
+          <button
+            type="button"
+            aria-pressed={values.isSeasonal}
+            onClick={() => {
+              if (!values.isSeasonal) patch({ isSeasonal: true, hireDate: today })
+            }}
+          >
+            Fijo discontinuo
+          </button>
+        </div>
+      </div>
 
-        {values.isSeasonal && (
-          <div className="mt-4 space-y-3">
+      {values.isSeasonal && (
+        <div className="hairline rounded-[var(--radius-control)] border p-4">
+          <div className="space-y-3">
             <p className="text-xs text-[var(--color-ink-muted)]">
-              Añade aquí los periodos de llamamiento ya transcurridos este año. No se admiten fechas
-              futuras ni periodos que se solapen entre sí; el periodo en curso se detecta solo y su
-              estimación se proyecta hasta el 31 de diciembre.
+              Añade aquí los periodos de actividad de este último año.
             </p>
             {values.activityPeriods.map((period) => (
               <div key={period.id} className="flex flex-wrap items-end gap-2">
@@ -175,6 +181,8 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
                     type="date"
                     className="field"
                     required
+                    // Nunca solo yearStart(year): invalidaría un periodo histórico ya guardado.
+                    min={period.start < yearStart(year) ? period.start : yearStart(year)}
                     max={today}
                     value={period.start}
                     onChange={(event) => updatePeriod(period.id, { start: event.target.value })}
@@ -208,8 +216,8 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
               Añadir periodo
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div>
         <label className="label" htmlFor="employee-pin">
