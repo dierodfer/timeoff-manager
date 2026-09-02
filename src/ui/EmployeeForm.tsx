@@ -1,17 +1,23 @@
+import { es } from 'date-fns/locale/es'
 import { useState, type FormEvent } from 'react'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
 import { newId } from '../data/ids'
 import { isValidPin, PIN_RULE } from '../data/pin'
 import { hasOverlap } from '../domain/accrual'
-import { todayIso, yearEnd, yearOf, yearStart } from '../domain/dates'
-import type { ActivityPeriod, Employee, Role } from '../domain/types'
-import type { WorkCalendar } from '../domain/workdays'
-import { DateRangePicker } from './DateRangePicker'
+import { isoOf, todayIso, yearEnd, yearOf, yearStart } from '../domain/dates'
+import type { ActivityPeriod, Employee, IsoDate, Role } from '../domain/types'
 
-// workweek con los 7 días, no vacío: si no, isWorkingDay() da false siempre y cada celda del
-// calendario sale pintada como "day-off", en vez de neutra.
-const BLANK_CALENDAR: WorkCalendar = {
-  workweek: new Set([0, 1, 2, 3, 4, 5, 6]),
-  holidaysByDate: new Map(),
+// react-datepicker trabaja con Date en hora local, no UTC como el resto de la app (domain/dates.ts):
+// construir y leer siempre con los componentes locales (año/mes/día), nunca con toUtcDate()/toIso(),
+// o un día puede desplazarse según la zona horaria del navegador.
+function isoToLocalDate(iso: IsoDate): Date {
+  const [year, month, day] = iso.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function localDateToIso(date: Date): IsoDate {
+  return isoOf(date.getFullYear(), date.getMonth() + 1, date.getDate())
 }
 
 export interface EmployeeFormValues {
@@ -49,9 +55,8 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
   const isNew = employee === null
   const today = todayIso()
 
-  // Primer clic de un periodo: DateRangePicker manda { end: null } a la espera del segundo clic.
-  // ActivityPeriod.end no admite null, así que ese estado intermedio se guarda aparte y no se
-  // vuelca a activityPeriods hasta que el segundo clic completa el rango.
+  // Fecha de inicio de un periodo mientras se espera el segundo clic que fija el fin: ver el
+  // comentario junto a su uso, más abajo.
   const [pendingStart, setPendingStart] = useState<Record<string, string | undefined>>({})
 
   const patch = (changes: Partial<EmployeeFormValues>) =>
@@ -191,15 +196,22 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
               // cualquier día.
               const rowYear = yearOf(period.start)
               const isCurrentYearRow = rowYear === year
-              const pending = pendingStart[period.id]
-              const value = pending ? { start: pending, end: null } : period
+              // Primer clic del rango: DatePicker manda un end nulo a la espera del segundo clic.
+              // ActivityPeriod.end no admite null, así que ese estado intermedio se guarda aparte y
+              // no se vuelca a activityPeriods hasta que el segundo clic completa el rango.
+              const pendingStartIso = pendingStart[period.id]
+              const startDate = isoToLocalDate(pendingStartIso ?? period.start)
+              const endDate = pendingStartIso ? null : isoToLocalDate(period.end)
 
               return (
                 <div key={period.id} className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-[var(--color-ink-muted)]">
+                    <label
+                      className="text-xs font-medium text-[var(--color-ink-muted)]"
+                      htmlFor={`period-${period.id}`}
+                    >
                       Periodo {index + 1}
-                    </span>
+                    </label>
                     <button
                       type="button"
                       className="btn btn-danger btn-sm"
@@ -208,20 +220,36 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
                       Quitar
                     </button>
                   </div>
-                  <DateRangePicker
-                    year={rowYear}
-                    calendar={BLANK_CALENDAR}
-                    value={value}
-                    minDate={isCurrentYearRow ? yearStart(year) : undefined}
-                    maxDate={isCurrentYearRow ? today : yearEnd(rowYear)}
-                    onChange={({ start, end }) => {
+                  <DatePicker
+                    id={`period-${period.id}`}
+                    className="field"
+                    locale={es}
+                    dateFormat="dd-MM-yyyy"
+                    // Sin readOnly a propósito: en react-datepicker también apaga la selección por
+                    // calendario, no solo el tecleo. Un valor tecleado inválido no llega a
+                    // activityPeriods (ver el onChange) y se descarta solo al cerrar el calendario.
+                    selectsRange
+                    startDate={startDate}
+                    endDate={endDate}
+                    minDate={isoToLocalDate(
+                      isCurrentYearRow ? yearStart(year) : yearStart(rowYear),
+                    )}
+                    maxDate={isoToLocalDate(isCurrentYearRow ? today : yearEnd(rowYear))}
+                    onChange={(dates) => {
+                      const [start, end] = dates
                       if (!start) return
                       if (!end) {
-                        setPendingStart((current) => ({ ...current, [period.id]: start }))
+                        setPendingStart((current) => ({
+                          ...current,
+                          [period.id]: localDateToIso(start),
+                        }))
                         return
                       }
                       setPendingStart((current) => ({ ...current, [period.id]: undefined }))
-                      updatePeriod(period.id, { start, end })
+                      updatePeriod(period.id, {
+                        start: localDateToIso(start),
+                        end: localDateToIso(end),
+                      })
                     }}
                   />
                 </div>
