@@ -67,16 +67,25 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   una fecha ya editada a mano si se vuelve a pulsar el botón ya activo. Al elegir Fijo discontinuo
   solo se explica que los periodos son de este último año; ya no se repite ahí la validación de
   fechas futuras y solapes, que vive en el propio datepicker y en `submit()`.
-- **El campo `Desde` de un periodo limita su calendario al año en curso**, para no invitar a
-  añadir periodos de años anteriores desde este formulario.
-- **La fecha futura se bloquea con `max` en el propio datepicker, no con un error tras enviar.** Los
-  campos `Desde`/`Hasta` de un periodo llevan `max={today}`: el selector nativo ya no deja elegir un
-  día futuro, así que ese caso no necesita comprobación en `submit()`. El solape entre periodos sí la
-  necesita, porque no hay forma de expresarlo con atributos HTML.
+- **Un periodo de llamamiento se elige con `DateRangePicker` (`ui/DateRangePicker.tsx`), no con dos
+  `<input type="date">`.** Es un envoltorio fino sobre `react-day-picker` (`mode="range"`), el mismo
+  componente que ya usaba Asignación masiva; en `EmployeeForm` se le pasa un calendario en blanco
+  (`BLANK_CALENDAR`, sin festivos ni jornada real) porque aquí solo importa marcar el rango, no si el
+  día es laborable. Cada periodo se pinta en el año de su propia fecha de inicio, no en el año en
+  curso del formulario: así uno histórico de un año anterior se sigue viendo y editando en su propio
+  año en vez de no aparecer marcado y perderse al tocar cualquier día del año en curso.
+- **La fecha futura se bloquea con `disabled` (matchers `before`/`after`) del propio
+  `react-day-picker`, no con un error tras enviar.** `minDate`/`maxDate` (props añadidas sobre el
+  componente) se traducen a esos matchers; para el periodo del año en curso eso es
+  `[1 de enero, hoy]`, y para uno de un año anterior, ese año entero. El solape entre periodos sigue
+  necesitando comprobación en `submit()`, porque no hay forma de expresarlo con los límites del
+  propio picker.
 - **Los campos obligatorios de un formulario llevan `required`**, para que el navegador bloquee el
-  envío antes de que se ejecute el `onSubmit`: nombre y fecha de alta del empleado, fechas de un
-  periodo de llamamiento, y fecha y nombre de un festivo nuevo. Un campo con validación cruzada
-  (rango de fechas, solapes, saldo) no tiene equivalente nativo y sigue comprobándose en JavaScript.
+  envío antes de que se ejecute el `onSubmit`: nombre y fecha de alta del empleado, y fecha y nombre
+  de un festivo nuevo. Un periodo de llamamiento no tiene equivalente, porque `DateRangePicker` no es
+  un `<input>`: en su lugar siempre tiene una fecha de inicio y de fin válidas por construcción, así
+  que no hay estado "vacío" que bloquear. Un campo con validación cruzada (rango de fechas, solapes,
+  saldo) tampoco tiene equivalente nativo y sigue comprobándose en JavaScript.
 - **Las fechas se muestran siempre como `dd-mm-aaaa`.** `formatDate()` (`domain/format.ts`) es lo
   único que las pinta; nadie más formatea una fecha a mano ni llama a `toLocaleDateString()`. No
   cubre el propio selector nativo (`<input type="date">`): su formato de fecha lo decide el
@@ -144,7 +153,10 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
 - **`commit()` no espera a IndexedDB** y por eso devuelve `void`, no una promesa: la pantalla se
   actualiza al instante y la escritura va por detrás, avisando con un aviso si falla.
 - **Fechas en UTC.** `src/domain/dates.ts` trabaja sobre cadenas `yyyy-MM-dd` con aritmética UTC.
-  Con hora local, un 1 de enero cambia de día según la zona horaria.
+  Con hora local, un 1 de enero cambia de día según la zona horaria. `DateRangePicker` sigue la
+  misma convención con `timeZone="UTC"` en el `react-day-picker` que envuelve: sin eso, sus objetos
+  `Date` (construidos con `toUtcDate()`) se interpretarían en la zona horaria del navegador y un día
+  podría mostrarse desplazado en usos horarios con offset negativo.
 - **`HashRouter`, no `BrowserRouter`.** Pages no reescribe rutas: un refresco daría un 404.
 - **`base` en `vite.config.ts`** apunta a `/timeoff-manager/`. Si se renombra el repositorio, hay
   que cambiarlo o pasar `BASE_PATH`.
@@ -159,10 +171,33 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   margen, el ruido de coma flotante puede rechazar 13 días contra un saldo real de 13 pero
   representado como 12,999999999. `useDaySelection()` aplica el mismo margen al tope de días
   seleccionables en Mi calendario, por la misma razón.
-- **El `min` del campo `Desde` de un periodo es `min(fechaYaGuardada, inicioDelAño)`, nunca solo
-  `inicioDelAño`.** Un periodo histórico de un año anterior (guardado cuando ese año era el actual)
-  seguiría teniendo una fecha por debajo del `min` si este fuera fijo: el datepicker lo marcaría
-  inválido y bloquearía el envío del formulario solo por reabrirlo y guardar sin tocarlo.
+- **El `DateRangePicker` de un periodo usa el año de la propia fecha de inicio del periodo
+  (`yearOf(period.start)`), nunca el año en curso del formulario.** Si usara siempre este último, un
+  periodo histórico de un año anterior no tendría ningún día marcado en la rejilla (sus fechas caen
+  fuera del año que se está pintando) y el primer clic en cualquier celda lo sustituiría en silencio
+  por un periodo nuevo en el año en curso.
+- **El primer clic de un periodo llega como `{ end: null }` y `ActivityPeriod.end` no admite
+  `null`.** `EmployeeForm` guarda ese estado a medias en `pendingStart` en vez de volcarlo a
+  `activityPeriods`. Esto no es capricho propio: `react-day-picker` decide si un clic empieza un
+  rango nuevo o completa el que ya hay mirando si el `selected` que se le pasa tiene `to` relleno
+  (`hasFullRange`, en su propio `useRange`). Si en vez de `pendingStart` se completa `end` con la
+  misma fecha de inicio para tener un `ActivityPeriod` válido, el picker ve un rango ya completo y
+  trata el segundo clic como el inicio de uno nuevo en vez de como su fin: la selección de dos clics
+  deja de poder completarse.
+- **El `BLANK_CALENDAR` que `EmployeeForm` le pasa al `DateRangePicker` de un periodo lleva los 7
+  días en `workweek`, no un `Set` vacío.** `isWorkingDay()` da `false` para cualquier día si
+  `workweek` está vacío, y entonces cada celda del calendario sale pintada como día no laborable
+  (`day-off`, atenuada) en vez de neutra, aunque no haya festivos.
+- **`DateRangePicker` fija `resetOnSelect` en `react-day-picker`.** Sin él, al pulsar un día con un
+  rango ya completo el picker no empieza una selección nueva: mueve el extremo más cercano del rango
+  existente al día pulsado. Es un comportamiento válido, pero no el que se espera de "elige otro
+  periodo" tras completar uno.
+- **Las clases de `classNames`/`modifiersClassNames` de un día (`selected`, `range_start`,
+  `range_middle`, `today`, `disabled`, y los modificadores `holiday`/`off`) las pone
+  `react-day-picker` en la celda `<td>`, nunca en el `<button>` de dentro.** Por eso las reglas CSS
+  de `.range-picker-day-*` en `index.css` usan el combinador `.range-picker-day-selected >
+.range-picker-day` en vez de una sola clase: si se intenta pintar el estado con una clase plana
+  sobre `.range-picker-day`, no se aplica porque esa clase vive en el elemento equivocado.
 
 ## El PIN no es seguridad
 

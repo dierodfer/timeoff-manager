@@ -2,8 +2,17 @@ import { useState, type FormEvent } from 'react'
 import { newId } from '../data/ids'
 import { isValidPin, PIN_RULE } from '../data/pin'
 import { hasOverlap } from '../domain/accrual'
-import { todayIso, yearEnd, yearStart } from '../domain/dates'
+import { todayIso, yearEnd, yearOf, yearStart } from '../domain/dates'
 import type { ActivityPeriod, Employee, Role } from '../domain/types'
+import type { WorkCalendar } from '../domain/workdays'
+import { DateRangePicker } from './DateRangePicker'
+
+// workweek con los 7 días, no vacío: si no, isWorkingDay() da false siempre y cada celda del
+// calendario sale pintada como "day-off", en vez de neutra.
+const BLANK_CALENDAR: WorkCalendar = {
+  workweek: new Set([0, 1, 2, 3, 4, 5, 6]),
+  holidaysByDate: new Map(),
+}
 
 export interface EmployeeFormValues {
   firstName: string
@@ -39,6 +48,11 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
   const [values, setValues] = useState(() => initialValues(employee, year))
   const isNew = employee === null
   const today = todayIso()
+
+  // Primer clic de un periodo: DateRangePicker manda { end: null } a la espera del segundo clic.
+  // ActivityPeriod.end no admite null, así que ese estado intermedio se guarda aparte y no se
+  // vuelca a activityPeriods hasta que el segundo clic completa el rango.
+  const [pendingStart, setPendingStart] = useState<Record<string, string | undefined>>({})
 
   const patch = (changes: Partial<EmployeeFormValues>) =>
     setValues((current) => ({ ...current, ...changes }))
@@ -170,47 +184,49 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
             <p className="text-xs text-[var(--color-ink-muted)]">
               Añade aquí los periodos de actividad de este último año.
             </p>
-            {values.activityPeriods.map((period) => (
-              <div key={period.id} className="flex flex-wrap items-end gap-2">
-                <div className="min-w-32 flex-1">
-                  <label className="label" htmlFor={`start-${period.id}`}>
-                    Desde
-                  </label>
-                  <input
-                    id={`start-${period.id}`}
-                    type="date"
-                    className="field"
-                    required
-                    // Nunca solo yearStart(year): invalidaría un periodo histórico ya guardado.
-                    min={period.start < yearStart(year) ? period.start : yearStart(year)}
-                    max={today}
-                    value={period.start}
-                    onChange={(event) => updatePeriod(period.id, { start: event.target.value })}
+            {values.activityPeriods.map((period, index) => {
+              // Cada periodo se pinta en el año al que pertenece su propia fecha de inicio, no en
+              // el año en curso: así uno histórico de un año anterior se ve y se conserva tal cual,
+              // en vez de no aparecer marcado en la rejilla del año en curso y perderse al tocar
+              // cualquier día.
+              const rowYear = yearOf(period.start)
+              const isCurrentYearRow = rowYear === year
+              const pending = pendingStart[period.id]
+              const value = pending ? { start: pending, end: null } : period
+
+              return (
+                <div key={period.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-[var(--color-ink-muted)]">
+                      Periodo {index + 1}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={() => removePeriod(period.id)}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                  <DateRangePicker
+                    year={rowYear}
+                    calendar={BLANK_CALENDAR}
+                    value={value}
+                    minDate={isCurrentYearRow ? yearStart(year) : undefined}
+                    maxDate={isCurrentYearRow ? today : yearEnd(rowYear)}
+                    onChange={({ start, end }) => {
+                      if (!start) return
+                      if (!end) {
+                        setPendingStart((current) => ({ ...current, [period.id]: start }))
+                        return
+                      }
+                      setPendingStart((current) => ({ ...current, [period.id]: undefined }))
+                      updatePeriod(period.id, { start, end })
+                    }}
                   />
                 </div>
-                <div className="min-w-32 flex-1">
-                  <label className="label" htmlFor={`end-${period.id}`}>
-                    Hasta
-                  </label>
-                  <input
-                    id={`end-${period.id}`}
-                    type="date"
-                    className="field"
-                    required
-                    max={today}
-                    value={period.end}
-                    onChange={(event) => updatePeriod(period.id, { end: event.target.value })}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm"
-                  onClick={() => removePeriod(period.id)}
-                >
-                  Quitar
-                </button>
-              </div>
-            ))}
+              )
+            })}
 
             <button type="button" className="btn btn-secondary btn-sm" onClick={addPeriod}>
               Añadir periodo
