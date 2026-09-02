@@ -61,7 +61,7 @@ export function Employees() {
         lastName: values.lastName.trim(),
         role: values.role,
         hireDate: values.hireDate,
-        terminationDate: values.terminationDate || null,
+        terminationDate: null,
         isSeasonal: values.isSeasonal,
         activityPeriods: values.isSeasonal ? values.activityPeriods : [],
         pin: values.pin,
@@ -77,7 +77,6 @@ export function Employees() {
         lastName: values.lastName.trim(),
         role: values.role,
         hireDate: values.hireDate,
-        terminationDate: values.terminationDate || null,
         isSeasonal: values.isSeasonal,
         activityPeriods: values.isSeasonal ? values.activityPeriods : [],
         pinSalt,
@@ -158,7 +157,6 @@ export function Employees() {
       <div className="card divide-y divide-[var(--color-hairline)] overflow-hidden">
         {rows.map(({ employee, balance }) => {
           const inYear = employmentSpanInYear(employee, year)
-          const isInactive = Boolean(employee.terminationDate && employee.terminationDate < today)
 
           return (
             <div key={employee.id} className="flex flex-wrap items-center gap-4 p-4">
@@ -220,7 +218,7 @@ export function Employees() {
                   Editar
                 </button>
 
-                {!isInactive && (
+                {!employee.terminationDate && (
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
@@ -313,7 +311,6 @@ export function Employees() {
                 className="field"
                 required
                 min={dialog.employee.hireDate}
-                max={today}
                 value={bajaDate}
                 onChange={(event) => setBajaDate(event.target.value)}
               />
