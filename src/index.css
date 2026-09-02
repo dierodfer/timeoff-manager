@@ -364,6 +364,96 @@
     border-radius: 999px;
     background: currentColor;
   }
+
+  /* DateRangePicker (react-day-picker) ------------------------------------ */
+  /* Los estados (seleccionado, rango, festivo…) los pinta react-day-picker en
+     la celda <td>, no en el <button> del día: de ahí el combinador anidado en
+     vez de reutilizar directamente .day/.day-selected/.range-day, que asumen
+     que todas las clases caen sobre el mismo elemento. */
+  .range-picker-day {
+    position: relative;
+    display: flex;
+    height: 1.75rem;
+    width: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-ink-soft);
+    cursor: pointer;
+    transition:
+      background-color 0.12s ease,
+      color 0.12s ease,
+      box-shadow 0.12s ease;
+  }
+
+  .range-picker-day-off > .range-picker-day {
+    color: var(--color-ink-muted);
+    opacity: 0.45;
+  }
+
+  .range-picker-day-holiday > .range-picker-day {
+    background: var(--color-holiday-soft);
+    color: var(--color-holiday);
+    font-weight: 500;
+  }
+
+  .range-picker-day-range > .range-picker-day {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    border-radius: 0;
+    font-weight: 500;
+  }
+
+  .range-picker-day-selected > .range-picker-day {
+    box-shadow:
+      0 0 0 2px var(--color-surface),
+      0 0 0 4px var(--color-accent);
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  .range-picker-day-today > .range-picker-day::after {
+    content: '';
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    translate: -50% 0;
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .range-picker-day-disabled > .range-picker-day {
+    color: var(--color-ink-muted);
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .range-picker-nav-button {
+    position: absolute;
+    top: 0;
+    display: flex;
+    height: 2.25rem;
+    width: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    color: var(--color-ink-muted);
+    transition: background-color 0.12s ease;
+  }
+
+  .range-picker-nav-button:hover:not(:disabled) {
+    background: var(--color-surface-sunken);
+  }
+
+  .range-picker-nav-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
 }
 
 @layer utilities {

@@ -11,8 +11,11 @@ interface ModalProps {
 
 export function Modal({ title, description, onClose, children, footer, wide }: ModalProps) {
   useEffect(() => {
+    // defaultPrevented: un popover propio dentro del modal (p. ej. el calendario de
+    // react-datepicker) también cierra con Escape y hace preventDefault() al suyo; sin este
+    // chequeo, ese mismo Escape burbujea hasta aquí y cierra el modal entero por detrás.
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape' && !event.defaultPrevented) onClose()
     }
     document.addEventListener('keydown', onKeyDown)
     document.body.style.overflow = 'hidden'
