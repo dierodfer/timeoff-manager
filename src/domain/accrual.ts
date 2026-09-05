@@ -7,9 +7,11 @@ import {
   yearEnd,
   yearStart,
 } from './dates'
-import type { Allowance, Employee, IsoDate, Settings } from './types'
+import type { ActivityPeriod, Allowance, Employee, IsoDate, Settings } from './types'
 
 export const ACCRUAL_PER_WORKED_DAY = 0.0737
+
+const OPEN_END: IsoDate = '9999-12-31'
 
 export interface Interval {
   start: IsoDate
@@ -41,46 +43,59 @@ export function hasOverlap(intervals: Interval[]): boolean {
   )
 }
 
-export function employmentSpanInYear(employee: Employee, year: number): Interval | null {
-  const start = employee.hireDate > yearStart(year) ? employee.hireDate : yearStart(year)
-  const end =
-    employee.terminationDate && employee.terminationDate < yearEnd(year)
-      ? employee.terminationDate
-      : yearEnd(year)
-  return start <= end ? { start, end } : null
+export function periodsOverlap(periods: ActivityPeriod[]): boolean {
+  return hasOverlap(periods.map((period) => ({ ...period, end: period.end ?? OPEN_END })))
 }
 
-export function activeIntervalsInYear(
-  employee: Employee,
-  year: number,
-  today: IsoDate,
-): Interval[] {
-  const span = employmentSpanInYear(employee, year)
-  if (!span) return []
-  if (!employee.isSeasonal) return [span]
+export function sortedPeriods(employee: Employee): ActivityPeriod[] {
+  return [...employee.activityPeriods].sort((a, b) => compareIso(a.start, b.start))
+}
 
-  const withinSpan = mergeIntervals(employee.activityPeriods)
-    .map((period) => ({
-      start: period.start > span.start ? period.start : span.start,
-      end: period.end < span.end ? period.end : span.end,
-    }))
-    .filter((period) => period.start <= period.end)
+export function openPeriod(employee: Employee): ActivityPeriod | undefined {
+  return employee.activityPeriods.find((period) => period.end === null)
+}
 
-  const projected = withinSpan.map((period) =>
-    today >= period.start && today <= period.end ? { start: period.start, end: span.end } : period,
+export function hireDateOf(employee: Employee): IsoDate {
+  return sortedPeriods(employee)[0]?.start ?? employee.createdAt.slice(0, 10)
+}
+
+export function lastEndDate(employee: Employee): IsoDate | null {
+  return sortedPeriods(employee).at(-1)?.end ?? null
+}
+
+export function isActive(employee: Employee, today: IsoDate = todayIso()): boolean {
+  return employee.activityPeriods.some(
+    (period) => period.start <= today && (period.end === null || today <= period.end),
   )
-
-  return mergeIntervals(projected)
 }
 
-export function workedDaysInYear(
-  employee: Employee,
-  year: number,
-  workweek: number[],
-  today: IsoDate = todayIso(),
-): number {
+export function closeOpenPeriod(periods: ActivityPeriod[], date: IsoDate): ActivityPeriod[] {
+  return periods.map((period) => (period.end === null ? { ...period, end: date } : period))
+}
+
+export function activityIntervalsInYear(employee: Employee, year: number): Interval[] {
+  const from = yearStart(year)
+  const to = yearEnd(year)
+  return mergeIntervals(
+    employee.activityPeriods
+      .map((period) => ({
+        start: period.start > from ? period.start : from,
+        end: period.end !== null && period.end < to ? period.end : to,
+      }))
+      .filter((interval) => interval.start <= interval.end),
+  )
+}
+
+export function isActiveInYear(employee: Employee, year: number): boolean {
+  return employee.activityPeriods.some(
+    (period) =>
+      period.start <= yearEnd(year) && (period.end === null || period.end >= yearStart(year)),
+  )
+}
+
+export function workedDaysInYear(employee: Employee, year: number, workweek: number[]): number {
   const workdays = new Set(workweek)
-  return activeIntervalsInYear(employee, year, today).reduce(
+  return activityIntervalsInYear(employee, year).reduce(
     (total, interval) =>
       total +
       expandRange(interval.start, interval.end).filter((date) => workdays.has(weekday(date)))
@@ -89,13 +104,8 @@ export function workedDaysInYear(
   )
 }
 
-export function estimateAnnualDays(
-  employee: Employee,
-  year: number,
-  settings: Settings,
-  today: IsoDate = todayIso(),
-): number {
-  const worked = workedDaysInYear(employee, year, settings.workweek, today)
+export function estimateAnnualDays(employee: Employee, year: number, settings: Settings): number {
+  const worked = workedDaysInYear(employee, year, settings.workweek)
   if (worked <= 0) return 0
   return Math.min(worked * ACCRUAL_PER_WORKED_DAY, settings.defaultAnnualDays)
 }
@@ -115,8 +125,7 @@ export function effectiveAnnualDays(
   year: number,
   settings: Settings,
   allowances: Allowance[],
-  today: IsoDate = todayIso(),
 ): number {
   const override = findAllowance(allowances, employee.id, year)
-  return override ? override.days : estimateAnnualDays(employee, year, settings, today)
+  return override ? override.days : estimateAnnualDays(employee, year, settings)
 }

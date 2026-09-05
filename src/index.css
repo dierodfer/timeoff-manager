@@ -287,9 +287,9 @@
       box-shadow 0.12s ease;
   }
 
+  /* Con el color y no con `opacity`, que el globo informativo heredaría. */
   .day-off {
-    color: var(--color-ink-muted);
-    opacity: 0.45;
+    color: color-mix(in srgb, var(--color-ink-muted) 45%, var(--color-surface));
   }
 
   .day-holiday {
@@ -351,6 +351,40 @@
 
   .grid-day-selected {
     background: var(--color-accent);
+  }
+
+  .day-tip {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    translate: -50% 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    width: max-content;
+    max-width: 13rem;
+    gap: 1px;
+    border-radius: 10px;
+    background: var(--color-ink);
+    padding: 0.375rem 0.5rem;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    line-height: 1.35;
+    color: var(--color-surface);
+    box-shadow: var(--shadow-raised);
+    pointer-events: none;
+  }
+
+  .day-tip-start {
+    left: 0;
+    translate: 0 0;
+  }
+
+  .day-tip-end {
+    right: 0;
+    left: auto;
+    translate: 0 0;
   }
 
   .day-today::after {

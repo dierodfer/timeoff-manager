@@ -1,5 +1,7 @@
+import { closeOpenPeriod, lastEndDate, openPeriod } from '../domain/accrual'
 import { checkSelection, groupByYear } from '../domain/balance'
 import { todayIso } from '../domain/dates'
+import { formatDate } from '../domain/format'
 import type {
   Database,
   Employee,
@@ -387,17 +389,61 @@ export function clearAllowance(database: Database, employeeId: string, year: num
   }
 }
 
+function replaceEmployee(database: Database, updated: Employee): Database {
+  return {
+    ...database,
+    employees: database.employees.map((employee) =>
+      employee.id === updated.id ? updated : employee,
+    ),
+  }
+}
+
 export function terminateEmployee(
   database: Database,
   employeeId: string,
   date: IsoDate = todayIso(),
-): Database {
+): Outcome {
+  const employee = findEmployee(database, employeeId)
+  if (!employee) return { ok: false, reason: 'El empleado no existe.' }
+
+  const open = openPeriod(employee)
+  if (!open) return { ok: false, reason: `${displayName(employee)} ya está de baja.` }
+  if (date < open.start) {
+    return {
+      ok: false,
+      reason: `La baja no puede ser anterior al alta del ${formatDate(open.start)}.`,
+    }
+  }
+
   return {
-    ...database,
-    employees: database.employees.map((employee) =>
-      employee.id === employeeId
-        ? { ...employee, terminationDate: employee.terminationDate ?? date }
-        : employee,
-    ),
+    ok: true,
+    database: replaceEmployee(database, {
+      ...employee,
+      activityPeriods: closeOpenPeriod(employee.activityPeriods, date),
+    }),
+  }
+}
+
+export function rehireEmployee(
+  database: Database,
+  employeeId: string,
+  date: IsoDate = todayIso(),
+): Outcome {
+  const employee = findEmployee(database, employeeId)
+  if (!employee) return { ok: false, reason: 'El empleado no existe.' }
+  if (openPeriod(employee))
+    return { ok: false, reason: `${displayName(employee)} ya está de alta.` }
+
+  const last = lastEndDate(employee)
+  if (last !== null && date <= last) {
+    return { ok: false, reason: `El alta debe ser posterior a la baja del ${formatDate(last)}.` }
+  }
+
+  return {
+    ok: true,
+    database: replaceEmployee(database, {
+      ...employee,
+      activityPeriods: [...employee.activityPeriods, { id: newId('per'), start: date, end: null }],
+    }),
   }
 }

@@ -17,13 +17,13 @@ local, también falla el despliegue.
 
 ## Capas
 
-| Carpeta       | Qué hace                                             | Reglas                                                          |
-| ------------- | ---------------------------------------------------- | --------------------------------------------------------------- |
-| `src/domain/` | Fechas, días laborables, estimación, saldo, festivos | Código puro. Sin React ni almacenamiento. Es lo único con tests |
-| `src/data/`   | IndexedDB, copias de seguridad, PIN, datos iniciales | Nadie más habla con el almacenamiento                           |
-| `src/state/`  | Operaciones de negocio y estado de la aplicación     | `actions.ts` son funciones puras `Database → Outcome`           |
-| `src/ui/`     | Componentes: calendarios, rejilla anual, formularios |                                                                 |
-| `src/pages/`  | Pantallas                                            |                                                                 |
+| Carpeta       | Qué hace                                             | Reglas                                                |
+| ------------- | ---------------------------------------------------- | ----------------------------------------------------- |
+| `src/domain/` | Fechas, días laborables, estimación, saldo, festivos | Código puro. Sin React ni almacenamiento              |
+| `src/data/`   | IndexedDB, copias de seguridad, PIN, datos iniciales | Nadie más habla con el almacenamiento                 |
+| `src/state/`  | Operaciones de negocio y estado de la aplicación     | `actions.ts` son funciones puras `Database → Outcome` |
+| `src/ui/`     | Componentes: calendarios, rejilla anual, formularios |                                                       |
+| `src/pages/`  | Pantallas                                            |                                                       |
 
 **`VacationRepository` (`src/data/repository.ts`) es el único punto de acceso a los datos.** La
 interfaz de usuario nunca toca IndexedDB. Cambiar a un almacenamiento compartido (Supabase u otro)
@@ -31,8 +31,18 @@ es escribir otra implementación de esa interfaz, sin tocar la interfaz de usuar
 
 **Toda la base de datos se guarda como un único documento JSON.** El volumen es pequeño —una
 plantilla y sus días— así que no compensa coordinar escrituras entre colecciones, y la copia de
-seguridad sale gratis. `StoredDatabase.version` y la función `migrate()` de
-`indexedDbRepository.ts` son el gancho para migrar formatos antiguos cuando aparezca la versión 2.
+seguridad sale gratis.
+
+**`src/data/migrations.ts` es el único sitio donde se migran formatos antiguos.** Lo usan los dos
+puntos por los que entran datos de fuera: `indexedDbRepository.load()` y el `parseBackup()` de
+`backup.ts`, que antes aceptaba una copia antigua sin migrarla. Es una función pura, y por eso tiene
+tests igual que el dominio y `state/actions.ts`. La migración se persiste en la primera escritura, no
+al leer.
+
+La v2 pasó `hireDate`/`terminationDate` a la lista de periodos de actividad. En un fijo discontinuo
+los llamamientos se recortan al tramo de relación laboral, como los recortaba `employmentSpanInYear`
+en la v1, y **el que contiene hoy queda abierto**: eso es exactamente lo que en la v1 significaba
+proyectarlo hasta el 31 de diciembre, así que ninguna estimación cambia al migrar.
 
 **Las operaciones de negocio viven en `state/actions.ts` como transformaciones puras**, fuera de
 React. Eso permite encadenarlas: una asignación masiva son varias altas seguidas, cada una validada
@@ -53,38 +63,43 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   funciona como tope. Un «día trabajado» es un día de `Settings.workweek` dentro de los tramos en
   activo; los festivos no se descuentan. Con la jornada de lunes a sábado un año completo son 313
   días → 23,07, que el tope deja en 23. Se aplica igual a todos los empleados.
-- Un empleado ordinario está en activo entre el alta y la baja; un **fijo discontinuo** solo durante
-  sus periodos de llamamiento, que se fusionan antes de sumar para no contar dos veces los
-  solapados. **El periodo en curso se proyecta hasta el 31 de diciembre**, asumiendo que seguirá
-  llamado, así que su estimación no baja según se acerca la fecha de fin.
-- **El formulario de empleado solo admite periodos de llamamiento ya transcurridos.** Ni la fecha de
-  inicio ni la de fin pueden ser posteriores a hoy, y dos periodos del mismo empleado no pueden
-  solaparse. El periodo en curso se representa con la fecha de fin en el día de hoy: la proyección a
-  31 de diciembre la calcula `activeIntervalsInYear()`, no hace falta anticiparla a mano.
-- **El tipo de contrato (Fijo / Fijo discontinuo) es un segmentado, no un checkbox**, a juego con el
-  de Rol. Cambiar de tipo fija también la fecha de alta a su valor por defecto: 1 de enero del año en
-  curso para Fijo, hoy para Fijo discontinuo — pero solo si el tipo cambia de verdad, para no pisar
-  una fecha ya editada a mano si se vuelve a pulsar el botón ya activo. Al elegir Fijo discontinuo
-  solo se explica que los periodos son de este último año; ya no se repite ahí la validación de
-  fechas futuras y solapes, que vive en el propio datepicker y en `submit()`.
-- **Un periodo de llamamiento se elige con `react-datepicker` (`selectsRange`), no con dos
-  `<input type="date">`.** Es un input de texto que abre un calendario al pulsarlo, con `dateFormat`
-  fijado a `dd-MM-yyyy` a juego con `formatDate()`. Cada periodo se pinta en el año de su propia
-  fecha de inicio, no en el año en curso del formulario: así uno histórico de un año anterior se
-  sigue viendo y editando en su propio año en vez de no aparecer marcado y perderse al tocar
-  cualquier día del año en curso. **Asignación masiva sigue usando el `DateRangePicker`
+- **La relación laboral de un empleado es una lista de periodos de actividad**
+  (`Employee.activityPeriods`), no un par alta/baja. Un fijo tiene normalmente uno; un fijo
+  discontinuo, uno por llamamiento; y cualquiera acumula varios al darse de baja y volver. El
+  devengo suma todos los tramos del año, fusionándolos antes para no contar dos veces los solapados.
+- **El periodo sin fecha de fin (`end: null`) es el que está en curso**, y se recorta al 31 de
+  diciembre al calcular el año. La proyección de quien sigue en activo ya no es un cálculo contra
+  «hoy», sino el propio modelo: por eso `activityIntervalsInYear()` no recibe la fecha de hoy. Un
+  llamamiento que ya terminó se guarda cerrado y cuenta solo sus días.
+- **`isSeasonal` (Fijo / Fijo discontinuo) ya no cambia cómo se calcula nada**: solo distingue el
+  tipo de contrato, fija la fecha por defecto del primer periodo y cambia el texto de ayuda del
+  formulario.
+- **El formulario de empleado edita la lista completa de periodos**, para los dos tipos de contrato.
+  Es la vía para corregir un histórico; el camino normal son los diálogos de alta y baja, que además
+  calculan la liquidación. Admite fechas futuras, porque tanto la baja como la re-alta se pueden
+  programar con antelación.
+- **Un periodo se elige con `react-datepicker` (`selectsRange`), no con dos `<input type="date">`.**
+  Es un input de texto que abre un calendario al pulsarlo, con `dateFormat` fijado a `dd-MM-yyyy` a
+  juego con `formatDate()`. **Asignación masiva sigue usando el `DateRangePicker`
   (`ui/DateRangePicker.tsx`, envoltorio de `react-day-picker`) que antes también usaban los
   periodos**: son dos widgets de rango distintos a propósito, cada uno donde encaja mejor —
   Asignación masiva quiere un calendario siempre visible con festivos pintados, el formulario de
   empleado quiere un campo compacto dentro de una lista de periodos.
-- **La fecha futura se bloquea con `minDate`/`maxDate` de `react-datepicker`, no con un error tras
-  enviar.** Para el periodo del año en curso eso es `[1 de enero, hoy]`, y para uno de un año
-  anterior, ese año entero. El solape entre periodos sigue necesitando comprobación en `submit()`,
-  porque no hay forma de expresarlo con los límites del propio picker.
+- **Los límites `minDate`/`maxDate` de un periodo los ponen sus vecinos**, no el año: el día
+  siguiente al fin del periodo anterior y el día anterior al inicio del siguiente. Es la única
+  restricción real, y deja que un periodo cruce el fin de año y que el que está en curso acabe en el
+  futuro. El solape sigue comprobándose además en `submit()`, porque el picker no impide teclear.
+- **El tipo de contrato (Fijo / Fijo discontinuo) es un segmentado, no un checkbox**, a juego con el
+  de Rol. Cambiar de tipo fija también la fecha de inicio a su valor por defecto: 1 de enero del año
+  en curso para Fijo, hoy para Fijo discontinuo — pero solo si el tipo cambia de verdad y solo si hay
+  un único periodo, para no pisar ni una fecha editada a mano ni un histórico ya registrado.
+- **«Añadir periodo» se deshabilita mientras hay uno en curso.** Un periodo nuevo se añade siempre al
+  final y abierto; con otro ya abierto no habría hueco donde ponerlo sin solapar, así que primero hay
+  que cerrarlo. Para reabrir el último hay un botón «Dejar en curso».
 - **Los campos obligatorios de un formulario llevan `required`**, para que el navegador bloquee el
-  envío antes de que se ejecute el `onSubmit`: nombre y fecha de alta del empleado, y fecha y nombre
-  de un festivo nuevo. El input de un periodo de llamamiento no lo lleva: por construcción siempre
-  tiene una fecha de inicio y de fin válidas (`pendingStart`, ver más abajo), así que no hay estado
+  envío antes de que se ejecute el `onSubmit`: nombre del empleado, y fecha y nombre de un festivo
+  nuevo. El input de un periodo de actividad no lo lleva: por construcción siempre tiene una fecha
+  de inicio válida (`pendingStart`, ver más abajo), así que no hay estado
   "vacío" que bloquear — y si se teclea texto que no es una fecha, `react-datepicker` lo descarta al
   cerrar el calendario sin tocar el valor guardado. Un campo con validación cruzada (rango de
   fechas, solapes, saldo) tampoco tiene equivalente nativo y sigue comprobándose en JavaScript.
@@ -109,15 +124,29 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
 - **Cancelación:** el empleado solo retira solicitudes `pendiente`. El administrador puede eliminar
   cualquiera, incluidas las aprobadas, y los días vuelven al saldo.
 - **Una selección a caballo entre dos años genera una solicitud por año**, porque el saldo es anual.
-- Al dar de baja se marca `terminationDate` en vez de borrar el registro, para conservar el
+- **Dar de baja cierra el periodo en curso** en vez de borrar el registro, para conservar el
   histórico de vacaciones disfrutadas. Se confirma en un diálogo con la fecha propuesta en hoy,
-  editable a partir de la fecha de alta y también hacia el futuro (una baja se puede programar con
-  antelación); no se da de baja al pulsar el botón directamente. El formulario de alta no tiene
-  campo de fecha de baja: es un dato que solo se fija desde este diálogo.
+  editable a partir del inicio de ese periodo y también hacia el futuro (una baja se puede programar
+  con antelación); no se da de baja al pulsar el botón directamente.
+- **Dar de alta añade un periodo nuevo en curso.** El botón sustituye al de baja en cuanto no hay
+  ningún periodo abierto, incluida una baja programada a futuro: así se puede encadenar la baja y la
+  vuelta de una vez. La fecha tiene que ser **posterior** al fin del último periodo (compartir el día
+  sería un solape que contaría ese día dos veces) y también puede ser futura. El diálogo adelanta los
+  días que le corresponderían en el año con esa fecha.
+- **Solo puede haber un periodo en curso, y es el último.** Lo comprueban `terminateEmployee()` y
+  `rehireEmployee()` en `state/actions.ts`, que devuelven `Outcome` como el resto del fichero, y
+  también el `submit()` del formulario.
+- **La lista de Empleados oculta por defecto a quien no está en activo hoy** (`isActive()`), con el
+  interruptor «Ver inactivos» para verlos. Ahí entra también un fijo discontinuo entre llamamientos,
+  que es justo desde donde se le vuelve a dar de alta.
 - **Liquidación al dar de baja:** `terminationSettlement()` (`domain/balance.ts`) compara los días
   aprobados y ya pasados (disfrutados de verdad, no los aprobados a futuro) contra la estimación
-  recalculada como si `terminationDate` fuera la fecha elegida en el diálogo, no la de hoy ni el 31
-  de diciembre. Si la estimación es mayor, se le deben días; si es menor, los debe el empleado.
+  recalculada cerrando el periodo en curso en la fecha elegida en el diálogo, no en la de hoy ni el
+  31 de diciembre. Cuenta también los tramos anteriores del mismo año. Si la estimación es mayor, se
+  le deben días; si es menor, los debe el empleado.
+- **Un día no laborable de Mi calendario se puede pulsar para saber por qué lo es**: abre un globo
+  con el nombre del festivo y su ámbito, o con el día de la semana si solo es un domingo. El `title`
+  nativo no basta porque en un móvil no hay puntero con el que pasar por encima.
 
 ### Invariantes de los datos
 
@@ -129,6 +158,10 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   días sueltos de una solicitud `pendiente` con varios días mediante `resolveRequestDay()`, que
   separa el día resuelto en una solicitud nueva y deja el resto pendiente en la original. Por eso
   la bandeja de Solicitudes agrupa por empleado y muestra cada día por separado, no por solicitud.
+- **`Employee.activityPeriods` nunca está vacío**, sus periodos no se solapan y **como mucho uno
+  tiene `end: null`, que es además el de inicio más tardío**. Todo lo que antes se leía de
+  `hireDate`/`terminationDate` sale ahora de ahí: `hireDateOf()` es el inicio del primero,
+  `lastEndDate()` el fin del último y `openPeriod()` el que sigue abierto.
 
 ## Festivos
 
@@ -177,27 +210,28 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   margen, el ruido de coma flotante puede rechazar 13 días contra un saldo real de 13 pero
   representado como 12,999999999. `useDaySelection()` aplica el mismo margen al tope de días
   seleccionables en Mi calendario, por la misma razón.
-- **El `rowYear` de un periodo en `EmployeeForm` es el año de su propia fecha de inicio
-  (`yearOf(period.start)`), nunca el año en curso del formulario.** Se usa para fijar el mes que
-  abre el calendario y el `minDate`/`maxDate` de ese periodo. Si usara siempre el año en curso, un
-  periodo histórico de un año anterior abriría el calendario en el año equivocado y su `minDate`
-  bloquearía sus propios días ya guardados.
-- **El primer clic de un periodo llega como `[fecha, null]` y `ActivityPeriod.end` no admite
-  `null`.** `EmployeeForm` guarda ese estado a medias en `pendingStart` en vez de volcarlo a
-  `activityPeriods`. Esto no es capricho propio: `react-datepicker` decide si un clic empieza un
-  rango nuevo o completa el que ya hay mirando si `startDate` y `endDate` (los props controlados que
-  se le pasan) están ambos rellenos (`isRangeFilled`, en su propio manejador de selección). Si en
-  vez de `pendingStart` se completa `endDate` con la misma fecha de inicio para tener un
-  `ActivityPeriod` válido, el picker ve un rango ya completo y trata el segundo clic como el inicio
-  de uno nuevo en vez de como su fin: la selección de dos clics deja de poder completarse. Es el
-  mismo problema, con el mismo arreglo, que ya tuvo el `DateRangePicker` de Asignación masiva antes
-  de este cambio.
+- **Un periodo en curso y un rango a medio elegir se ven idénticos desde `react-datepicker`:** en los
+  dos casos `startDate` está puesto y `endDate` es `null`. El primer clic de un rango llega como
+  `[fecha, null]`, y `EmployeeForm` guarda ese estado intermedio en `pendingStart` en vez de volcarlo
+  a `activityPeriods`, donde se confundiría con «este periodo sigue abierto». Esto no es capricho
+  propio: `react-datepicker` decide si un clic empieza un rango nuevo o completa el que ya hay
+  mirando si `startDate` y `endDate` (los props controlados que se le pasan) están ambos rellenos
+  (`isRangeFilled`, en su propio manejador de selección). Si en vez de `pendingStart` se completara
+  `endDate` con la misma fecha de inicio, el picker vería un rango ya completo y trataría el segundo
+  clic como el inicio de otro: la selección de dos clics dejaría de poder completarse. La
+  contrapartida es que **el segundo clic sobre un periodo abierto lo cierra**, y para volver a
+  abrirlo hace falta el botón «Dejar en curso»; no hay forma de expresar «sigue abierto» con dos
+  clics en el propio calendario.
 - **El input de un periodo no lleva `readOnly`, aunque tecleando se pueda escribir cualquier cosa.**
   `readOnly` en `react-datepicker` no es solo "no se puede teclear": también apaga la selección por
   calendario (`handleSelect` corta en seco si `readOnly`), así que con él puesto el campo deja de
   abrir el picker de verdad. Si se teclea texto que no es una fecha válida, `activityPeriods` no se
   toca (el `onChange` de `react-datepicker` no llega a completar el rango) y el valor mostrado
   vuelve a la fecha guardada en cuanto se cierra el calendario.
+- **`.day-off` atenúa con el color, no con `opacity`.** El globo informativo de un día no laborable
+  es hijo de la propia celda, así que una `opacity` en la celda se la aplicaría también a él y lo
+  dejaría medio transparente sobre los días de al lado. Por eso el gris del domingo sale de un
+  `color-mix` y no de bajar la opacidad de todo el elemento.
 - **`Modal` cierra con Escape mirando `event.defaultPrevented`, no solo `event.key`.** El calendario
   de un periodo también cierra con Escape y hace `preventDefault()` en su propio manejador; sin ese
   chequeo, ese mismo Escape burbujea hasta el `document.addEventListener` del modal y lo cierra

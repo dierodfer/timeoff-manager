@@ -1,5 +1,5 @@
 import { preloadedHolidays } from '../domain/holidays.es'
-import type { Database, Employee, Holiday } from '../domain/types'
+import type { ActivityPeriod, Database, Employee, Holiday, IsoDate } from '../domain/types'
 import { newId } from './ids'
 import { hashPin, randomSalt } from './pin'
 
@@ -12,6 +12,10 @@ export interface FirstRunInput {
   lastName: string
   pin: string
   year: number
+}
+
+export function initialActivityPeriods(start: IsoDate): ActivityPeriod[] {
+  return [{ id: newId('per'), start, end: null }]
 }
 
 export function seedHolidays(year: number): Holiday[] {
@@ -37,10 +41,8 @@ export async function createInitialDatabase(input: FirstRunInput): Promise<Datab
     firstName: input.firstName,
     lastName: input.lastName,
     role: 'admin',
-    hireDate: `${input.year}-01-01`,
-    terminationDate: null,
     isSeasonal: false,
-    activityPeriods: [],
+    activityPeriods: initialActivityPeriods(`${input.year}-01-01`),
     pin: input.pin,
   })
 

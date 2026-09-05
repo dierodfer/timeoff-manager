@@ -1,14 +1,23 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { hashPin, randomSalt } from '../data/pin'
 import { createEmployee } from '../data/seed'
-import { employmentSpanInYear, workedDaysInYear } from '../domain/accrual'
+import {
+  estimateAnnualDays,
+  isActive,
+  isActiveInYear,
+  lastEndDate,
+  openPeriod,
+  sortedPeriods,
+  workedDaysInYear,
+} from '../domain/accrual'
 import { terminationSettlement, withBalances } from '../domain/balance'
 import { formatDate, formatDays, pluralDays } from '../domain/format'
-import { todayIso } from '../domain/dates'
-import type { Employee } from '../domain/types'
+import { addDays, todayIso } from '../domain/dates'
+import type { Employee, IsoDate } from '../domain/types'
 import {
   clearAllowance,
   displayName,
+  rehireEmployee,
   setAllowance,
   sortByName,
   terminateEmployee,
@@ -21,13 +30,22 @@ import { Stepper } from '../ui/Stepper'
 type Dialog =
   | { kind: 'form'; employee: Employee | null }
   | { kind: 'baja'; employee: Employee }
+  | { kind: 'alta'; employee: Employee }
   | { kind: 'delete'; employee: Employee }
   | null
 
-function seasonalSummary(employee: Employee): string {
-  if (!employee.isSeasonal) return ''
-  const count = employee.activityPeriods.length
-  return ` · fijo discontinuo (${count} ${count === 1 ? 'periodo' : 'periodos'})`
+function minAltaDate(employee: Employee, today: IsoDate): IsoDate {
+  const last = lastEndDate(employee)
+  return last ? addDays(last, 1) : today
+}
+
+function periodsSummary(employee: Employee): string {
+  return sortedPeriods(employee)
+    .map(
+      (period) =>
+        `${formatDate(period.start)} – ${period.end ? formatDate(period.end) : 'actualidad'}`,
+    )
+    .join(' · ')
 }
 
 export function Employees() {
@@ -36,15 +54,15 @@ export function Employees() {
   const [showInactive, setShowInactive] = useState(false)
 
   const today = todayIso()
-  const [bajaDate, setBajaDate] = useState(today)
+  const [dialogDate, setDialogDate] = useState(today)
 
-  const employees = useMemo(() => {
-    const isInactive = (employee: Employee) =>
-      Boolean(employee.terminationDate && employee.terminationDate < today)
-    return sortByName(
-      database.employees.filter((employee) => showInactive || !isInactive(employee)),
-    )
-  }, [database.employees, showInactive, today])
+  const employees = useMemo(
+    () =>
+      sortByName(
+        database.employees.filter((employee) => showInactive || isActive(employee, today)),
+      ),
+    [database.employees, showInactive, today],
+  )
 
   const rows = useMemo(
     () => withBalances(employees, year, database.settings, database.allowances, database.requests),
@@ -60,10 +78,8 @@ export function Employees() {
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         role: values.role,
-        hireDate: values.hireDate,
-        terminationDate: null,
         isSeasonal: values.isSeasonal,
-        activityPeriods: values.isSeasonal ? values.activityPeriods : [],
+        activityPeriods: values.activityPeriods,
         pin: values.pin,
       })
       commit({ ...database, employees: [...database.employees, employee] })
@@ -76,9 +92,8 @@ export function Employees() {
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         role: values.role,
-        hireDate: values.hireDate,
         isSeasonal: values.isSeasonal,
-        activityPeriods: values.isSeasonal ? values.activityPeriods : [],
+        activityPeriods: values.activityPeriods,
         pinSalt,
         pinHash,
       }
@@ -99,15 +114,34 @@ export function Employees() {
       year,
       database.settings,
       database.requests,
-      bajaDate,
+      dialogDate,
       today,
     )
-  }, [dialog, bajaDate, year, database.settings, database.requests, today])
+  }, [dialog, dialogDate, year, database.settings, database.requests, today])
+
+  const altaEstimate = useMemo(() => {
+    if (dialog?.kind !== 'alta') return null
+    const rehired = {
+      ...dialog.employee,
+      activityPeriods: [
+        ...dialog.employee.activityPeriods,
+        { id: 'vista-previa', start: dialogDate, end: null },
+      ],
+    }
+    return estimateAnnualDays(rehired, year, database.settings)
+  }, [dialog, dialogDate, year, database.settings])
 
   const confirmBaja = (event: FormEvent, employee: Employee) => {
     event.preventDefault()
-    commit(terminateEmployee(database, employee.id, bajaDate))
-    notify(`${displayName(employee)} dado de baja el ${formatDate(bajaDate)}.`)
+    if (!apply((db) => terminateEmployee(db, employee.id, dialogDate))) return
+    notify(`${displayName(employee)} dado de baja el ${formatDate(dialogDate)}.`)
+    setDialog(null)
+  }
+
+  const confirmAlta = (event: FormEvent, employee: Employee) => {
+    event.preventDefault()
+    if (!apply((db) => rehireEmployee(db, employee.id, dialogDate))) return
+    notify(`${displayName(employee)} dado de alta el ${formatDate(dialogDate)}.`)
     setDialog(null)
   }
 
@@ -142,7 +176,7 @@ export function Employees() {
               checked={showInactive}
               onChange={(event) => setShowInactive(event.target.checked)}
             />{' '}
-            Ver bajas
+            Ver inactivos
           </label>
           <button
             type="button"
@@ -156,7 +190,8 @@ export function Employees() {
 
       <div className="card divide-y divide-[var(--color-hairline)] overflow-hidden">
         {rows.map(({ employee, balance }) => {
-          const inYear = employmentSpanInYear(employee, year)
+          const inYear = isActiveInYear(employee, year)
+          const last = sortedPeriods(employee).at(-1)
 
           return (
             <div key={employee.id} className="flex flex-wrap items-center gap-4 p-4">
@@ -168,13 +203,16 @@ export function Employees() {
                   )}
                 </p>
                 <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-                  {employee.role === 'admin' ? 'Administrador' : 'Empleado'} · alta{' '}
-                  {formatDate(employee.hireDate)}
-                  {employee.terminationDate
-                    ? ` · baja ${formatDate(employee.terminationDate)}`
-                    : ''}
-                  {seasonalSummary(employee)}
+                  {employee.role === 'admin' ? 'Administrador' : 'Empleado'}
+                  {last ? ` · alta ${formatDate(last.start)}` : ''}
+                  {last?.end ? ` · baja ${formatDate(last.end)}` : ''}
+                  {employee.isSeasonal ? ' · fijo discontinuo' : ''}
                 </p>
+                {employee.activityPeriods.length > 1 && (
+                  <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                    Periodos: {periodsSummary(employee)}
+                  </p>
+                )}
                 {inYear && (
                   <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
                     {workedDaysInYear(employee, year, database.settings.workweek)} días trabajados
@@ -218,16 +256,28 @@ export function Employees() {
                   Editar
                 </button>
 
-                {!employee.terminationDate && (
+                {openPeriod(employee) ? (
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={() => {
-                      setBajaDate(today)
+                      setDialogDate(today)
                       setDialog({ kind: 'baja', employee })
                     }}
                   >
                     Dar de baja
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      const min = minAltaDate(employee, today)
+                      setDialogDate(min > today ? min : today)
+                      setDialog({ kind: 'alta', employee })
+                    }}
+                  >
+                    Dar de alta
                   </button>
                 )}
 
@@ -310,9 +360,9 @@ export function Employees() {
                 type="date"
                 className="field"
                 required
-                min={dialog.employee.hireDate}
-                value={bajaDate}
-                onChange={(event) => setBajaDate(event.target.value)}
+                min={openPeriod(dialog.employee)?.start}
+                value={dialogDate}
+                onChange={(event) => setDialogDate(event.target.value)}
               />
             </div>
 
@@ -334,6 +384,56 @@ export function Employees() {
                   Está en paz: ha disfrutado justo lo que le correspondía.
                 </p>
               )}
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {dialog?.kind === 'alta' && altaEstimate !== null && (
+        <Modal
+          title={`Dar de alta a ${displayName(dialog.employee)}`}
+          onClose={() => setDialog(null)}
+          footer={
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setDialog(null)}>
+                Cancelar
+              </button>
+              <button type="submit" form="alta-form" className="btn btn-primary">
+                Confirmar alta
+              </button>
+            </>
+          }
+        >
+          <form
+            id="alta-form"
+            onSubmit={(event) => confirmAlta(event, dialog.employee)}
+            className="space-y-4"
+          >
+            <div>
+              <label className="label" htmlFor="alta-date">
+                Fecha de alta
+              </label>
+              <input
+                id="alta-date"
+                type="date"
+                className="field"
+                required
+                min={minAltaDate(dialog.employee, today)}
+                value={dialogDate}
+                onChange={(event) => setDialogDate(event.target.value)}
+              />
+            </div>
+
+            <div className="hairline space-y-1 rounded-[var(--radius-control)] border p-3 text-sm">
+              {lastEndDate(dialog.employee) && (
+                <p>
+                  Su último periodo terminó el {formatDate(lastEndDate(dialog.employee) as IsoDate)}
+                  .
+                </p>
+              )}
+              <p>
+                Con esta fecha le corresponderían {pluralDays(altaEstimate)} en {year}.
+              </p>
             </div>
           </form>
         </Modal>
