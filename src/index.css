@@ -287,8 +287,7 @@
       box-shadow 0.12s ease;
   }
 
-  /* Atenuado con el color, no con `opacity`: la opacidad del día la heredaría también su globo
-     informativo, que quedaría medio transparente. */
+  /* Con el color y no con `opacity`, que el globo informativo heredaría. */
   .day-off {
     color: color-mix(in srgb, var(--color-ink-muted) 45%, var(--color-surface));
   }
@@ -354,8 +353,6 @@
     background: var(--color-accent);
   }
 
-  /* Globo informativo de un día no laborable. Se ancla al propio día, que ya es
-     position: relative, y no captura el ratón para no tapar los días vecinos. */
   .day-tip {
     position: absolute;
     bottom: calc(100% + 6px);
@@ -379,8 +376,6 @@
     pointer-events: none;
   }
 
-  /* En las columnas de los extremos el globo crece hacia dentro: centrado, el de un domingo
-     del último mes de la fila se saldría de la tarjeta. */
   .day-tip-start {
     left: 0;
     translate: 0 0;

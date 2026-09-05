@@ -5,7 +5,6 @@ export type Role = 'admin' | 'employee'
 export interface ActivityPeriod {
   id: string
   start: IsoDate
-  /** `null` = periodo en curso: solo puede haber uno y es el de inicio más tardío. */
   end: IsoDate | null
 }
 

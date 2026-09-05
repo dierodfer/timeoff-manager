@@ -13,7 +13,6 @@ interface YearCalendarProps {
 }
 
 export function YearCalendar({ onToggle, ...props }: YearCalendarProps) {
-  // El globo informativo vive aquí y no en cada mes para que solo pueda haber uno abierto.
   const [infoDay, setInfoDay] = useState<IsoDate | null>(null)
 
   useEffect(() => {
@@ -25,8 +24,7 @@ export function YearCalendar({ onToggle, ...props }: YearCalendarProps) {
     }
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
-      // Como el calendario de un periodo en EmployeeForm: se marca el Escape como consumido para
-      // que no burbujee hasta un contenedor que también cierre con Escape.
+      // Escape consumido para que no burbujee hasta el Modal, que también cierra con Escape.
       event.preventDefault()
       setInfoDay(null)
     }

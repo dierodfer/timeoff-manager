@@ -9,9 +9,7 @@ import { periodsOverlap } from '../domain/accrual'
 import { addDays, compareIso, isoOf, todayIso, yearStart } from '../domain/dates'
 import type { ActivityPeriod, Employee, IsoDate, Role } from '../domain/types'
 
-// react-datepicker trabaja con Date en hora local, no UTC como el resto de la app (domain/dates.ts):
-// construir y leer siempre con los componentes locales (año/mes/día), nunca con toUtcDate()/toIso(),
-// o un día puede desplazarse según la zona horaria del navegador.
+// react-datepicker interpreta sus Date en hora local: aquí nunca toUtcDate()/toIso().
 function isoToLocalDate(iso: IsoDate): Date {
   const [year, month, day] = iso.split('-').map(Number)
   return new Date(year, month - 1, day)
@@ -54,8 +52,6 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
   const isNew = employee === null
   const today = todayIso()
 
-  // Fecha de inicio de un periodo mientras se espera el segundo clic que fija el fin: ver el
-  // comentario junto a su uso, más abajo.
   const [pendingStart, setPendingStart] = useState<Record<string, string | undefined>>({})
 
   const patch = (changes: Partial<EmployeeFormValues>) =>
@@ -80,8 +76,6 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
   const removePeriod = (id: string) =>
     patch({ activityPeriods: values.activityPeriods.filter((period) => period.id !== id) })
 
-  // Solo se reescribe la fecha por defecto si hay un único periodo: con varios tramos, cambiar de
-  // tipo de contrato no debe tocar un histórico ya registrado.
   const setContract = (isSeasonal: boolean) => {
     if (values.isSeasonal === isSeasonal) return
     if (periods.length !== 1) return patch({ isSeasonal })
@@ -189,19 +183,14 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
                 : 'Un periodo por cada tramo de relación laboral. El que no tiene fecha de fin es el que está en curso.'}
             </p>
             {periods.map((period, index) => {
-              // Primer clic del rango: DatePicker manda un end nulo a la espera del segundo clic.
-              // Un periodo en curso se ve exactamente igual desde el picker, así que ese estado
-              // intermedio se guarda aparte y no se vuelca a activityPeriods: si se completara el
-              // rango con la fecha de inicio para tener un periodo válido, el picker lo vería
-              // relleno y trataría el segundo clic como el inicio de otro rango.
+              // El rango a medias no se vuelca a activityPeriods: con endDate relleno, el picker
+              // trataría el segundo clic como el inicio de otro rango.
               const pendingStartIso = pendingStart[period.id]
               const startDate = isoToLocalDate(pendingStartIso ?? period.start)
               const isOpen = period.end === null
               const endDate =
                 pendingStartIso || period.end === null ? null : isoToLocalDate(period.end)
 
-              // Los límites los ponen los periodos vecinos, que es la única restricción real: un
-              // periodo puede cruzar el fin de año y el en curso puede acabar en el futuro.
               const previousEnd = periods[index - 1]?.end
               const nextStart = periods[index + 1]?.start
 
@@ -241,9 +230,7 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
                     className="field"
                     locale={es}
                     dateFormat="dd-MM-yyyy"
-                    // Sin readOnly a propósito: en react-datepicker también apaga la selección por
-                    // calendario, no solo el tecleo. Un valor tecleado inválido no llega a
-                    // activityPeriods (ver el onChange) y se descarta solo al cerrar el calendario.
+                    // Sin readOnly: en react-datepicker también apagaría la selección por calendario.
                     selectsRange
                     startDate={startDate}
                     endDate={endDate}

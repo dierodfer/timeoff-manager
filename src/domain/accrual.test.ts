@@ -12,8 +12,6 @@ import {
 } from './accrual'
 import { makeEmployee, makePeriod, testSettings } from './fixtures'
 
-// Fecha fija: `isActive` depende de «hoy». El devengo ya no, porque el periodo en curso llega al
-// 31 de diciembre por el propio modelo (end: null) y no por compararlo con la fecha de hoy.
 const TODAY = '2026-06-15'
 const WORKWEEK = testSettings.workweek // lunes a sábado
 

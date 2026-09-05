@@ -138,7 +138,6 @@ export interface DayInfo {
   detail: string
 }
 
-/** Qué contar de un día en el que no se puede pedir vacaciones: el festivo, o por qué no se trabaja. */
 export function dayInfo(date: IsoDate, holiday: Holiday | undefined): DayInfo {
   const day = WEEKDAY_NAMES[weekday(date)]
   const named = day.charAt(0).toUpperCase() + day.slice(1)

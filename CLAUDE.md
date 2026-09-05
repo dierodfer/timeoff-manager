@@ -36,8 +36,13 @@ seguridad sale gratis.
 **`src/data/migrations.ts` es el único sitio donde se migran formatos antiguos.** Lo usan los dos
 puntos por los que entran datos de fuera: `indexedDbRepository.load()` y el `parseBackup()` de
 `backup.ts`, que antes aceptaba una copia antigua sin migrarla. Es una función pura, y por eso tiene
-tests igual que el dominio y `state/actions.ts`. La v2 pasó `hireDate`/`terminationDate` a la lista
-de periodos de actividad; la migración se persiste en la primera escritura, no al leer.
+tests igual que el dominio y `state/actions.ts`. La migración se persiste en la primera escritura, no
+al leer.
+
+La v2 pasó `hireDate`/`terminationDate` a la lista de periodos de actividad. En un fijo discontinuo
+los llamamientos se recortan al tramo de relación laboral, como los recortaba `employmentSpanInYear`
+en la v1, y **el que contiene hoy queda abierto**: eso es exactamente lo que en la v1 significaba
+proyectarlo hasta el 31 de diciembre, así que ninguna estimación cambia al migrar.
 
 **Las operaciones de negocio viven en `state/actions.ts` como transformaciones puras**, fuera de
 React. Eso permite encadenarlas: una asignación masiva son varias altas seguidas, cada una validada

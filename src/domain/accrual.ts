@@ -11,8 +11,6 @@ import type { ActivityPeriod, Allowance, Employee, IsoDate, Settings } from './t
 
 export const ACCRUAL_PER_WORKED_DAY = 0.0737
 
-// Fin de un periodo en curso cuando hace falta compararlo como si fuera una fecha: cualquier
-// cosa posterior a todas las demás sirve, y así el resto del módulo no tiene que tratar el null.
 const OPEN_END: IsoDate = '9999-12-31'
 
 export interface Interval {
@@ -49,7 +47,6 @@ export function periodsOverlap(periods: ActivityPeriod[]): boolean {
   return hasOverlap(periods.map((period) => ({ ...period, end: period.end ?? OPEN_END })))
 }
 
-/** Los periodos ordenados por fecha de inicio: el en curso, si lo hay, queda el último. */
 export function sortedPeriods(employee: Employee): ActivityPeriod[] {
   return [...employee.activityPeriods].sort((a, b) => compareIso(a.start, b.start))
 }
@@ -58,17 +55,14 @@ export function openPeriod(employee: Employee): ActivityPeriod | undefined {
   return employee.activityPeriods.find((period) => period.end === null)
 }
 
-/** Inicio del primer periodo: el alta más antigua. */
 export function hireDateOf(employee: Employee): IsoDate {
   return sortedPeriods(employee)[0]?.start ?? employee.createdAt.slice(0, 10)
 }
 
-/** Fin del último periodo, o `null` si sigue de alta. */
 export function lastEndDate(employee: Employee): IsoDate | null {
   return sortedPeriods(employee).at(-1)?.end ?? null
 }
 
-/** Hay un periodo que cubre hoy: ni de baja ni pendiente de un alta programada. */
 export function isActive(employee: Employee, today: IsoDate = todayIso()): boolean {
   return employee.activityPeriods.some(
     (period) => period.start <= today && (period.end === null || today <= period.end),
@@ -79,10 +73,6 @@ export function closeOpenPeriod(periods: ActivityPeriod[], date: IsoDate): Activ
   return periods.map((period) => (period.end === null ? { ...period, end: date } : period))
 }
 
-/**
- * Tramos de actividad recortados al año. Un periodo en curso llega al 31 de diciembre por
- * construcción: la proyección del que sigue abierto es el modelo, no un cálculo aparte.
- */
 export function activityIntervalsInYear(employee: Employee, year: number): Interval[] {
   const from = yearStart(year)
   const to = yearEnd(year)

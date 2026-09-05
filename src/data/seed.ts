@@ -14,7 +14,6 @@ export interface FirstRunInput {
   year: number
 }
 
-/** Periodo abierto con el que empieza todo empleado nuevo. */
 export function initialActivityPeriods(start: IsoDate): ActivityPeriod[] {
   return [{ id: newId('per'), start, end: null }]
 }

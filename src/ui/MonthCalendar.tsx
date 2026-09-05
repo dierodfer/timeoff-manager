@@ -84,9 +84,6 @@ export function MonthCalendar({
           const title = dayTitle(holiday, mark)
           const style = index === 0 ? firstDayOffset(date) : undefined
 
-          // Un día no laborable no se puede seleccionar, pero sí explicar: al pulsarlo abre un
-          // globo con el nombre del festivo o el motivo. El `title` nativo no vale porque en un
-          // móvil no hay puntero con el que pasar por encima.
           if (!workable && onInfo) {
             const info = dayInfo(date, holiday)
             const isOpen = infoDay === date

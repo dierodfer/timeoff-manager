@@ -3,8 +3,6 @@ import type { ActivityPeriod, Database, Employee, IsoDate } from '../domain/type
 import { newId } from './ids'
 import type { StoredDatabase } from './repository'
 
-// La v1 guardaba la relación laboral en `hireDate`/`terminationDate` y reservaba `activityPeriods`
-// para los llamamientos del fijo discontinuo. En la v2 hay una sola lista de periodos de actividad.
 interface EmployeeV1 extends Omit<Employee, 'activityPeriods'> {
   hireDate: IsoDate
   terminationDate: IsoDate | null
@@ -28,9 +26,6 @@ function employeeToV2(employee: EmployeeV1, today: IsoDate): Employee {
     return { ...rest, activityPeriods: [{ id: newId('per'), start, end }] }
   }
 
-  // Los llamamientos pasan a ser los periodos de actividad, recortados al tramo de relación
-  // laboral igual que los recortaba `employmentSpanInYear` en la v1. El que contiene hoy queda
-  // abierto: eso es exactamente lo que en la v1 significaba proyectarlo hasta el 31 de diciembre.
   const periods = activityPeriods
     .map((period) => ({
       id: period.id,

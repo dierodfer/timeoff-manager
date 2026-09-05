@@ -34,7 +34,6 @@ type Dialog =
   | { kind: 'delete'; employee: Employee }
   | null
 
-/** El día a partir del cual se puede dar de alta otra vez: nunca compartiendo día con la baja. */
 function minAltaDate(employee: Employee, today: IsoDate): IsoDate {
   const last = lastEndDate(employee)
   return last ? addDays(last, 1) : today
@@ -120,7 +119,6 @@ export function Employees() {
     )
   }, [dialog, dialogDate, year, database.settings, database.requests, today])
 
-  // Días que le corresponderían en el año consultado si el alta se confirma con esta fecha.
   const altaEstimate = useMemo(() => {
     if (dialog?.kind !== 'alta') return null
     const rehired = {

@@ -434,8 +434,6 @@ export function rehireEmployee(
   if (openPeriod(employee))
     return { ok: false, reason: `${displayName(employee)} ya está de alta.` }
 
-  // Con `<=` en vez de `<`: compartir el día con la baja anterior sería un solape de un día, y
-  // ese día contaría dos veces al sumar los tramos del año.
   const last = lastEndDate(employee)
   if (last !== null && date <= last) {
     return { ok: false, reason: `El alta debe ser posterior a la baja del ${formatDate(last)}.` }
