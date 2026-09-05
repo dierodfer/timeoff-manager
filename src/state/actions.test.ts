@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { makeEmployee, makeRequest, testSettings } from '../domain/fixtures'
+import { makeEmployee, makePeriod, makeRequest, testSettings } from '../domain/fixtures'
 import type { Database } from '../domain/types'
 import {
+  rehireEmployee,
   removeRequestDay,
   resolveAllPending,
   resolveRequestDay,
@@ -173,24 +174,67 @@ describe('resolveAllPending', () => {
   })
 })
 
+const periodsAfter = (outcome: ReturnType<typeof terminateEmployee>) => {
+  if (!outcome.ok) throw new Error(outcome.reason)
+  return outcome.database.employees[0].activityPeriods
+}
+
 describe('terminateEmployee', () => {
-  it('marca la fecha de baja indicada', () => {
-    const database = makeDatabase()
-    const updated = terminateEmployee(database, employee.id, '2026-03-15')
-    expect(updated.employees[0].terminationDate).toBe('2026-03-15')
+  it('cierra el periodo en curso con la fecha indicada', () => {
+    const outcome = terminateEmployee(makeDatabase(), employee.id, '2026-03-15')
+    expect(periodsAfter(outcome).at(-1)?.end).toBe('2026-03-15')
   })
 
   it('usa hoy si no se indica fecha', () => {
-    const database = makeDatabase()
-    const updated = terminateEmployee(database, employee.id)
-    expect(updated.employees[0].terminationDate).not.toBeNull()
+    const outcome = terminateEmployee(makeDatabase(), employee.id)
+    expect(periodsAfter(outcome).at(-1)?.end).not.toBeNull()
   })
 
-  it('no pisa una baja ya registrada', () => {
+  it('rechaza la baja de quien ya está de baja', () => {
     const database = makeDatabase({
-      employees: [{ ...employee, terminationDate: '2026-01-10' }],
+      employees: [{ ...employee, activityPeriods: [makePeriod('2020-01-01', '2026-01-10')] }],
     })
-    const updated = terminateEmployee(database, employee.id, '2026-03-15')
-    expect(updated.employees[0].terminationDate).toBe('2026-01-10')
+    expect(terminateEmployee(database, employee.id, '2026-03-15').ok).toBe(false)
+  })
+
+  it('rechaza una baja anterior al inicio del periodo en curso', () => {
+    const database = makeDatabase({
+      employees: [{ ...employee, activityPeriods: [makePeriod('2026-06-01')] }],
+    })
+    expect(terminateEmployee(database, employee.id, '2026-03-15').ok).toBe(false)
+  })
+})
+
+describe('rehireEmployee', () => {
+  const deBaja = {
+    ...employee,
+    activityPeriods: [makePeriod('2020-01-01', '2026-03-31')],
+  }
+
+  it('añade un periodo en curso conservando el histórico', () => {
+    const database = makeDatabase({ employees: [deBaja] })
+    const periods = periodsAfter(rehireEmployee(database, employee.id, '2026-09-01'))
+    expect(periods).toHaveLength(2)
+    expect(periods[0].end).toBe('2026-03-31')
+    expect(periods[1]).toMatchObject({ start: '2026-09-01', end: null })
+  })
+
+  it('admite un alta programada a futuro', () => {
+    const database = makeDatabase({ employees: [deBaja] })
+    expect(rehireEmployee(database, employee.id, '2027-01-01').ok).toBe(true)
+  })
+
+  it('rechaza el alta de quien ya está de alta', () => {
+    expect(rehireEmployee(makeDatabase(), employee.id, '2026-09-01').ok).toBe(false)
+  })
+
+  it('rechaza un alta que comparta día con la baja anterior', () => {
+    const database = makeDatabase({ employees: [deBaja] })
+    expect(rehireEmployee(database, employee.id, '2026-03-31').ok).toBe(false)
+    expect(rehireEmployee(database, employee.id, '2026-04-01').ok).toBe(true)
+  })
+
+  it('rechaza al empleado que no existe', () => {
+    expect(rehireEmployee(makeDatabase(), 'emp-fantasma').ok).toBe(false)
   })
 })

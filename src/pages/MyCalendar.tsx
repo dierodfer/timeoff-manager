@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { employmentSpanInYear } from '../domain/accrual'
+import { isActiveInYear } from '../domain/accrual'
 import { computeBalance, requestsOf } from '../domain/balance'
 import { formatDays, pluralDays } from '../domain/format'
 import { compareIso, todayIso } from '../domain/dates'
@@ -20,7 +20,7 @@ export function MyCalendar() {
   const isAdmin = currentUser.role === 'admin'
 
   const viewableEmployees = useMemo(
-    () => sortByName(database.employees.filter((employee) => employmentSpanInYear(employee, year))),
+    () => sortByName(database.employees.filter((employee) => isActiveInYear(employee, year))),
     [database.employees, year],
   )
 

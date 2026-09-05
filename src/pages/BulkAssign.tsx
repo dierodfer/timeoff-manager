@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { employmentSpanInYear } from '../domain/accrual'
+import { isActiveInYear } from '../domain/accrual'
 import { withBalances } from '../domain/balance'
 import { formatDate, formatDays } from '../domain/format'
 import { workingDaysInRange } from '../domain/workdays'
@@ -15,7 +15,7 @@ export function BulkAssign() {
   const [result, setResult] = useState<BulkAssignResult | null>(null)
 
   const employees = useMemo(
-    () => sortByName(database.employees.filter((employee) => employmentSpanInYear(employee, year))),
+    () => sortByName(database.employees.filter((employee) => isActiveInYear(employee, year))),
     [database.employees, year],
   )
 

@@ -1,6 +1,7 @@
 import { compareIso, daysInMonth, isoOf, weekday } from '../domain/dates'
 import { formatDate } from '../domain/format'
-import type { Holiday, IsoDate, RequestStatus } from '../domain/types'
+import { WEEKDAY_NAMES } from '../domain/workdays'
+import type { Holiday, HolidayScope, IsoDate, RequestStatus } from '../domain/types'
 import type { DayMark } from './MonthCalendar'
 
 export const WEEK_COLUMNS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
@@ -124,4 +125,26 @@ const MARK_TITLE = {
 export function dayTitle(holiday: Holiday | undefined, mark: DayMark): string | undefined {
   if (holiday) return holiday.name
   return mark ? MARK_TITLE[mark] : undefined
+}
+
+const SCOPE_LABEL: Record<HolidayScope, string> = {
+  nacional: 'Festivo nacional',
+  andalucia: 'Festivo de Andalucía',
+  algarrobo: 'Festivo local',
+}
+
+export interface DayInfo {
+  title: string
+  detail: string
+}
+
+/** Qué contar de un día en el que no se puede pedir vacaciones: el festivo, o por qué no se trabaja. */
+export function dayInfo(date: IsoDate, holiday: Holiday | undefined): DayInfo {
+  const day = WEEKDAY_NAMES[weekday(date)]
+  const named = day.charAt(0).toUpperCase() + day.slice(1)
+
+  if (holiday) {
+    return { title: holiday.name, detail: `${SCOPE_LABEL[holiday.scope]} · ${formatDate(date)}` }
+  }
+  return { title: named, detail: `No laborable · ${formatDate(date)}` }
 }

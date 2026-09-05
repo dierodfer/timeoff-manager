@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { isActive } from '../domain/accrual'
 import { todayIso } from '../domain/dates'
 import type { Employee } from '../domain/types'
 import { displayName, sortByName } from '../state/actions'
@@ -43,7 +44,7 @@ export function SignIn() {
       {!selected ? (
         <ul className="card mt-6 divide-y divide-[var(--color-hairline)] overflow-hidden">
           {employees.map((employee) => {
-            const isInactive = Boolean(employee.terminationDate && employee.terminationDate < today)
+            const isInactive = !isActive(employee, today)
             return (
               <li key={employee.id}>
                 <button

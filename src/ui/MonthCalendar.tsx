@@ -5,6 +5,8 @@ import {
   MONTH_DAY_CLASS,
   MONTH_NAMES,
   WEEK_COLUMNS,
+  columnOf,
+  dayInfo,
   dayState,
   dayTitle,
   firstDayOffset,
@@ -14,6 +16,13 @@ import {
 
 export type DayMark = 'aprobada' | 'pendiente' | undefined
 
+function tipAlignment(date: IsoDate): string {
+  const column = columnOf(date)
+  if (column <= 1) return 'day-tip-start'
+  if (column >= 5) return 'day-tip-end'
+  return ''
+}
+
 interface MonthCalendarProps {
   readonly year: number
   readonly month: number
@@ -22,6 +31,8 @@ interface MonthCalendarProps {
   readonly selected: ReadonlySet<IsoDate>
   readonly today: IsoDate
   readonly onToggle?: (date: IsoDate, extendRange: boolean) => void
+  readonly infoDay?: IsoDate | null
+  readonly onInfo?: (date: IsoDate | null) => void
 }
 
 export function MonthCalendar({
@@ -32,6 +43,8 @@ export function MonthCalendar({
   selected,
   today,
   onToggle,
+  infoDay,
+  onInfo,
 }: MonthCalendarProps) {
   const cells = monthCells(year, month)
 
@@ -70,6 +83,35 @@ export function MonthCalendar({
 
           const title = dayTitle(holiday, mark)
           const style = index === 0 ? firstDayOffset(date) : undefined
+
+          // Un día no laborable no se puede seleccionar, pero sí explicar: al pulsarlo abre un
+          // globo con el nombre del festivo o el motivo. El `title` nativo no vale porque en un
+          // móvil no hay puntero con el que pasar por encima.
+          if (!workable && onInfo) {
+            const info = dayInfo(date, holiday)
+            const isOpen = infoDay === date
+
+            return (
+              <button
+                key={date}
+                type="button"
+                data-day-info
+                style={style}
+                aria-label={`${formatLongDate(date)}: ${info.title}`}
+                aria-expanded={isOpen}
+                onClick={() => onInfo(isOpen ? null : date)}
+                className={`${classes.join(' ')} cursor-help`}
+              >
+                {dayOf(date)}
+                {isOpen && (
+                  <span className={`day-tip ${tipAlignment(date)}`} role="tooltip">
+                    <span className="font-semibold">{info.title}</span>
+                    <span className="opacity-70">{info.detail}</span>
+                  </span>
+                )}
+              </button>
+            )
+          }
 
           if (!onToggle || !workable) {
             return (

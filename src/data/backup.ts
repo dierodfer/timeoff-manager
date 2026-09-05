@@ -1,4 +1,5 @@
 import type { Database } from '../domain/types'
+import { migrateStored, type StoredDatabaseV1 } from './migrations'
 import { SCHEMA_VERSION, type StoredDatabase } from './repository'
 
 export function backupFileName(date = new Date()): string {
@@ -67,5 +68,6 @@ export function parseBackup(text: string): Database {
     throw new BackupFormatError('Faltan datos en la copia de seguridad o están dañados.')
   }
 
-  return data as Database
+  return migrateStored({ version: stored.version, savedAt: stored.savedAt ?? '', data } as
+    StoredDatabase | StoredDatabaseV1)
 }

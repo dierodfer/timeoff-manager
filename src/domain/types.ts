@@ -5,7 +5,8 @@ export type Role = 'admin' | 'employee'
 export interface ActivityPeriod {
   id: string
   start: IsoDate
-  end: IsoDate
+  /** `null` = periodo en curso: solo puede haber uno y es el de inicio más tardío. */
+  end: IsoDate | null
 }
 
 export interface Employee {
@@ -13,8 +14,6 @@ export interface Employee {
   firstName: string
   lastName: string
   role: Role
-  hireDate: IsoDate
-  terminationDate: IsoDate | null
   isSeasonal: boolean
   activityPeriods: ActivityPeriod[]
   pinHash: string

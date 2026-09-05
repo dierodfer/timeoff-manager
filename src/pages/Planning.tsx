@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { employmentSpanInYear } from '../domain/accrual'
+import { isActiveInYear } from '../domain/accrual'
 import { computeBalance } from '../domain/balance'
 import { formatDays } from '../domain/format'
 import { compareIso, todayIso } from '../domain/dates'
@@ -23,7 +23,7 @@ export function Planning() {
   const { selected, toggle, clear } = useDaySelection(canSelect)
 
   const employees = useMemo(
-    () => sortByName(database.employees.filter((employee) => employmentSpanInYear(employee, year))),
+    () => sortByName(database.employees.filter((employee) => isActiveInYear(employee, year))),
     [database.employees, year],
   )
 

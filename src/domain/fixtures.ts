@@ -1,9 +1,13 @@
-import type { Employee, Settings, VacationRequest } from './types'
+import type { ActivityPeriod, Employee, IsoDate, Settings, VacationRequest } from './types'
 
 export const testSettings: Settings = {
   organizationName: 'Empresa',
   defaultAnnualDays: 23,
   workweek: [1, 2, 3, 4, 5, 6],
+}
+
+export function makePeriod(start: IsoDate, end: IsoDate | null = null): ActivityPeriod {
+  return { id: `per-${start}`, start, end }
 }
 
 export function makeEmployee(overrides: Partial<Employee> = {}): Employee {
@@ -12,10 +16,8 @@ export function makeEmployee(overrides: Partial<Employee> = {}): Employee {
     firstName: 'Ana',
     lastName: 'García',
     role: 'employee',
-    hireDate: '2020-01-01',
-    terminationDate: null,
     isSeasonal: false,
-    activityPeriods: [],
+    activityPeriods: [makePeriod('2020-01-01')],
     pinHash: '',
     pinSalt: '',
     createdAt: '2020-01-01T00:00:00.000Z',

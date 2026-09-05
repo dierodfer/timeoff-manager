@@ -1,4 +1,4 @@
-import { effectiveAnnualDays, estimateAnnualDays } from './accrual'
+import { closeOpenPeriod, effectiveAnnualDays, estimateAnnualDays } from './accrual'
 import { compareIso, todayIso, yearOf } from './dates'
 import { pluralDays } from './format'
 import type { Allowance, Employee, IsoDate, Settings, VacationRequest } from './types'
@@ -40,10 +40,9 @@ export function computeBalance(
   settings: Settings,
   allowances: Allowance[],
   requests: VacationRequest[],
-  today: IsoDate = todayIso(),
 ): Balance {
-  const assigned = effectiveAnnualDays(employee, year, settings, allowances, today)
-  const estimated = estimateAnnualDays(employee, year, settings, today)
+  const assigned = effectiveAnnualDays(employee, year, settings, allowances)
+  const estimated = estimateAnnualDays(employee, year, settings)
   const mine = requestsOf(requests, employee.id, year)
 
   const approved = mine
@@ -75,11 +74,10 @@ export function withBalances(
   settings: Settings,
   allowances: Allowance[],
   requests: VacationRequest[],
-  today: IsoDate = todayIso(),
 ): EmployeeBalance[] {
   return employees.map((employee) => ({
     employee,
-    balance: computeBalance(employee, year, settings, allowances, requests, today),
+    balance: computeBalance(employee, year, settings, allowances, requests),
   }))
 }
 
@@ -101,7 +99,11 @@ export function terminationSettlement(
     .filter((request) => request.status === 'aprobada')
     .reduce((total, request) => total + request.days.filter((day) => day <= today).length, 0)
 
-  const entitlement = estimateAnnualDays({ ...employee, terminationDate }, year, settings, today)
+  const entitlement = estimateAnnualDays(
+    { ...employee, activityPeriods: closeOpenPeriod(employee.activityPeriods, terminationDate) },
+    year,
+    settings,
+  )
 
   return { taken, entitlement, difference: entitlement - taken }
 }
@@ -116,7 +118,6 @@ export function checkSelection(
   settings: Settings,
   allowances: Allowance[],
   requests: VacationRequest[],
-  today: IsoDate = todayIso(),
 ): SelectionCheck {
   const yearDays = days.filter((day) => yearOf(day) === year).sort(compareIso)
 
@@ -137,7 +138,7 @@ export function checkSelection(
     }
   }
 
-  const balance = computeBalance(employee, year, settings, allowances, requests, today)
+  const balance = computeBalance(employee, year, settings, allowances, requests)
   // Margen para el ruido de coma flotante: evita rechazar 13 días contra un saldo de 12,999999999.
   if (yearDays.length > balance.available + 1e-9) {
     return {
