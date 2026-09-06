@@ -136,6 +136,10 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
 - **Solo puede haber un periodo en curso, y es el último.** Lo comprueban `terminateEmployee()` y
   `rehireEmployee()` en `state/actions.ts`, que devuelven `Outcome` como el resto del fichero, y
   también el `submit()` del formulario.
+- **Los días trabajados que pinta la lista de Empleados sólo llegan hasta hoy**
+  (`workedDaysToDate()`), porque contar de antemano lo que aún no se ha trabajado no informa de
+  nada. Es un dato de pantalla y nada más: el devengo sigue usando `workedDaysInYear()`, que
+  proyecta el periodo en curso hasta el 31 de diciembre, así que la estimación no cambia.
 - **La lista de Empleados los muestra todos y se acota con filtros**: búsqueda por nombre, Estado
   (Todos / En activo / De baja, sobre `isActive()`), Tipo de contrato y orden. Cada fila lleva el
   chip «Activo» o «De baja», así que ya no hace falta esconder a nadie por defecto. Un fijo
@@ -300,6 +304,15 @@ iniciales: Acceso, la barra lateral y la lista de Empleados lo comparten.
 
 **Las acciones de una fila viven en un menú `⋮` (`ui/RowMenu.tsx`)**, no en botones sueltos: con
 Editar, Dar de alta/baja y Eliminar en línea, la fila no cabía junto a las cifras y el contador.
+
+**Solicitudes y Asignación masiva no están en la barra lateral**, que se queda con las cuatro
+pantallas que se visitan a diario. Sus rutas siguen existiendo y se llega a ellas desde donde hacen
+falta: a Solicitudes, por la campana con el número de días pendientes de la cabecera y por la
+tarjeta de resumen de Empleados; a Asignación masiva, por un botón junto a «Nuevo empleado».
+
+**`.btn-alt` es la única excepción al color de acento único.** Lo lleva Asignación masiva para
+distinguirse de «Nuevo empleado» sin competir con él, y reutiliza el verde de `--color-approved`,
+que ya es el del logo de la barra lateral.
 
 **El hueco previo al día 1 de cada mes es `grid-column-start`, no celdas vacías.** `monthCells()`
 devuelve solo días reales y `firstDayOffset()` coloca el primero en su columna. Añadir huecos de

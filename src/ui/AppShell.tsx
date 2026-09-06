@@ -1,10 +1,9 @@
 import {
+  Bell,
   CalendarDays,
   CalendarRange,
   ChevronLeft,
   ChevronRight,
-  Inbox,
-  Layers,
   LogOut,
   Menu as MenuIcon,
   Settings,
@@ -33,9 +32,7 @@ const EMPLOYEE_LINKS: NavItem[] = [
 const ADMIN_LINKS: NavItem[] = [
   { to: '/', label: 'Mi calendario', end: true, icon: CalendarDays },
   { to: '/planificacion', label: 'Planificación', end: false, icon: CalendarRange },
-  { to: '/solicitudes', label: 'Solicitudes', end: false, icon: Inbox },
   { to: '/empleados', label: 'Empleados', end: false, icon: Users },
-  { to: '/asignacion', label: 'Asignación masiva', end: false, icon: Layers },
   { to: '/ajustes', label: 'Ajustes', end: false, icon: Settings },
 ]
 
@@ -101,11 +98,6 @@ export function AppShell() {
                 icon={<link.icon className="size-[18px]" />}
                 component={<NavLink to={link.to} end={link.end} />}
                 onClick={() => setToggled(false)}
-                suffix={
-                  link.to === '/solicitudes' && pendingCount > 0 ? (
-                    <span className="chip chip-pendiente tabular">{pendingCount}</span>
-                  ) : undefined
-                }
               >
                 {link.label}
               </MenuItem>
@@ -152,8 +144,28 @@ export function AppShell() {
             </button>
           </div>
 
-          <span className="ml-auto lg:hidden">
-            <Avatar employee={currentUser} size="sm" />
+          <span className="ml-auto flex items-center gap-2">
+            {currentUser.role === 'admin' && (
+              <NavLink
+                to="/solicitudes"
+                className="icon-btn relative"
+                aria-label={
+                  pendingCount > 0
+                    ? `Solicitudes pendientes: ${pendingCount}`
+                    : 'Solicitudes pendientes'
+                }
+              >
+                <Bell className="size-5" />
+                {pendingCount > 0 && (
+                  <span className="notification-dot tabular">
+                    {pendingCount > 99 ? '99+' : pendingCount}
+                  </span>
+                )}
+              </NavLink>
+            )}
+            <span className="lg:hidden">
+              <Avatar employee={currentUser} size="sm" />
+            </span>
           </span>
         </header>
 

@@ -9,6 +9,7 @@ import {
   isActiveInYear,
   periodsOverlap,
   workedDaysInYear,
+  workedDaysToDate,
 } from './accrual'
 import { makeEmployee, makePeriod, testSettings } from './fixtures'
 
@@ -120,6 +121,35 @@ describe('días trabajados', () => {
 
   it('respeta una jornada semanal más corta', () => {
     expect(workedDaysInYear(makeEmployee(), 2026, [1, 2, 3, 4, 5])).toBe(261)
+  })
+})
+
+describe('días trabajados hasta hoy', () => {
+  const workedToDate = (employee: ReturnType<typeof makeEmployee>, year = 2026) =>
+    workedDaysToDate(employee, year, WORKWEEK, TODAY)
+
+  it('no cuenta los días que aún no han llegado', () => {
+    // Del 1 de enero al 15 de junio: 166 días menos 24 domingos, no los 313 del año entero.
+    expect(workedToDate(makeEmployee())).toBe(142)
+    expect(workedToDate(makeEmployee())).toBeLessThan(worked(makeEmployee()))
+  })
+
+  it('un periodo ya cerrado cuenta igual que en el devengo', () => {
+    const employee = makeEmployee({ activityPeriods: [makePeriod('2026-01-05', '2026-02-28')] })
+    expect(workedToDate(employee)).toBe(worked(employee))
+  })
+
+  it('un periodo que todavía no ha empezado no suma nada', () => {
+    expect(workedToDate(makeEmployee({ activityPeriods: [makePeriod('2026-09-01')] }))).toBe(0)
+  })
+
+  it('un año ya terminado cuenta entero', () => {
+    const employee = makeEmployee({ activityPeriods: [makePeriod('2025-01-01')] })
+    expect(workedToDate(employee, 2025)).toBe(worked(employee, 2025))
+  })
+
+  it('no cambia la estimación, que sigue proyectando hasta fin de año', () => {
+    expect(estimate(makeEmployee())).toBe(testSettings.defaultAnnualDays)
   })
 })
 

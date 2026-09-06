@@ -1,5 +1,6 @@
-import { Inbox, Plus, Search, Users } from 'lucide-react'
+import { ChevronRight, Inbox, Layers, Plus, Search, Users } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { hashPin, randomSalt } from '../data/pin'
 import { createEmployee } from '../data/seed'
 import {
@@ -9,7 +10,7 @@ import {
   lastEndDate,
   openPeriod,
   sortedPeriods,
-  workedDaysInYear,
+  workedDaysToDate,
 } from '../domain/accrual'
 import { terminationSettlement, withBalances } from '../domain/balance'
 import { formatDate, formatDays, pluralDays } from '../domain/format'
@@ -208,14 +209,20 @@ export function Employees() {
             Gestiona los empleados y sus periodos de actividad, vacaciones y ausencias.
           </p>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => setDialog({ kind: 'form', employee: null })}
-        >
-          <Plus className="size-[18px]" />
-          Nuevo empleado
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/asignacion" className="btn btn-alt">
+            <Layers className="size-[18px]" />
+            Asignación masiva
+          </Link>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setDialog({ kind: 'form', employee: null })}
+          >
+            <Plus className="size-[18px]" />
+            Nuevo empleado
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -243,17 +250,21 @@ export function Employees() {
           </span>
         </div>
 
-        <div className="card stat-card">
+        <Link
+          to="/solicitudes"
+          className="card stat-card transition hover:bg-[var(--color-surface-sunken)]"
+        >
           <span className="stat-icon">
             <Inbox className="size-5" />
           </span>
-          <span>
+          <span className="flex-1">
             <span className="tabular block text-2xl font-semibold">{pendingCount}</span>
             <span className="block text-[13px] text-[var(--color-ink-muted)]">
-              {pendingCount === 1 ? 'Día pendiente' : 'Días pendientes'} de resolver
+              Solicitudes pendientes
             </span>
           </span>
-        </div>
+          <ChevronRight className="size-5 text-[var(--color-ink-muted)]" />
+        </Link>
       </div>
 
       <div className="card grid gap-3 p-4 md:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))]">
@@ -365,11 +376,11 @@ export function Employees() {
                   <dl className="flex flex-none gap-6 text-[13px]">
                     <div>
                       <dd className="tabular text-lg font-semibold">
-                        {workedDaysInYear(employee, year, database.settings.workweek)}
+                        {workedDaysToDate(employee, year, database.settings.workweek, today)}
                       </dd>
                       <dt className="text-[var(--color-ink-muted)]">
                         Días trabajados
-                        <span className="block">en {year}</span>
+                        <span className="block">hasta hoy</span>
                       </dt>
                     </div>
                     <div>

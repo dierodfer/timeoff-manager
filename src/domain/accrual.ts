@@ -104,6 +104,22 @@ export function workedDaysInYear(employee: Employee, year: number, workweek: num
   )
 }
 
+export function workedDaysToDate(
+  employee: Employee,
+  year: number,
+  workweek: number[],
+  today: IsoDate = todayIso(),
+): number {
+  const workdays = new Set(workweek)
+  return activityIntervalsInYear(employee, year).reduce((total, interval) => {
+    const end = interval.end < today ? interval.end : today
+    if (end < interval.start) return total
+    return (
+      total + expandRange(interval.start, end).filter((date) => workdays.has(weekday(date))).length
+    )
+  }, 0)
+}
+
 export function estimateAnnualDays(employee: Employee, year: number, settings: Settings): number {
   const worked = workedDaysInYear(employee, year, settings.workweek)
   if (worked <= 0) return 0

@@ -144,6 +144,15 @@
     background: var(--color-accent-soft);
   }
 
+  .btn-alt {
+    background: var(--color-approved);
+    color: #fff;
+  }
+
+  .btn-alt:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
   .btn-danger {
     background: transparent;
     color: var(--color-rejected);
@@ -518,6 +527,25 @@
   .icon-btn:hover {
     background: var(--color-surface-sunken);
     color: var(--color-ink);
+  }
+
+  .notification-dot {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    display: flex;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 2px solid var(--color-surface);
+    background: var(--color-rejected);
+    padding-inline: 0.2rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
   }
 
   .year-picker {
