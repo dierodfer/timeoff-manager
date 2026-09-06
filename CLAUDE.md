@@ -395,6 +395,17 @@ que ya es el del logo de la barra lateral.
 devuelve solo días reales y `firstDayOffset()` coloca el primero en su columna. Añadir huecos de
 relleno obligaría a inventarles una clave y a filtrarlos en cada `map`.
 
+**`YearCalendar` pinta un mes solo en móvil, los doce en pantallas `sm:` o mayores** —no los doce
+apilados en una columna—, porque desplazarse por un año entero de golpe en el móvil es demasiado.
+El selector de mes reutiliza la clase `.year-picker` (la misma del año, en la cabecera de
+`AppShell`) y `MonthCalendar` recibe `hideTitle` para no repetir el nombre del mes que ya pinta ese
+selector. **El mes mostrado en móvil vive en un componente aparte (`MobileMonth`) montado con
+`key={year}`**, no sincronizado con un efecto: así, al cambiar de año, React lo remonta entero y su
+`useState` vuelve a arrancar en el mes de hoy (o en enero si el año ya no es el actual) sin la
+cascada de renders de un `setState` dentro de un `useEffect`. Los botones anterior/siguiente se
+deshabilitan en enero y diciembre — cruzar a otro año es cosa del selector de año de la cabecera,
+no de este control.
+
 **Qué color gana en una celda de calendario lo decide `dayState()` (`ui/calendarGrid.ts`)**, no cada
 componente. `MONTH_DAY_CLASS` y `GRID_DAY_CLASS` traducen ese estado a las clases del calendario
 mensual y de la rejilla anual, y la leyenda de Planificación usa las mismas clases para no
