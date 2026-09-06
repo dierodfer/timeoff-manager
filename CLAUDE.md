@@ -362,12 +362,30 @@ clases `.row-menu`/`.row-menu-item` del menú `⋮` de una fila y el `useDismiss
 es el mismo patrón de popover. Es lo único que cierra la sesión, y está donde está para que también
 lo tenga a mano quien no ve barra lateral.
 
-**Mis solicitudes es una pantalla propia (`pages/MyRequests.tsx`) a la que se entra pulsando la
-tarjeta de días de vacaciones de Mi calendario**, que es un enlace entero (`BalanceCard` con el prop
-`to`, resaltado con `.card-link`). Antes era una sección al final del calendario, donde quedaba
-lejos del saldo que la explica. **A quién mira un administrador vive en la URL** (`?empleado=<id>`)
-y no en un estado local: es lo que permite ir de un calendario ajeno a sus solicitudes y volver sin
-perder de vista a esa persona.
+**Mis solicitudes es una pantalla propia (`pages/MyRequests.tsx`)**, a la que se entra desde dos
+sitios de Mi calendario: el botón «Ver mis solicitudes» de `BalanceCard` (prop `requestsTo`) y el
+enlace «Ver todas» de la vista previa de solicitudes recientes de la propia página. Antes era una
+sección al final del calendario, donde quedaba lejos del saldo que la explica. **A quién mira un
+administrador vive en la URL** (`?empleado=<id>`) y no en un estado local: es lo que permite ir de
+un calendario ajeno a sus solicitudes y volver sin perder de vista a esa persona.
+
+**`BalanceCard` lleva sus propias acciones («Solicitar vacaciones» y «Ver mis solicitudes»)**, no
+una tarjeta clicable entera: son dos intenciones distintas (pedir días nuevos, consultar las que ya
+existen) y un botón por intención es más claro que un enlace ambiguo sobre toda la tarjeta.
+«Solicitar vacaciones» se deshabilita mientras no haya ningún día marcado en el calendario — abre el
+mismo diálogo que el botón «Solicitar vacaciones» de la barra flotante inferior, que aparece con la
+misma selección.
+
+**Mi calendario muestra sus últimas 4 solicitudes del año** bajo el saldo, cada una con el rango de
+fechas, el primer comentario (o el número de días si no hay comentario) y su chip de estado; toda la
+fila enlaza a Mis solicitudes. Es una vista previa, no una lista completa — para eso está «Ver
+todas». El aviso «Ten en cuenta» que la acompaña son las reglas reales de selección y cancelación
+(saldo, aprobación, cancelación en pendiente), no relleno genérico.
+
+**El botón «Hoy» de Mi calendario vuelve al año en curso** (`setYear` al año de `todayIso()`) y se
+deshabilita cuando ya se está en él. Es un atajo sobre el año, que es una selección global de toda
+la aplicación (cabecera de `AppShell`); la propia rejilla de meses ya muestra el año entero de una
+vez, así que no hace falta desplazarse dentro de la página como en la rejilla de Planificación.
 
 **`.btn-alt` es la única excepción al color de acento único.** Lo lleva Asignación masiva para
 distinguirse de «Nuevo empleado» sin competir con él, y reutiliza el verde de `--color-approved`,

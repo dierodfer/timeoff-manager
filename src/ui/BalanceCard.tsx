@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ListChecks, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { Balance } from '../domain/balance'
 import { formatDays, truncateDays } from '../domain/format'
@@ -6,14 +6,14 @@ import { Metric } from './Metric'
 
 interface BalanceCardProps {
   readonly balance: Balance
-  /** Si se pasa, la tarjeta entera enlaza ahí: es la vía a las solicitudes desde Mi calendario. */
-  readonly to?: string
-  readonly linkLabel?: string
+  readonly onRequest?: () => void
+  readonly requestDisabled?: boolean
+  readonly requestsTo?: string
 }
 
-export function BalanceCard({ balance, to, linkLabel }: BalanceCardProps) {
-  const content = (
-    <>
+export function BalanceCard({ balance, onRequest, requestDisabled, requestsTo }: BalanceCardProps) {
+  return (
+    <div className="card p-5">
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-semibold">Días de vacaciones {balance.year}</h2>
         {balance.isOverridden && (
@@ -53,21 +53,29 @@ export function BalanceCard({ balance, to, linkLabel }: BalanceCardProps) {
         </div>
       </div>
 
-      {to && (
-        <p className="mt-4 flex items-center gap-1 text-xs font-medium text-[var(--color-accent)]">
-          {linkLabel}
-          <ChevronRight className="size-3.5" />
-        </p>
+      {(onRequest || requestsTo) && (
+        <div className="mt-4 space-y-2">
+          {onRequest && (
+            <button
+              type="button"
+              className="btn btn-primary w-full"
+              disabled={requestDisabled}
+              title={requestDisabled ? 'Selecciona antes los días en el calendario.' : undefined}
+              onClick={onRequest}
+            >
+              <Send className="size-4" />
+              Solicitar vacaciones
+            </button>
+          )}
+          {requestsTo && (
+            <Link to={requestsTo} className="btn btn-secondary w-full">
+              <ListChecks className="size-4" />
+              Ver mis solicitudes
+            </Link>
+          )}
+        </div>
       )}
-    </>
-  )
-
-  return to ? (
-    <Link to={to} className="card card-link block p-5">
-      {content}
-    </Link>
-  ) : (
-    <div className="card p-5">{content}</div>
+    </div>
   )
 }
 
