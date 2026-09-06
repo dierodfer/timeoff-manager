@@ -436,7 +436,6 @@ export function Employees() {
         <Modal
           title={dialog.employee ? 'Editar empleado' : 'Nuevo empleado'}
           onClose={() => setDialog(null)}
-          wide
           confirm={{ label: 'Guardar', form: 'employee-form' }}
         >
           <EmployeeForm
