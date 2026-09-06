@@ -374,7 +374,7 @@ export function Employees() {
                   />
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-center gap-1">
                   <Stepper
                     label={displayName(employee)}
                     value={balance.assigned}
