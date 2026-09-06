@@ -1,4 +1,13 @@
-import { ChevronRight, Inbox, Layers, Plus, Search, Users } from 'lucide-react'
+import {
+  ChevronRight,
+  Inbox,
+  Layers,
+  Plus,
+  Search,
+  TrendingDown,
+  TrendingUp,
+  Users,
+} from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { hashPin, randomSalt } from '../data/pin'
@@ -12,12 +21,13 @@ import {
   sortedPeriods,
   workedDaysToDate,
 } from '../domain/accrual'
-import { terminationSettlement, withBalances } from '../domain/balance'
+import { pendingDaysInYear, terminationSettlement, withBalances } from '../domain/balance'
 import { formatDate, formatDays, pluralDays } from '../domain/format'
-import { addDays, todayIso } from '../domain/dates'
+import { addDays, compareIso, todayIso } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import {
   clearAllowance,
+  deleteEmployee,
   displayName,
   rehireEmployee,
   setAllowance,
@@ -27,8 +37,10 @@ import {
 import { useSession } from '../state/appContext'
 import { Avatar } from '../ui/Avatar'
 import { EmployeeForm, type EmployeeFormValues } from '../ui/EmployeeForm'
+import { Metric } from '../ui/Metric'
 import { Modal } from '../ui/Modal'
 import { RowMenu } from '../ui/RowMenu'
+import { SelectField } from '../ui/SelectField'
 import { Stepper } from '../ui/Stepper'
 
 type Dialog =
@@ -38,9 +50,13 @@ type Dialog =
   | { kind: 'delete'; employee: Employee }
   | null
 
-type StatusFilter = 'todos' | 'activos' | 'bajas'
-type ContractFilter = 'todos' | 'fijo' | 'discontinuo'
-type SortOrder = 'nombre' | 'nombre-desc' | 'alta'
+const STATUS = { todos: 'Todos', activos: 'En activo', bajas: 'De baja' }
+const CONTRACT = { todos: 'Todos', fijo: 'Fijo', discontinuo: 'Fijo discontinuo' }
+const ORDER = { nombre: 'Nombre (A–Z)', 'nombre-desc': 'Nombre (Z–A)', alta: 'Alta más reciente' }
+
+type StatusFilter = keyof typeof STATUS
+type ContractFilter = keyof typeof CONTRACT
+type SortOrder = keyof typeof ORDER
 
 function minAltaDate(employee: Employee, today: IsoDate): IsoDate {
   const last = lastEndDate(employee)
@@ -80,7 +96,7 @@ export function Employees() {
 
     if (order === 'alta') {
       return [...matching].sort((a, b) =>
-        (sortedPeriods(b).at(-1)?.start ?? '').localeCompare(sortedPeriods(a).at(-1)?.start ?? ''),
+        compareIso(sortedPeriods(b).at(-1)?.start ?? '', sortedPeriods(a).at(-1)?.start ?? ''),
       )
     }
     const byName = sortByName(matching)
@@ -88,17 +104,25 @@ export function Employees() {
   }, [database.employees, search, status, contract, order, today])
 
   const rows = useMemo(
-    () => withBalances(employees, year, database.settings, database.allowances, database.requests),
-    [employees, year, database.settings, database.allowances, database.requests],
+    () =>
+      withBalances(employees, year, database.settings, database.allowances, database.requests).map(
+        (row) => ({
+          ...row,
+          inYear: isActiveInYear(row.employee, year),
+          last: sortedPeriods(row.employee).at(-1),
+          active: isActive(row.employee, today),
+          employed: Boolean(openPeriod(row.employee)),
+          worked: workedDaysToDate(row.employee, year, database.settings.workweek, today),
+        }),
+      ),
+    [employees, year, today, database.settings, database.allowances, database.requests],
   )
 
-  const activeCount = database.employees.filter((employee) => isActiveInYear(employee, year)).length
-  const previousCount = database.employees.filter((employee) =>
-    isActiveInYear(employee, year - 1),
-  ).length
-  const pendingCount = database.requests
-    .filter((request) => request.status === 'pendiente' && request.year === year)
-    .reduce((total, request) => total + request.days.length, 0)
+  const inYearCount = (of: number) =>
+    database.employees.filter((employee) => isActiveInYear(employee, of)).length
+  const activeCount = inYearCount(year)
+  const delta = activeCount - inYearCount(year - 1)
+  const pendingCount = pendingDaysInYear(database.requests, year)
 
   const saveEmployee = async (values: EmployeeFormValues) => {
     if (dialog?.kind !== 'form') return
@@ -162,6 +186,8 @@ export function Employees() {
     return estimateAnnualDays(rehired, year, database.settings)
   }, [dialog, dialogDate, year, database.settings])
 
+  const lastEnd = dialog?.kind === 'alta' ? lastEndDate(dialog.employee) : null
+
   const confirmBaja = (event: FormEvent, employee: Employee) => {
     event.preventDefault()
     if (!apply((db) => terminateEmployee(db, employee.id, dialogDate))) return
@@ -177,27 +203,15 @@ export function Employees() {
   }
 
   const removeEmployee = (employee: Employee) => {
-    commit({
-      ...database,
-      employees: database.employees.filter((item) => item.id !== employee.id),
-      requests: database.requests.filter((item) => item.employeeId !== employee.id),
-      allowances: database.allowances.filter((item) => item.employeeId !== employee.id),
-    })
+    if (!apply((db) => deleteEmployee(db, employee.id))) return
     notify(`${displayName(employee)} eliminado.`)
     setDialog(null)
   }
 
-  const adminCount = database.employees.filter((employee) => employee.role === 'admin').length
-
-  const openBaja = (employee: Employee) => {
-    setDialogDate(today)
-    setDialog({ kind: 'baja', employee })
-  }
-
-  const openAlta = (employee: Employee) => {
+  const openDialog = (kind: 'baja' | 'alta', employee: Employee) => {
     const min = minAltaDate(employee, today)
-    setDialogDate(min > today ? min : today)
-    setDialog({ kind: 'alta', employee })
+    setDialogDate(kind === 'alta' && min > today ? min : today)
+    setDialog({ kind, employee })
   }
 
   return (
@@ -227,42 +241,41 @@ export function Employees() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="card stat-card">
-          <span className="stat-icon">
+          <span className="badge-icon">
             <Users className="size-5" />
           </span>
-          <span>
-            <span className="tabular block text-2xl font-semibold">{activeCount}</span>
-            <span className="block text-[13px] text-[var(--color-ink-muted)]">
-              {activeCount === 1 ? 'Empleado' : 'Empleados'} con actividad en {year}
-            </span>
-            {previousCount > 0 && activeCount !== previousCount && (
-              <span
-                className={`mt-0.5 block text-xs font-medium ${
-                  activeCount > previousCount
-                    ? 'text-[var(--color-approved)]'
-                    : 'text-[var(--color-rejected)]'
-                }`}
+          <div className="flex-1">
+            <Metric
+              layout="value-first"
+              value={activeCount}
+              label={`${activeCount === 1 ? 'Empleado' : 'Empleados'} con actividad en ${year}`}
+            />
+            {delta !== 0 && (
+              <p
+                className="mt-0.5 flex items-center gap-1 text-xs font-medium"
+                style={{ color: `var(--color-${delta > 0 ? 'approved' : 'rejected'})` }}
               >
-                {activeCount > previousCount ? '↑' : '↓'} {Math.abs(activeCount - previousCount)}{' '}
-                vs. {year - 1}
-              </span>
+                {delta > 0 ? (
+                  <TrendingUp className="size-3.5" />
+                ) : (
+                  <TrendingDown className="size-3.5" />
+                )}
+                {Math.abs(delta)} vs. {year - 1}
+              </p>
             )}
-          </span>
+          </div>
         </div>
 
         <Link
           to="/solicitudes"
           className="card stat-card transition hover:bg-[var(--color-surface-sunken)]"
         >
-          <span className="stat-icon">
+          <span className="badge-icon">
             <Inbox className="size-5" />
           </span>
-          <span className="flex-1">
-            <span className="tabular block text-2xl font-semibold">{pendingCount}</span>
-            <span className="block text-[13px] text-[var(--color-ink-muted)]">
-              Solicitudes pendientes
-            </span>
-          </span>
+          <div className="flex-1">
+            <Metric layout="value-first" value={pendingCount} label="Solicitudes pendientes" />
+          </div>
           <ChevronRight className="size-5 text-[var(--color-ink-muted)]" />
         </Link>
       </div>
@@ -285,172 +298,126 @@ export function Employees() {
           </span>
         </div>
 
-        <div>
-          <label className="label" htmlFor="filtro-estado">
-            Estado
-          </label>
-          <select
-            id="filtro-estado"
-            className="field"
-            value={status}
-            onChange={(event) => setStatus(event.target.value as StatusFilter)}
-          >
-            <option value="todos">Todos</option>
-            <option value="activos">En activo</option>
-            <option value="bajas">De baja</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="label" htmlFor="filtro-contrato">
-            Tipo de contrato
-          </label>
-          <select
-            id="filtro-contrato"
-            className="field"
-            value={contract}
-            onChange={(event) => setContract(event.target.value as ContractFilter)}
-          >
-            <option value="todos">Todos</option>
-            <option value="fijo">Fijo</option>
-            <option value="discontinuo">Fijo discontinuo</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="label" htmlFor="filtro-orden">
-            Ordenar por
-          </label>
-          <select
-            id="filtro-orden"
-            className="field"
-            value={order}
-            onChange={(event) => setOrder(event.target.value as SortOrder)}
-          >
-            <option value="nombre">Nombre (A–Z)</option>
-            <option value="nombre-desc">Nombre (Z–A)</option>
-            <option value="alta">Alta más reciente</option>
-          </select>
-        </div>
+        <SelectField
+          id="filtro-estado"
+          label="Estado"
+          value={status}
+          options={STATUS}
+          onChange={setStatus}
+        />
+        <SelectField
+          id="filtro-contrato"
+          label="Tipo de contrato"
+          value={contract}
+          options={CONTRACT}
+          onChange={setContract}
+        />
+        <SelectField
+          id="filtro-orden"
+          label="Ordenar por"
+          value={order}
+          options={ORDER}
+          onChange={setOrder}
+        />
       </div>
 
       <div className="card divide-y divide-[var(--color-hairline)]">
-        {rows.map(({ employee, balance }) => {
-          const inYear = isActiveInYear(employee, year)
-          const last = sortedPeriods(employee).at(-1)
-          const employed = Boolean(openPeriod(employee))
-          const onlyAdmin = employee.role === 'admin' && adminCount === 1
+        {rows.map(({ employee, balance, inYear, last, active, employed, worked }) => (
+          <div key={employee.id} className="flex flex-wrap items-center gap-x-6 gap-y-4 p-4">
+            <div className="flex min-w-60 flex-1 items-start gap-3">
+              <Avatar employee={employee} size="lg" />
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
+                  {displayName(employee)}
+                  {employee.id === currentUser.id && <span className="chip chip-neutral">Tú</span>}
+                  <span className={active ? 'chip chip-aprobada' : 'chip chip-neutral'}>
+                    {active ? 'Activo' : 'De baja'}
+                  </span>
+                </p>
+                <p className="mt-0.5 text-[13px] text-[var(--color-ink-muted)]">
+                  {employee.role === 'admin' ? 'Administrador' : 'Empleado'}
+                  {employee.isSeasonal ? ' · Fijo discontinuo' : ' · Fijo'}
+                  {last ? ` · Alta ${formatDate(last.start)}` : ''}
+                  {last?.end ? ` · Baja ${formatDate(last.end)}` : ''}
+                </p>
+                {employee.activityPeriods.length > 1 && (
+                  <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                    Periodos de actividad: {periodsSummary(employee)}
+                  </p>
+                )}
+              </div>
+            </div>
 
-          return (
-            <div key={employee.id} className="flex flex-wrap items-center gap-x-6 gap-y-4 p-4">
-              <div className="flex min-w-60 flex-1 items-start gap-3">
-                <Avatar employee={employee} size="lg" />
-                <div className="min-w-0">
-                  <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
-                    {displayName(employee)}
-                    {employee.id === currentUser.id && (
-                      <span className="chip chip-neutral">Tú</span>
-                    )}
-                    {employed ? (
-                      <span className="chip chip-aprobada">Activo</span>
-                    ) : (
-                      <span className="chip chip-neutral">De baja</span>
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-[13px] text-[var(--color-ink-muted)]">
-                    {employee.role === 'admin' ? 'Administrador' : 'Empleado'}
-                    {employee.isSeasonal ? ' · Fijo discontinuo' : ' · Fijo'}
-                    {last ? ` · Alta ${formatDate(last.start)}` : ''}
-                    {last?.end ? ` · Baja ${formatDate(last.end)}` : ''}
-                  </p>
-                  {employee.activityPeriods.length > 1 && (
-                    <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-                      Periodos de actividad: {periodsSummary(employee)}
-                    </p>
+            {inYear ? (
+              <>
+                <div className="flex flex-none gap-6">
+                  <Metric
+                    layout="value-first"
+                    value={worked}
+                    label={
+                      <>
+                        Días trabajados<span className="block">hasta hoy</span>
+                      </>
+                    }
+                  />
+                  <Metric
+                    layout="value-first"
+                    value={formatDays(balance.estimated)}
+                    label="Estimación"
+                  />
+                  <Metric layout="value-first" value={balance.approved} label="Aprobados" />
+                  <Metric
+                    layout="value-first"
+                    value={balance.pending}
+                    label="Pendientes"
+                    tone={balance.pending > 0 ? 'var(--color-pending)' : undefined}
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Stepper
+                    label={displayName(employee)}
+                    value={balance.assigned}
+                    onChange={(next) => apply((db) => setAllowance(db, employee.id, year, next))}
+                  />
+                  {balance.isOverridden && (
+                    <button
+                      type="button"
+                      className="btn btn-quiet btn-sm"
+                      title={`Volver a la estimación (${formatDays(balance.estimated)} días)`}
+                      onClick={() => {
+                        commit(clearAllowance(database, employee.id, year))
+                        notify('Días restablecidos a la estimación.')
+                      }}
+                    >
+                      Restablecer
+                    </button>
                   )}
                 </div>
-              </div>
+              </>
+            ) : (
+              <span className="chip chip-neutral">Sin actividad en {year}</span>
+            )}
 
-              {inYear ? (
-                <>
-                  <dl className="flex flex-none gap-6 text-[13px]">
-                    <div>
-                      <dd className="tabular text-lg font-semibold">
-                        {workedDaysToDate(employee, year, database.settings.workweek, today)}
-                      </dd>
-                      <dt className="text-[var(--color-ink-muted)]">
-                        Días trabajados
-                        <span className="block">hasta hoy</span>
-                      </dt>
-                    </div>
-                    <div>
-                      <dd className="tabular text-lg font-semibold">
-                        {formatDays(balance.estimated)}
-                      </dd>
-                      <dt className="text-[var(--color-ink-muted)]">Estimación</dt>
-                    </div>
-                    <div>
-                      <dd className="tabular text-lg font-semibold">{balance.approved}</dd>
-                      <dt className="text-[var(--color-ink-muted)]">Aprobados</dt>
-                    </div>
-                    <div>
-                      <dd
-                        className={`tabular text-lg font-semibold ${
-                          balance.pending > 0 ? 'text-[var(--color-pending)]' : ''
-                        }`}
-                      >
-                        {balance.pending}
-                      </dd>
-                      <dt className="text-[var(--color-ink-muted)]">Pendientes</dt>
-                    </div>
-                  </dl>
-
-                  <div className="flex items-center gap-2">
-                    <Stepper
-                      label={displayName(employee)}
-                      value={balance.assigned}
-                      onChange={(next) => apply((db) => setAllowance(db, employee.id, year, next))}
-                    />
-                    {balance.isOverridden && (
-                      <button
-                        type="button"
-                        className="btn btn-quiet btn-sm"
-                        title={`Volver a la estimación (${formatDays(balance.estimated)} días)`}
-                        onClick={() => {
-                          commit(clearAllowance(database, employee.id, year))
-                          notify('Días restablecidos a la estimación.')
-                        }}
-                      >
-                        Restablecer
-                      </button>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <span className="chip chip-neutral">Sin actividad en {year}</span>
-              )}
-
-              <RowMenu
-                label={`Acciones de ${displayName(employee)}`}
-                items={[
-                  { label: 'Editar', onSelect: () => setDialog({ kind: 'form', employee }) },
-                  employed
-                    ? { label: 'Dar de baja', onSelect: () => openBaja(employee) }
-                    : { label: 'Dar de alta', onSelect: () => openAlta(employee) },
-                  {
-                    label: 'Eliminar',
-                    danger: true,
-                    disabled: employed || onlyAdmin,
-                    disabledReason: employed
-                      ? 'Da de baja al empleado antes de eliminarlo'
-                      : 'Es el único administrador',
-                    onSelect: () => setDialog({ kind: 'delete', employee }),
-                  },
-                ]}
-              />
-            </div>
-          )
-        })}
+            <RowMenu
+              label={`Acciones de ${displayName(employee)}`}
+              items={[
+                { label: 'Editar', onSelect: () => setDialog({ kind: 'form', employee }) },
+                {
+                  label: employed ? 'Dar de baja' : 'Dar de alta',
+                  onSelect: () => openDialog(employed ? 'baja' : 'alta', employee),
+                },
+                {
+                  label: 'Eliminar',
+                  danger: true,
+                  disabled: employed,
+                  disabledReason: 'Da de baja al empleado antes de eliminarlo',
+                  onSelect: () => setDialog({ kind: 'delete', employee }),
+                },
+              ]}
+            />
+          </div>
+        ))}
 
         {rows.length === 0 && (
           <p className="p-8 text-center text-sm text-[var(--color-ink-muted)]">
@@ -470,16 +437,7 @@ export function Employees() {
           title={dialog.employee ? 'Editar empleado' : 'Nuevo empleado'}
           onClose={() => setDialog(null)}
           wide
-          footer={
-            <>
-              <button type="button" className="btn btn-secondary" onClick={() => setDialog(null)}>
-                Cancelar
-              </button>
-              <button type="submit" form="employee-form" className="btn btn-primary">
-                Guardar
-              </button>
-            </>
-          }
+          confirm={{ label: 'Guardar', form: 'employee-form' }}
         >
           <EmployeeForm
             key={dialog.employee?.id ?? 'nuevo'}
@@ -496,16 +454,7 @@ export function Employees() {
         <Modal
           title={`Dar de baja a ${displayName(dialog.employee)}`}
           onClose={() => setDialog(null)}
-          footer={
-            <>
-              <button type="button" className="btn btn-secondary" onClick={() => setDialog(null)}>
-                Cancelar
-              </button>
-              <button type="submit" form="baja-form" className="btn btn-primary">
-                Confirmar baja
-              </button>
-            </>
-          }
+          confirm={{ label: 'Confirmar baja', form: 'baja-form' }}
         >
           <form
             id="baja-form"
@@ -554,16 +503,7 @@ export function Employees() {
         <Modal
           title={`Dar de alta a ${displayName(dialog.employee)}`}
           onClose={() => setDialog(null)}
-          footer={
-            <>
-              <button type="button" className="btn btn-secondary" onClick={() => setDialog(null)}>
-                Cancelar
-              </button>
-              <button type="submit" form="alta-form" className="btn btn-primary">
-                Confirmar alta
-              </button>
-            </>
-          }
+          confirm={{ label: 'Confirmar alta', form: 'alta-form' }}
         >
           <form
             id="alta-form"
@@ -586,12 +526,7 @@ export function Employees() {
             </div>
 
             <div className="hairline space-y-1 rounded-[var(--radius-control)] border p-3 text-sm">
-              {lastEndDate(dialog.employee) && (
-                <p>
-                  Su último periodo terminó el {formatDate(lastEndDate(dialog.employee) as IsoDate)}
-                  .
-                </p>
-              )}
+              {lastEnd && <p>Su último periodo terminó el {formatDate(lastEnd)}.</p>}
               <p>
                 Con esta fecha le corresponderían {pluralDays(altaEstimate)} en {year}.
               </p>
@@ -605,20 +540,11 @@ export function Employees() {
           title={`Eliminar a ${displayName(dialog.employee)}`}
           description="Se borrarán también sus solicitudes y sus días ajustados. Si solo quieres cerrar su relación laboral, usa «Dar de baja» y conservarás el histórico."
           onClose={() => setDialog(null)}
-          footer={
-            <>
-              <button type="button" className="btn btn-secondary" onClick={() => setDialog(null)}>
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => removeEmployee(dialog.employee)}
-              >
-                Eliminar definitivamente
-              </button>
-            </>
-          }
+          confirm={{
+            label: 'Eliminar definitivamente',
+            danger: true,
+            onClick: () => removeEmployee(dialog.employee),
+          }}
         >
           <p className="text-sm text-[var(--color-ink-soft)]">Esta acción no se puede deshacer.</p>
         </Modal>

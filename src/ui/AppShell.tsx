@@ -14,6 +14,7 @@ import type { ComponentType } from 'react'
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Menu, MenuItem, Sidebar } from 'react-pro-sidebar'
+import { pendingDaysInYear } from '../domain/balance'
 import { displayName } from '../state/actions'
 import { useSession } from '../state/appContext'
 import { Avatar } from './Avatar'
@@ -21,33 +22,43 @@ import { Avatar } from './Avatar'
 interface NavItem {
   to: string
   label: string
-  end: boolean
   icon: ComponentType<{ className?: string }>
+  adminOnly?: boolean
 }
 
-const EMPLOYEE_LINKS: NavItem[] = [
-  { to: '/', label: 'Mi calendario', end: true, icon: CalendarDays },
+const LINKS: NavItem[] = [
+  { to: '/', label: 'Mi calendario', icon: CalendarDays },
+  { to: '/planificacion', label: 'Planificación', icon: CalendarRange, adminOnly: true },
+  { to: '/empleados', label: 'Empleados', icon: Users, adminOnly: true },
+  { to: '/ajustes', label: 'Ajustes', icon: Settings, adminOnly: true },
 ]
 
-const ADMIN_LINKS: NavItem[] = [
-  { to: '/', label: 'Mi calendario', end: true, icon: CalendarDays },
-  { to: '/planificacion', label: 'Planificación', end: false, icon: CalendarRange },
-  { to: '/empleados', label: 'Empleados', end: false, icon: Users },
-  { to: '/ajustes', label: 'Ajustes', end: false, icon: Settings },
-]
+const MENU_ITEM_STYLES = {
+  button: ({ active }: { active?: boolean }) => ({
+    height: '42px',
+    borderRadius: '10px',
+    paddingLeft: '12px',
+    paddingRight: '12px',
+    fontSize: '14px',
+    fontWeight: active ? 600 : 500,
+    color: active ? 'var(--color-accent)' : 'var(--color-ink-soft)',
+    backgroundColor: active ? 'var(--color-accent-soft)' : 'transparent',
+    '&:hover': {
+      backgroundColor: active ? 'var(--color-accent-soft)' : 'var(--color-surface-sunken)',
+      color: active ? 'var(--color-accent)' : 'var(--color-ink)',
+    },
+  }),
+  icon: { marginRight: '10px', width: 'auto', minWidth: 'auto' },
+  label: { overflow: 'visible' },
+}
 
 export function AppShell() {
   const { database, currentUser, year, setYear, signOut } = useSession()
   const [toggled, setToggled] = useState(false)
-  const location = useLocation()
-  const links = currentUser.role === 'admin' ? ADMIN_LINKS : EMPLOYEE_LINKS
-
-  const pendingCount = database.requests
-    .filter((request) => request.status === 'pendiente' && request.year === year)
-    .reduce((total, request) => total + request.days.length, 0)
-
-  const isCurrent = (link: NavItem) =>
-    link.end ? location.pathname === link.to : location.pathname.startsWith(link.to)
+  const { pathname } = useLocation()
+  const isAdmin = currentUser.role === 'admin'
+  const links = LINKS.filter((link) => isAdmin || !link.adminOnly)
+  const pendingCount = pendingDaysInYear(database.requests, year)
 
   return (
     <div className="flex min-h-dvh">
@@ -58,45 +69,22 @@ export function AppShell() {
         width="264px"
         backgroundColor="var(--color-surface)"
         rootStyles={{ borderColor: 'var(--color-hairline)' }}
-        className="sidebar"
       >
         <div className="flex min-h-dvh flex-col">
           <p className="flex items-center gap-2.5 px-5 py-5 text-[17px] font-semibold">
-            <span className="sidebar-logo">
+            <span className="badge-icon badge-icon-sm">
               <Sprout className="size-5" />
             </span>
             <span className="truncate">{database.settings.organizationName}</span>
           </p>
 
-          <Menu
-            className="px-2"
-            menuItemStyles={{
-              button: ({ active }) => ({
-                height: '42px',
-                borderRadius: '10px',
-                paddingLeft: '12px',
-                paddingRight: '12px',
-                fontSize: '14px',
-                fontWeight: active ? 600 : 500,
-                color: active ? 'var(--color-accent)' : 'var(--color-ink-soft)',
-                backgroundColor: active ? 'var(--color-accent-soft)' : 'transparent',
-                '&:hover': {
-                  backgroundColor: active
-                    ? 'var(--color-accent-soft)'
-                    : 'var(--color-surface-sunken)',
-                  color: active ? 'var(--color-accent)' : 'var(--color-ink)',
-                },
-              }),
-              icon: { marginRight: '10px', width: 'auto', minWidth: 'auto' },
-              label: { overflow: 'visible' },
-            }}
-          >
+          <Menu className="px-2" menuItemStyles={MENU_ITEM_STYLES}>
             {links.map((link) => (
               <MenuItem
                 key={link.to}
-                active={isCurrent(link)}
+                active={link.to === '/' ? pathname === '/' : pathname.startsWith(link.to)}
                 icon={<link.icon className="size-[18px]" />}
-                component={<NavLink to={link.to} end={link.end} />}
+                component={<NavLink to={link.to} end={link.to === '/'} />}
                 onClick={() => setToggled(false)}
               >
                 {link.label}
@@ -145,7 +133,7 @@ export function AppShell() {
           </div>
 
           <span className="ml-auto flex items-center gap-2">
-            {currentUser.role === 'admin' && (
+            {isAdmin && (
               <NavLink
                 to="/solicitudes"
                 className="icon-btn relative"

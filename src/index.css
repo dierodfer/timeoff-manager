@@ -146,7 +146,7 @@
 
   .btn-alt {
     background: var(--color-approved);
-    color: #fff;
+    color: var(--color-accent-ink);
   }
 
   .btn-alt:hover:not(:disabled) {
@@ -499,12 +499,21 @@
   }
 
   /* Barra lateral y cabecera --------------------------------------------- */
-  .sidebar-logo {
+  .badge-icon {
     display: flex;
-    height: 2rem;
-    width: 2rem;
+    height: 2.75rem;
+    width: 2.75rem;
+    flex: none;
     align-items: center;
     justify-content: center;
+    border-radius: 12px;
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+  }
+
+  .badge-icon-sm {
+    height: 2rem;
+    width: 2rem;
     border-radius: 10px;
     background: var(--color-approved-soft);
     color: var(--color-approved);
@@ -540,7 +549,7 @@
     justify-content: center;
     border-radius: 999px;
     border: 2px solid var(--color-surface);
-    background: var(--color-rejected);
+    background: var(--color-pending);
     padding-inline: 0.2rem;
     font-size: 0.625rem;
     font-weight: 700;
@@ -565,21 +574,9 @@
   }
 
   .year-picker > button {
-    display: inline-flex;
     height: 1.75rem;
     width: 1.75rem;
-    align-items: center;
-    justify-content: center;
     border-radius: 999px;
-    color: var(--color-ink-muted);
-    transition:
-      background-color 0.18s ease,
-      color 0.18s ease;
-  }
-
-  .year-picker > button:hover {
-    background: var(--color-surface-sunken);
-    color: var(--color-ink);
   }
 
   /* Avatar con iniciales -------------------------------------------------- */
@@ -667,18 +664,6 @@
     align-items: center;
     gap: 0.875rem;
     padding: 1rem 1.125rem;
-  }
-
-  .stat-icon {
-    display: flex;
-    height: 2.75rem;
-    width: 2.75rem;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    border-radius: 12px;
-    background: var(--color-accent-soft);
-    color: var(--color-accent);
   }
 }
 

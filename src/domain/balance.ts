@@ -21,6 +21,12 @@ export function requestsOf(
   return requests.filter((request) => request.employeeId === employeeId && request.year === year)
 }
 
+export function pendingDaysInYear(requests: VacationRequest[], year: number): number {
+  return requests
+    .filter((request) => request.status === 'pendiente' && request.year === year)
+    .reduce((total, request) => total + request.days.length, 0)
+}
+
 export function committedDays(
   requests: VacationRequest[],
   employeeId: string,

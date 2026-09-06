@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeEmployee, makePeriod, makeRequest, testSettings } from '../domain/fixtures'
 import type { Database } from '../domain/types'
 import {
+  deleteEmployee,
   rehireEmployee,
   removeRequestDay,
   resolveAllPending,
@@ -202,6 +203,36 @@ describe('terminateEmployee', () => {
       employees: [{ ...employee, activityPeriods: [makePeriod('2026-06-01')] }],
     })
     expect(terminateEmployee(database, employee.id, '2026-03-15').ok).toBe(false)
+  })
+})
+
+describe('deleteEmployee', () => {
+  const deBaja = {
+    ...employee,
+    role: 'employee' as const,
+    activityPeriods: [makePeriod('2020-01-01', '2026-03-31')],
+  }
+
+  it('borra al empleado con sus solicitudes y sus días ajustados', () => {
+    const database = makeDatabase({
+      employees: [deBaja],
+      requests: [makeRequest()],
+      allowances: [{ employeeId: employee.id, year: 2026, days: 20 }],
+    })
+    const outcome = deleteEmployee(database, employee.id)
+    if (!outcome.ok) throw new Error(outcome.reason)
+    expect(outcome.database.employees).toHaveLength(0)
+    expect(outcome.database.requests).toHaveLength(0)
+    expect(outcome.database.allowances).toHaveLength(0)
+  })
+
+  it('rechaza a quien sigue de alta', () => {
+    expect(deleteEmployee(makeDatabase(), employee.id).ok).toBe(false)
+  })
+
+  it('rechaza al único administrador', () => {
+    const admin = { ...deBaja, role: 'admin' as const }
+    expect(deleteEmployee(makeDatabase({ employees: [admin] }), employee.id).ok).toBe(false)
   })
 })
 

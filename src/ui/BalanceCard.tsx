@@ -1,27 +1,6 @@
 import type { Balance } from '../domain/balance'
 import { formatDays, truncateDays } from '../domain/format'
-
-function Metric({
-  label,
-  value,
-  tone,
-}: {
-  readonly label: string
-  readonly value: number
-  readonly tone?: string
-}) {
-  return (
-    <div>
-      <p className="text-xs text-[var(--color-ink-muted)]">{label}</p>
-      <p
-        className="tabular mt-0.5 text-2xl font-semibold"
-        style={tone ? { color: tone } : undefined}
-      >
-        {value}
-      </p>
-    </div>
-  )
-}
+import { Metric } from './Metric'
 
 export function BalanceCard({ balance }: { readonly balance: Balance }) {
   return (

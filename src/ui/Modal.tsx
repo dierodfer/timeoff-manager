@@ -6,10 +6,20 @@ interface ModalProps {
   readonly onClose: () => void
   readonly children: ReactNode
   readonly footer?: ReactNode
+  /** Pie estándar Cancelar + acción. `form` lo hace `type="submit"` de ese formulario. */
+  readonly confirm?: { label: string; form?: string; onClick?: () => void; danger?: boolean }
   readonly wide?: boolean
 }
 
-export function Modal({ title, description, onClose, children, footer, wide }: ModalProps) {
+export function Modal({
+  title,
+  description,
+  onClose,
+  children,
+  footer,
+  confirm,
+  wide,
+}: ModalProps) {
   useEffect(() => {
     // defaultPrevented: un popover propio dentro del modal (p. ej. el calendario de
     // react-datepicker) también cierra con Escape y hace preventDefault() al suyo; sin este
@@ -53,9 +63,23 @@ export function Modal({ title, description, onClose, children, footer, wide }: M
 
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
 
-        {footer && (
+        {(footer || confirm) && (
           <footer className="hairline flex justify-end gap-2 border-t bg-[var(--color-surface-sunken)] px-6 py-4">
-            {footer}
+            {footer ?? (
+              <>
+                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                  Cancelar
+                </button>
+                <button
+                  type={confirm?.form ? 'submit' : 'button'}
+                  form={confirm?.form}
+                  className={`btn ${confirm?.danger ? 'btn-danger' : 'btn-primary'}`}
+                  onClick={confirm?.onClick}
+                >
+                  {confirm?.label}
+                </button>
+              </>
+            )}
           </footer>
         )}
       </div>

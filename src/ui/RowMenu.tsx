@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, useState } from 'react'
 import { MoreVertical } from 'lucide-react'
+import { useCallback, useId, useRef, useState } from 'react'
+import { useDismiss } from './useDismiss'
 
 export interface RowMenuItem {
   label: string
@@ -19,27 +20,11 @@ export function RowMenu({ label, items }: RowMenuProps) {
   const container = useRef<HTMLDivElement>(null)
   const id = useId()
 
-  useEffect(() => {
-    if (!open) return
-
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (container.current?.contains(event.target as Node)) return
-      setOpen(false)
-    }
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      // Escape consumido para que no burbujee hasta el Modal, que también cierra con Escape.
-      event.preventDefault()
-      setOpen(false)
-    }
-
-    document.addEventListener('click', closeOnOutsideClick)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('click', closeOnOutsideClick)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [open])
+  const isInside = useCallback(
+    (target: HTMLElement) => Boolean(container.current?.contains(target)),
+    [],
+  )
+  useDismiss(open, isInside, () => setOpen(false))
 
   return (
     <div className="relative" ref={container}>

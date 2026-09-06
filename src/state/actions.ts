@@ -424,6 +424,30 @@ export function terminateEmployee(
   }
 }
 
+export function deleteEmployee(database: Database, employeeId: string): Outcome {
+  const employee = findEmployee(database, employeeId)
+  if (!employee) return { ok: false, reason: 'El empleado no existe.' }
+  if (openPeriod(employee)) {
+    return { ok: false, reason: `Da de baja a ${displayName(employee)} antes de eliminarlo.` }
+  }
+  if (
+    employee.role === 'admin' &&
+    database.employees.filter((e) => e.role === 'admin').length === 1
+  ) {
+    return { ok: false, reason: 'Es el único administrador.' }
+  }
+
+  return {
+    ok: true,
+    database: {
+      ...database,
+      employees: database.employees.filter((item) => item.id !== employeeId),
+      requests: database.requests.filter((item) => item.employeeId !== employeeId),
+      allowances: database.allowances.filter((item) => item.employeeId !== employeeId),
+    },
+  }
+}
+
 export function rehireEmployee(
   database: Database,
   employeeId: string,
