@@ -4,7 +4,6 @@ import {
   CalendarRange,
   ChevronLeft,
   ChevronRight,
-  LogOut,
   Menu as MenuIcon,
   Settings,
   Sprout,
@@ -15,9 +14,8 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Menu, MenuItem, Sidebar } from 'react-pro-sidebar'
 import { pendingDaysInYear } from '../domain/balance'
-import { displayName } from '../state/actions'
 import { useSession } from '../state/appContext'
-import { Avatar } from './Avatar'
+import { UserMenu } from './UserMenu'
 
 interface NavItem {
   to: string
@@ -53,7 +51,7 @@ const MENU_ITEM_STYLES = {
 }
 
 export function AppShell() {
-  const { database, currentUser, year, setYear, signOut } = useSession()
+  const { database, currentUser, year, setYear } = useSession()
   const [toggled, setToggled] = useState(false)
   const { pathname } = useLocation()
   const isAdmin = currentUser.role === 'admin'
@@ -62,65 +60,59 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-dvh">
-      <Sidebar
-        breakPoint="lg"
-        toggled={toggled}
-        onBackdropClick={() => setToggled(false)}
-        width="264px"
-        backgroundColor="var(--color-surface)"
-        rootStyles={{ borderColor: 'var(--color-hairline)' }}
-      >
-        <div className="flex min-h-dvh flex-col">
-          <p className="flex items-center gap-2.5 px-5 py-5 text-[17px] font-semibold">
-            <span className="badge-icon badge-icon-sm">
-              <Sprout className="size-5" />
-            </span>
-            <span className="truncate">{database.settings.organizationName}</span>
-          </p>
-
-          <Menu className="px-2" menuItemStyles={MENU_ITEM_STYLES}>
-            {links.map((link) => (
-              <MenuItem
-                key={link.to}
-                active={link.to === '/' ? pathname === '/' : pathname.startsWith(link.to)}
-                icon={<link.icon className="size-[18px]" />}
-                component={<NavLink to={link.to} end={link.to === '/'} />}
-                onClick={() => setToggled(false)}
-              >
-                {link.label}
-              </MenuItem>
-            ))}
-          </Menu>
-
-          <div className="mt-auto p-3">
-            <div className="hairline flex items-center gap-2.5 rounded-[var(--radius-control)] border p-2.5">
-              <Avatar employee={currentUser} size="sm" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium">
-                  {displayName(currentUser)}
-                </span>
-                <span className="block truncate text-xs text-[var(--color-ink-muted)]">
-                  {currentUser.role === 'admin' ? 'Administrador' : 'Empleado'}
-                </span>
+      {isAdmin && (
+        <Sidebar
+          breakPoint="lg"
+          toggled={toggled}
+          onBackdropClick={() => setToggled(false)}
+          width="264px"
+          backgroundColor="var(--color-surface)"
+          rootStyles={{ borderColor: 'var(--color-hairline)' }}
+        >
+          <div className="flex min-h-dvh flex-col">
+            <p className="flex items-center gap-2.5 px-5 py-5 text-[17px] font-semibold">
+              <span className="badge-icon badge-icon-sm">
+                <Sprout className="size-5" />
               </span>
-              <button type="button" className="icon-btn" aria-label="Salir" onClick={signOut}>
-                <LogOut className="size-[18px]" />
-              </button>
-            </div>
+              <span className="truncate">{database.settings.organizationName}</span>
+            </p>
+
+            <Menu className="px-2" menuItemStyles={MENU_ITEM_STYLES}>
+              {links.map((link) => (
+                <MenuItem
+                  key={link.to}
+                  active={link.to === '/' ? pathname === '/' : pathname.startsWith(link.to)}
+                  icon={<link.icon className="size-[18px]" />}
+                  component={<NavLink to={link.to} end={link.to === '/'} />}
+                  onClick={() => setToggled(false)}
+                >
+                  {link.label}
+                </MenuItem>
+              ))}
+            </Menu>
           </div>
-        </div>
-      </Sidebar>
+        </Sidebar>
+      )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="glass hairline sticky top-0 z-30 flex items-center gap-3 border-b px-4 py-3 sm:px-6">
-          <button
-            type="button"
-            className="icon-btn lg:hidden"
-            aria-label="Abrir el menú"
-            onClick={() => setToggled(true)}
-          >
-            <MenuIcon className="size-5" />
-          </button>
+          {isAdmin ? (
+            <button
+              type="button"
+              className="icon-btn lg:hidden"
+              aria-label="Abrir el menú"
+              onClick={() => setToggled(true)}
+            >
+              <MenuIcon className="size-5" />
+            </button>
+          ) : (
+            <p className="flex min-w-0 items-center gap-2.5 text-[15px] font-semibold">
+              <span className="badge-icon badge-icon-sm">
+                <Sprout className="size-5" />
+              </span>
+              <span className="truncate max-sm:hidden">{database.settings.organizationName}</span>
+            </p>
+          )}
 
           <div className="year-picker">
             <button type="button" aria-label="Año anterior" onClick={() => setYear(year - 1)}>
@@ -151,9 +143,7 @@ export function AppShell() {
                 )}
               </NavLink>
             )}
-            <span className="lg:hidden">
-              <Avatar employee={currentUser} size="sm" />
-            </span>
+            <UserMenu />
           </span>
         </header>
 

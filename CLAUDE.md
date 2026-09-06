@@ -336,7 +336,7 @@ iniciales: Acceso, la barra lateral y la lista de Empleados lo comparten.
 Editar, Dar de alta/baja y Eliminar en línea, la fila no cabía junto a las cifras y el contador.
 
 **Piezas compartidas que evitan copiar y pegar:** `ui/useDismiss.ts` (cerrar un popover al pulsar
-fuera o con Escape; lo usan `RowMenu` y `YearCalendar`), `ui/Metric.tsx` (la pareja cifra/etiqueta de
+fuera o con Escape; lo usan `RowMenu`, `UserMenu` y `YearCalendar`), `ui/Metric.tsx` (la pareja cifra/etiqueta de
 `BalanceCard` y de la lista de Empleados), `ui/SelectField.tsx` (etiqueta + `select` de una lista de
 opciones) y el prop `confirm` de `Modal` (con `disabled` opcional, para el botón que exige rellenar
 algo antes, como el de «Añadir comentario»), que pinta el pie Cancelar + acción en vez de repetir
@@ -349,6 +349,25 @@ tarjeta de resumen de Empleados; a Asignación masiva, por un botón junto a «N
 globo de la campana cuenta días pendientes, así que va en `--color-pending` como el resto de lo
 pendiente, no en rojo. El recuento sale de `pendingDaysInYear()` (`domain/balance.ts`), que es lo
 único que define «día pendiente del año».
+
+**La barra lateral es solo para el administrador.** Un empleado normal tiene dos pantallas —Mi
+calendario y Mis solicitudes— y llega a la segunda desde la primera, así que un menú de navegación
+con una sola entrada sobra: `AppShell` no monta el `Sidebar` (ni el botón de menú del móvil) si el
+usuario no es administrador, y en su lugar la cabecera pinta el logo y el nombre de la organización,
+que si no se perderían con la barra.
+
+**El usuario vive en la esquina superior derecha (`ui/UserMenu.tsx`)**, no al pie de la barra
+lateral: al pulsar su avatar se abre un popover con su nombre, su rol y «Salir». Reutiliza las
+clases `.row-menu`/`.row-menu-item` del menú `⋮` de una fila y el `useDismiss()` de siempre, porque
+es el mismo patrón de popover. Es lo único que cierra la sesión, y está donde está para que también
+lo tenga a mano quien no ve barra lateral.
+
+**Mis solicitudes es una pantalla propia (`pages/MyRequests.tsx`) a la que se entra pulsando la
+tarjeta de días de vacaciones de Mi calendario**, que es un enlace entero (`BalanceCard` con el prop
+`to`, resaltado con `.card-link`). Antes era una sección al final del calendario, donde quedaba
+lejos del saldo que la explica. **A quién mira un administrador vive en la URL** (`?empleado=<id>`)
+y no en un estado local: es lo que permite ir de un calendario ajeno a sus solicitudes y volver sin
+perder de vista a esa persona.
 
 **`.btn-alt` es la única excepción al color de acento único.** Lo lleva Asignación masiva para
 distinguirse de «Nuevo empleado» sin competir con él, y reutiliza el verde de `--color-approved`,

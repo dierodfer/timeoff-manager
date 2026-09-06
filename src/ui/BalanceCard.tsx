@@ -1,10 +1,19 @@
+import { ChevronRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import type { Balance } from '../domain/balance'
 import { formatDays, truncateDays } from '../domain/format'
 import { Metric } from './Metric'
 
-export function BalanceCard({ balance }: { readonly balance: Balance }) {
-  return (
-    <div className="card p-5">
+interface BalanceCardProps {
+  readonly balance: Balance
+  /** Si se pasa, la tarjeta entera enlaza ahí: es la vía a las solicitudes desde Mi calendario. */
+  readonly to?: string
+  readonly linkLabel?: string
+}
+
+export function BalanceCard({ balance, to, linkLabel }: BalanceCardProps) {
+  const content = (
+    <>
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-semibold">Días de vacaciones {balance.year}</h2>
         {balance.isOverridden && (
@@ -43,7 +52,22 @@ export function BalanceCard({ balance }: { readonly balance: Balance }) {
           />
         </div>
       </div>
-    </div>
+
+      {to && (
+        <p className="mt-4 flex items-center gap-1 text-xs font-medium text-[var(--color-accent)]">
+          {linkLabel}
+          <ChevronRight className="size-3.5" />
+        </p>
+      )}
+    </>
+  )
+
+  return to ? (
+    <Link to={to} className="card card-link block p-5">
+      {content}
+    </Link>
+  ) : (
+    <div className="card p-5">{content}</div>
   )
 }
 

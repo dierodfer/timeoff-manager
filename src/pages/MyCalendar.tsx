@@ -1,15 +1,15 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { isActiveInYear } from '../domain/accrual'
 import { computeBalance, requestsOf } from '../domain/balance'
 import { formatDays, pluralDays } from '../domain/format'
 import { compareIso, todayIso } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import { isWorkingDay } from '../domain/workdays'
-import { createVacation, displayName, removeRequest, sortByName } from '../state/actions'
+import { createVacation, displayName, sortByName } from '../state/actions'
 import { useSession } from '../state/appContext'
 import { BalanceCard } from '../ui/BalanceCard'
 import { Modal } from '../ui/Modal'
-import { RequestCard } from '../ui/RequestCard'
 import { summarizeDays } from '../ui/calendarGrid'
 import type { DayMark } from '../ui/MonthCalendar'
 import { useDaySelection, type SelectionLimit } from '../ui/useDaySelection'
@@ -24,14 +24,15 @@ export function MyCalendar() {
     [database.employees, year],
   )
 
-  const [viewedEmployeeId, setViewedEmployeeId] = useState(currentUser.id)
+  const [params, setParams] = useSearchParams()
   const [comment, setComment] = useState('')
   const [asApproved, setAsApproved] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  // Derivado, no estado: sincronizarlo con un efecto provoca renders en cascada.
+  // Derivado, no estado: sincronizarlo con un efecto provoca renders en cascada. Vive en la URL
+  // para que volver desde Mis solicitudes conserve a quién mira el administrador.
   const viewedEmployee: Employee =
-    (isAdmin && viewableEmployees.find((employee) => employee.id === viewedEmployeeId)) ||
+    (isAdmin && viewableEmployees.find((employee) => employee.id === params.get('empleado'))) ||
     currentUser
   const viewingSelf = viewedEmployee.id === currentUser.id
 
@@ -73,7 +74,7 @@ export function MyCalendar() {
   const { selected, toggle, clear } = useDaySelection(canSelect, selectionLimit)
 
   const switchTo = (employeeId: string) => {
-    setViewedEmployeeId(employeeId)
+    setParams(employeeId === currentUser.id ? {} : { empleado: employeeId }, { replace: true })
     clear()
     setDialogOpen(false)
     setComment('')
@@ -100,12 +101,6 @@ export function MyCalendar() {
       clear()
       setComment('')
       setDialogOpen(false)
-    }
-  }
-
-  const cancel = (requestId: string) => {
-    if (apply((db) => removeRequest(db, requestId, currentUser))) {
-      notify(viewingSelf ? 'Solicitud cancelada.' : 'Solicitud eliminada.')
     }
   }
 
@@ -137,7 +132,11 @@ export function MyCalendar() {
           )}
           <Legend />
         </div>
-        <BalanceCard balance={balance} />
+        <BalanceCard
+          balance={balance}
+          to={viewingSelf ? '/mis-solicitudes' : `/mis-solicitudes?empleado=${viewedEmployee.id}`}
+          linkLabel={viewingSelf ? 'Ver mis solicitudes' : 'Ver sus solicitudes'}
+        />
       </div>
 
       <div className="card p-4 sm:p-6">
@@ -150,43 +149,6 @@ export function MyCalendar() {
           onToggle={toggle}
         />
       </div>
-
-      <section className="space-y-3">
-        <h2 className="text-lg">
-          {viewingSelf
-            ? `Mis solicitudes de ${year}`
-            : `Solicitudes de ${displayName(viewedEmployee)} en ${year}`}
-        </h2>
-        {requests.length === 0 ? (
-          <p className="card p-6 text-sm text-[var(--color-ink-muted)]">
-            {viewingSelf
-              ? 'Todavía no has solicitado vacaciones este año.'
-              : 'Sin vacaciones solicitadas este año.'}
-          </p>
-        ) : (
-          <div className="grid gap-3 lg:grid-cols-2">
-            {[...requests]
-              .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-              .map((request) => (
-                <RequestCard
-                  key={request.id}
-                  request={request}
-                  actions={
-                    request.status === 'pendiente' || isAdmin ? (
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-sm"
-                        onClick={() => cancel(request.id)}
-                      >
-                        {request.status === 'pendiente' ? 'Cancelar' : 'Eliminar'}
-                      </button>
-                    ) : null
-                  }
-                />
-              ))}
-          </div>
-        )}
-      </section>
 
       {selectedDays.length > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-40 p-4">
