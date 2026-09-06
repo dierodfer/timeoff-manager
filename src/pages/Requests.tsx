@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { formatDate } from '../domain/format'
 import type { Employee, IsoDate, RequestComment, RequestStatus } from '../domain/types'
 import {
-  addRequestComment,
+  addRequestDayComment,
   displayName,
   removeRequestDay,
   resolveAllPending,
@@ -37,7 +37,7 @@ interface EmployeeGroup {
 
 type Dialog =
   | { kind: 'rechazar'; requestId: string; day: IsoDate }
-  | { kind: 'comentar'; requestId: string }
+  | { kind: 'comentar'; requestId: string; day: IsoDate }
   | { kind: 'aprobar-todos'; employeeId: string; employeeName: string; count: number }
   | null
 
@@ -111,7 +111,11 @@ export function Requests() {
     }
 
     if (dialog.kind === 'comentar') {
-      if (apply((db) => addRequestComment(db, dialog.requestId, currentUser.id, comment))) {
+      if (
+        apply((db) =>
+          addRequestDayComment(db, dialog.requestId, dialog.day, currentUser.id, comment),
+        )
+      ) {
         notify('Comentario añadido.')
         setDialog(null)
         setComment('')
@@ -209,7 +213,7 @@ export function Requests() {
                         className="btn btn-quiet btn-sm"
                         onClick={() => {
                           setComment('')
-                          setDialog({ kind: 'comentar', requestId: row.requestId })
+                          setDialog({ kind: 'comentar', requestId: row.requestId, day: row.day })
                         }}
                       >
                         Comentar

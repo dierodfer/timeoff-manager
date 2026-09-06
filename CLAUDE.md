@@ -165,10 +165,12 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   `toWorkingDays()` los descarta antes de guardar.
 - Las solicitudes `rechazada` no reservan días.
 - `batchId` agrupa las solicitudes creadas en una misma asignación masiva.
-- **Una solicitud tiene un único estado para todos sus días.** El administrador aprueba o rechaza
-  días sueltos de una solicitud `pendiente` con varios días mediante `resolveRequestDay()`, que
-  separa el día resuelto en una solicitud nueva y deja el resto pendiente en la original. Por eso
-  la bandeja de Solicitudes agrupa por empleado y muestra cada día por separado, no por solicitud.
+- **Una solicitud tiene un único estado y un único hilo de comentarios para todos sus días.** El
+  administrador aprueba, rechaza o comenta días sueltos de una solicitud `pendiente` con varios
+  días mediante `resolveRequestDay()`/`addRequestDayComment()`, que separan el día afectado en una
+  solicitud nueva y dejan el resto en la original. Por eso la bandeja de Solicitudes agrupa por
+  empleado y muestra cada día por separado, no por solicitud: si un comentario colgara del
+  `VacationRequest` sin separar el día, aparecería repetido en todos los días de esa solicitud.
 - **`Employee.activityPeriods` nunca está vacío**, sus periodos no se solapan y **como mucho uno
   tiene `end: null`, que es además el de inicio más tardío**. Todo lo que antes se leía de
   `hireDate`/`terminationDate` sale ahora de ahí: `hireDateOf()` es el inicio del primero,

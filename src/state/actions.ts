@@ -327,24 +327,56 @@ export function removeRequest(database: Database, requestId: string, actor: Empl
   }
 }
 
-export function addRequestComment(
+export function addRequestDayComment(
   database: Database,
   requestId: string,
+  day: IsoDate,
   authorId: string,
   text: string,
 ): Outcome {
   if (!text.trim()) return { ok: false, reason: 'El comentario está vacío.' }
-  const exists = database.requests.some((item) => item.id === requestId)
-  if (!exists) return { ok: false, reason: 'La solicitud no existe.' }
+
+  const request = database.requests.find((item) => item.id === requestId)
+  if (!request) return { ok: false, reason: 'La solicitud no existe.' }
+  if (!request.days.includes(day)) {
+    return { ok: false, reason: 'Ese día no pertenece a la solicitud.' }
+  }
 
   const comment = makeComment(database, authorId, text.trim())
+  const remainingDays = request.days.filter((item) => item !== day)
+
+  // Separa el día en su propia solicitud, como resolveRequestDay/removeRequestDay: si el
+  // comentario se colgara del request original, sus otros días —pintados como filas propias
+  // en la bandeja— mostrarían el mismo comentario sin que nadie lo haya escrito para ellos.
+  if (remainingDays.length === 0) {
+    return {
+      ok: true,
+      database: {
+        ...database,
+        requests: database.requests.map((item) =>
+          item.id === requestId ? { ...item, comments: [...item.comments, comment] } : item,
+        ),
+      },
+    }
+  }
+
+  const commentedDay: VacationRequest = {
+    ...request,
+    id: newId('req'),
+    days: [day],
+    comments: [...request.comments, comment],
+  }
+
   return {
     ok: true,
     database: {
       ...database,
-      requests: database.requests.map((item) =>
-        item.id === requestId ? { ...item, comments: [...item.comments, comment] } : item,
-      ),
+      requests: [
+        ...database.requests.map((item) =>
+          item.id === requestId ? { ...item, days: remainingDays } : item,
+        ),
+        commentedDay,
+      ],
     },
   }
 }

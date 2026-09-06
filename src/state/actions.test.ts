@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeEmployee, makePeriod, makeRequest, testSettings } from '../domain/fixtures'
 import type { Database } from '../domain/types'
 import {
+  addRequestDayComment,
   deleteEmployee,
   rehireEmployee,
   removeRequestDay,
@@ -72,6 +73,60 @@ describe('resolveRequestDay', () => {
     const database = makeDatabase({ requests: [request] })
 
     const outcome = resolveRequestDay(database, request.id, '2026-05-04', 'rechazada', 'admin-1')
+    expect(outcome.ok).toBe(false)
+  })
+})
+
+describe('addRequestDayComment', () => {
+  it('separa el día comentado y no lo muestra en el resto de días de la solicitud', () => {
+    const request = makeRequest({
+      status: 'pendiente',
+      days: ['2026-05-04', '2026-05-05', '2026-05-06'],
+    })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = addRequestDayComment(database, request.id, '2026-05-05', 'admin-1', 'Ok')
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    const [pending, commented] = outcome.database.requests
+    expect(pending.id).toBe(request.id)
+    expect(pending.days).toEqual(['2026-05-04', '2026-05-06'])
+    expect(pending.comments).toHaveLength(0)
+
+    expect(commented.id).not.toBe(request.id)
+    expect(commented.days).toEqual(['2026-05-05'])
+    expect(commented.comments).toHaveLength(1)
+    expect(commented.comments[0].text).toBe('Ok')
+    expect(commented.status).toBe(request.status)
+  })
+
+  it('comenta en el sitio cuando es el único día de la solicitud', () => {
+    const request = makeRequest({ status: 'pendiente', days: ['2026-05-04'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = addRequestDayComment(database, request.id, '2026-05-04', 'admin-1', 'Ok')
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    expect(outcome.database.requests).toHaveLength(1)
+    expect(outcome.database.requests[0].id).toBe(request.id)
+    expect(outcome.database.requests[0].comments).toHaveLength(1)
+  })
+
+  it('rechaza un comentario vacío', () => {
+    const request = makeRequest({ status: 'pendiente', days: ['2026-05-04'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = addRequestDayComment(database, request.id, '2026-05-04', 'admin-1', '   ')
+    expect(outcome.ok).toBe(false)
+  })
+
+  it('rechaza un día que no pertenece a la solicitud', () => {
+    const request = makeRequest({ status: 'pendiente', days: ['2026-05-04'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = addRequestDayComment(database, request.id, '2026-06-01', 'admin-1', 'Ok')
     expect(outcome.ok).toBe(false)
   })
 })
