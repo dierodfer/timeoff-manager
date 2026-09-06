@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { IsoDate } from '../domain/types'
 import type { WorkCalendar } from '../domain/workdays'
 import { MonthCalendar, type DayMark } from './MonthCalendar'
+import { useDismiss } from './useDismiss'
 
 interface YearCalendarProps {
   readonly year: number
@@ -15,27 +16,11 @@ interface YearCalendarProps {
 export function YearCalendar({ onToggle, ...props }: YearCalendarProps) {
   const [infoDay, setInfoDay] = useState<IsoDate | null>(null)
 
-  useEffect(() => {
-    if (!infoDay) return
-
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if ((event.target as HTMLElement).closest('[data-day-info]')) return
-      setInfoDay(null)
-    }
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      // Escape consumido para que no burbujee hasta el Modal, que también cierra con Escape.
-      event.preventDefault()
-      setInfoDay(null)
-    }
-
-    document.addEventListener('click', closeOnOutsideClick)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('click', closeOnOutsideClick)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [infoDay])
+  const isInside = useCallback(
+    (target: HTMLElement) => Boolean(target.closest('[data-day-info]')),
+    [],
+  )
+  useDismiss(infoDay !== null, isInside, () => setInfoDay(null))
 
   return (
     <div className="grid grid-cols-1 gap-x-6 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

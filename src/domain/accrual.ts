@@ -1,12 +1,4 @@
-import {
-  compareIso,
-  expandRange,
-  overlapDays,
-  todayIso,
-  weekday,
-  yearEnd,
-  yearStart,
-} from './dates'
+import { compareIso, overlapDays, toIso, todayIso, toUtcDate, yearEnd, yearStart } from './dates'
 import type { ActivityPeriod, Allowance, Employee, IsoDate, Settings } from './types'
 
 export const ACCRUAL_PER_WORKED_DAY = 0.0737
@@ -93,15 +85,30 @@ export function isActiveInYear(employee: Employee, year: number): boolean {
   )
 }
 
-export function workedDaysInYear(employee: Employee, year: number, workweek: number[]): number {
+/** Días de jornada dentro de los tramos del año, contando solo hasta `until`. */
+export function workedDaysToDate(
+  employee: Employee,
+  year: number,
+  workweek: number[],
+  until: IsoDate = todayIso(),
+): number {
   const workdays = new Set(workweek)
-  return activityIntervalsInYear(employee, year).reduce(
-    (total, interval) =>
-      total +
-      expandRange(interval.start, interval.end).filter((date) => workdays.has(weekday(date)))
-        .length,
-    0,
-  )
+  return activityIntervalsInYear(employee, year).reduce((total, interval) => {
+    const end = interval.end < until ? interval.end : until
+    let count = 0
+    for (
+      let day = toUtcDate(interval.start);
+      toIso(day) <= end;
+      day.setUTCDate(day.getUTCDate() + 1)
+    ) {
+      if (workdays.has(day.getUTCDay())) count += 1
+    }
+    return total + count
+  }, 0)
+}
+
+export function workedDaysInYear(employee: Employee, year: number, workweek: number[]): number {
+  return workedDaysToDate(employee, year, workweek, yearEnd(year))
 }
 
 export function estimateAnnualDays(employee: Employee, year: number, settings: Settings): number {

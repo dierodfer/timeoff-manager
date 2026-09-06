@@ -1,87 +1,166 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import {
+  Bell,
+  CalendarDays,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  Menu as MenuIcon,
+  Settings,
+  Sprout,
+  Users,
+} from 'lucide-react'
+import type { ComponentType } from 'react'
+import { useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Menu, MenuItem, Sidebar } from 'react-pro-sidebar'
+import { pendingDaysInYear } from '../domain/balance'
 import { displayName } from '../state/actions'
 import { useSession } from '../state/appContext'
+import { Avatar } from './Avatar'
 
-const EMPLOYEE_LINKS = [{ to: '/', label: 'Mi calendario', end: true }]
+interface NavItem {
+  to: string
+  label: string
+  icon: ComponentType<{ className?: string }>
+  adminOnly?: boolean
+}
 
-const ADMIN_LINKS = [
-  { to: '/', label: 'Mi calendario', end: true },
-  { to: '/planificacion', label: 'Planificación', end: false },
-  { to: '/solicitudes', label: 'Solicitudes', end: false },
-  { to: '/empleados', label: 'Empleados', end: false },
-  { to: '/asignacion', label: 'Asignación masiva', end: false },
-  { to: '/ajustes', label: 'Ajustes', end: false },
+const LINKS: NavItem[] = [
+  { to: '/', label: 'Mi calendario', icon: CalendarDays },
+  { to: '/planificacion', label: 'Planificación', icon: CalendarRange, adminOnly: true },
+  { to: '/empleados', label: 'Empleados', icon: Users, adminOnly: true },
+  { to: '/ajustes', label: 'Ajustes', icon: Settings, adminOnly: true },
 ]
+
+const MENU_ITEM_STYLES = {
+  button: ({ active }: { active?: boolean }) => ({
+    height: '42px',
+    borderRadius: '10px',
+    paddingLeft: '12px',
+    paddingRight: '12px',
+    fontSize: '14px',
+    fontWeight: active ? 600 : 500,
+    color: active ? 'var(--color-accent)' : 'var(--color-ink-soft)',
+    backgroundColor: active ? 'var(--color-accent-soft)' : 'transparent',
+    '&:hover': {
+      backgroundColor: active ? 'var(--color-accent-soft)' : 'var(--color-surface-sunken)',
+      color: active ? 'var(--color-accent)' : 'var(--color-ink)',
+    },
+  }),
+  icon: { marginRight: '10px', width: 'auto', minWidth: 'auto' },
+  label: { overflow: 'visible' },
+}
 
 export function AppShell() {
   const { database, currentUser, year, setYear, signOut } = useSession()
-  const links = currentUser.role === 'admin' ? ADMIN_LINKS : EMPLOYEE_LINKS
-
-  const pendingCount = database.requests
-    .filter((request) => request.status === 'pendiente' && request.year === year)
-    .reduce((total, request) => total + request.days.length, 0)
+  const [toggled, setToggled] = useState(false)
+  const { pathname } = useLocation()
+  const isAdmin = currentUser.role === 'admin'
+  const links = LINKS.filter((link) => isAdmin || !link.adminOnly)
+  const pendingCount = pendingDaysInYear(database.requests, year)
 
   return (
-    <div className="min-h-dvh">
-      <header className="glass hairline sticky top-0 z-40 border-b">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold">
-              {database.settings.organizationName}
-            </p>
-            <p className="truncate text-xs text-[var(--color-ink-muted)]">
-              {displayName(currentUser)} ·{' '}
-              {currentUser.role === 'admin' ? 'Administrador' : 'Empleado'}
-            </p>
-          </div>
+    <div className="flex min-h-dvh">
+      <Sidebar
+        breakPoint="lg"
+        toggled={toggled}
+        onBackdropClick={() => setToggled(false)}
+        width="264px"
+        backgroundColor="var(--color-surface)"
+        rootStyles={{ borderColor: 'var(--color-hairline)' }}
+      >
+        <div className="flex min-h-dvh flex-col">
+          <p className="flex items-center gap-2.5 px-5 py-5 text-[17px] font-semibold">
+            <span className="badge-icon badge-icon-sm">
+              <Sprout className="size-5" />
+            </span>
+            <span className="truncate">{database.settings.organizationName}</span>
+          </p>
 
-          <div className="flex items-center gap-2">
-            <div className="segmented">
-              <button type="button" aria-label="Año anterior" onClick={() => setYear(year - 1)}>
-                ‹
-              </button>
-              <button type="button" aria-pressed="true" className="tabular">
-                {year}
-              </button>
-              <button type="button" aria-label="Año siguiente" onClick={() => setYear(year + 1)}>
-                ›
+          <Menu className="px-2" menuItemStyles={MENU_ITEM_STYLES}>
+            {links.map((link) => (
+              <MenuItem
+                key={link.to}
+                active={link.to === '/' ? pathname === '/' : pathname.startsWith(link.to)}
+                icon={<link.icon className="size-[18px]" />}
+                component={<NavLink to={link.to} end={link.to === '/'} />}
+                onClick={() => setToggled(false)}
+              >
+                {link.label}
+              </MenuItem>
+            ))}
+          </Menu>
+
+          <div className="mt-auto p-3">
+            <div className="hairline flex items-center gap-2.5 rounded-[var(--radius-control)] border p-2.5">
+              <Avatar employee={currentUser} size="sm" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium">
+                  {displayName(currentUser)}
+                </span>
+                <span className="block truncate text-xs text-[var(--color-ink-muted)]">
+                  {currentUser.role === 'admin' ? 'Administrador' : 'Empleado'}
+                </span>
+              </span>
+              <button type="button" className="icon-btn" aria-label="Salir" onClick={signOut}>
+                <LogOut className="size-[18px]" />
               </button>
             </div>
+          </div>
+        </div>
+      </Sidebar>
 
-            <button type="button" className="btn btn-secondary btn-sm" onClick={signOut}>
-              Salir
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="glass hairline sticky top-0 z-30 flex items-center gap-3 border-b px-4 py-3 sm:px-6">
+          <button
+            type="button"
+            className="icon-btn lg:hidden"
+            aria-label="Abrir el menú"
+            onClick={() => setToggled(true)}
+          >
+            <MenuIcon className="size-5" />
+          </button>
+
+          <div className="year-picker">
+            <button type="button" aria-label="Año anterior" onClick={() => setYear(year - 1)}>
+              <ChevronLeft className="size-4" />
+            </button>
+            <span className="tabular">{year}</span>
+            <button type="button" aria-label="Año siguiente" onClick={() => setYear(year + 1)}>
+              <ChevronRight className="size-4" />
             </button>
           </div>
 
-          <nav className="-mx-1 flex w-full gap-1 overflow-x-auto pb-1">
-            {links.map((link) => (
+          <span className="ml-auto flex items-center gap-2">
+            {isAdmin && (
               <NavLink
-                key={link.to}
-                to={link.to}
-                end={link.end}
-                className={({ isActive }) =>
-                  `rounded-full px-3 py-1.5 text-[13px] font-medium whitespace-nowrap transition ${
-                    isActive
-                      ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]'
-                      : 'text-[var(--color-ink-soft)] hover:bg-[var(--color-surface-sunken)]'
-                  }`
+                to="/solicitudes"
+                className="icon-btn relative"
+                aria-label={
+                  pendingCount > 0
+                    ? `Solicitudes pendientes: ${pendingCount}`
+                    : 'Solicitudes pendientes'
                 }
               >
-                {link.label}
-                {link.to === '/solicitudes' && pendingCount > 0 && (
-                  <span className="tabular ml-1.5 rounded-full bg-[var(--color-pending)] px-1.5 text-[11px] text-white">
-                    {pendingCount}
+                <Bell className="size-5" />
+                {pendingCount > 0 && (
+                  <span className="notification-dot tabular">
+                    {pendingCount > 99 ? '99+' : pendingCount}
                   </span>
                 )}
               </NavLink>
-            ))}
-          </nav>
-        </div>
-      </header>
+            )}
+            <span className="lg:hidden">
+              <Avatar employee={currentUser} size="sm" />
+            </span>
+          </span>
+        </header>
 
-      <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8">
-        <Outlet />
-      </main>
+        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-8 sm:py-8">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

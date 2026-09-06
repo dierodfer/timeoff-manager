@@ -136,14 +136,25 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
 - **Solo puede haber un periodo en curso, y es el último.** Lo comprueban `terminateEmployee()` y
   `rehireEmployee()` en `state/actions.ts`, que devuelven `Outcome` como el resto del fichero, y
   también el `submit()` del formulario.
-- **La lista de Empleados oculta por defecto a quien no está en activo hoy** (`isActive()`), con el
-  interruptor «Ver inactivos» para verlos. Ahí entra también un fijo discontinuo entre llamamientos,
-  que es justo desde donde se le vuelve a dar de alta.
+- **Los días trabajados que pinta la lista de Empleados sólo llegan hasta hoy**
+  (`workedDaysToDate()`), porque contar de antemano lo que aún no se ha trabajado no informa de
+  nada. Es un dato de pantalla y nada más: el devengo sigue usando `workedDaysInYear()`, que
+  proyecta el periodo en curso hasta el 31 de diciembre, así que la estimación no cambia.
+- **La lista de Empleados los muestra todos y se acota con filtros**: búsqueda por nombre, Estado
+  (Todos / En activo / De baja, sobre `isActive()`), Tipo de contrato y orden. Cada fila lleva el
+  chip «Activo» o «De baja», así que ya no hace falta esconder a nadie por defecto. Un fijo
+  discontinuo entre llamamientos cuenta como de baja: es justo desde donde se le vuelve a dar de
+  alta.
 - **Liquidación al dar de baja:** `terminationSettlement()` (`domain/balance.ts`) compara los días
   aprobados y ya pasados (disfrutados de verdad, no los aprobados a futuro) contra la estimación
   recalculada cerrando el periodo en curso en la fecha elegida en el diálogo, no en la de hoy ni el
   31 de diciembre. Cuenta también los tramos anteriores del mismo año. Si la estimación es mayor, se
   le deben días; si es menor, los debe el empleado.
+- **Eliminar un empleado exige que esté de baja** (sin periodo en curso), para que la baja quede
+  siempre registrada antes del borrado definitivo, y no se puede borrar al único administrador. Las
+  dos reglas viven en `deleteEmployee()` (`state/actions.ts`), que devuelve `Outcome` como sus
+  hermanas `terminateEmployee()`/`rehireEmployee()`; el menú de la fila solo deshabilita la opción
+  por cortesía.
 - **Un día no laborable de Mi calendario se puede pulsar para saber por qué lo es**: abre un globo
   con el nombre del festivo y su ámbito, o con el día de la semana si solo es un domingo. El `title`
   nativo no basta porque en un móvil no hay puntero con el que pasar por encima.
@@ -232,6 +243,9 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   es hijo de la propia celda, así que una `opacity` en la celda se la aplicaría también a él y lo
   dejaría medio transparente sobre los días de al lado. Por eso el gris del domingo sale de un
   `color-mix` y no de bajar la opacidad de todo el elemento.
+- **La tarjeta que lista los empleados no lleva `overflow-hidden`.** El menú `⋮` de una fila se
+  posiciona en absoluto y sobresale de la tarjeta: con el recorte puesto, sus últimas opciones se
+  quedan invisibles. Las esquinas redondeadas se sostienen solas porque las filas no pintan fondo.
 - **`Modal` cierra con Escape mirando `event.defaultPrevented`, no solo `event.key`.** El calendario
   de un periodo también cierra con Escape y hace `preventDefault()` en su propio manejador; sin ese
   chequeo, ese mismo Escape burbujea hasta el `document.addEventListener` del modal y lo cierra
@@ -275,8 +289,44 @@ Tokens en `src/index.css`: un único `@theme` con toda la paleta.
 **Solo hay tema claro.** No se sigue a `prefers-color-scheme` ni hay conmutador: `index.html`
 declara `color-scheme: light` y la paleta vive en un único `@theme`. Jerarquía por tipografía y espacio en vez de por bordes, radios generosos y un
 único color de acento. Los componentes reutilizables (`.card`, `.btn`, `.field`, `.segmented`,
-`.chip`, `.day`, `.grid-day`) están en `@layer components`; preferirlos a repetir utilidades en el
-JSX y no pintar colores con `style` inline.
+`.chip`, `.day`, `.grid-day`, `.avatar`, `.icon-btn`, `.badge-icon`, `.row-menu`, `.stat-card`)
+están en `@layer components`; preferirlos a repetir utilidades en el JSX y no pintar colores con `style`
+inline.
+
+**Los iconos son de `lucide-react` y la barra lateral de `react-pro-sidebar`.** Nada de SVG
+dibujados a mano: `lucide-react` se importa por nombre y solo entra en el bundle lo que se usa.
+`AppShell` monta el `Sidebar` con `breakPoint="lg"`, así que en móvil se convierte solo en un cajón
+con fondo oscurecido y el botón de menú de la cabecera lo abre. Sus estilos propios se reconducen a
+los tokens con `menuItemStyles` (izado a `MENU_ITEM_STYLES`, que no depende de props). **No es
+porque sus clases sean inestables** —`react-pro-sidebar` exporta `sidebarClasses`/`menuClasses` con
+nombres fijos (`ps-menu-button`, `ps-active`…)—, sino porque inyecta sus estilos de emotion **sin
+capa**, y el CSS sin capa gana siempre al que está dentro de `@layer components`. Para moverlo a CSS
+haría falta escribir esas reglas fuera de la capa.
+
+**`Avatar` (`ui/Avatar.tsx`) pinta las iniciales de un empleado** y elige uno de cinco tonos a
+partir de su `id`, para que el color sea siempre el mismo persona a persona. Es lo único que dibuja
+iniciales: Acceso, la barra lateral y la lista de Empleados lo comparten.
+
+**Las acciones de una fila viven en un menú `⋮` (`ui/RowMenu.tsx`)**, no en botones sueltos: con
+Editar, Dar de alta/baja y Eliminar en línea, la fila no cabía junto a las cifras y el contador.
+
+**Piezas compartidas que evitan copiar y pegar:** `ui/useDismiss.ts` (cerrar un popover al pulsar
+fuera o con Escape; lo usan `RowMenu` y `YearCalendar`), `ui/Metric.tsx` (la pareja cifra/etiqueta de
+`BalanceCard` y de la lista de Empleados), `ui/SelectField.tsx` (etiqueta + `select` de una lista de
+opciones) y el prop `confirm` de `Modal`, que pinta el pie Cancelar + acción en vez de repetir los
+dos botones en cada diálogo. `footer` sigue existiendo para un pie que no sea ese par.
+
+**Solicitudes y Asignación masiva no están en la barra lateral**, que se queda con las cuatro
+pantallas que se visitan a diario. Sus rutas siguen existiendo y se llega a ellas desde donde hacen
+falta: a Solicitudes, por la campana con el número de días pendientes de la cabecera y por la
+tarjeta de resumen de Empleados; a Asignación masiva, por un botón junto a «Nuevo empleado». El
+globo de la campana cuenta días pendientes, así que va en `--color-pending` como el resto de lo
+pendiente, no en rojo. El recuento sale de `pendingDaysInYear()` (`domain/balance.ts`), que es lo
+único que define «día pendiente del año».
+
+**`.btn-alt` es la única excepción al color de acento único.** Lo lleva Asignación masiva para
+distinguirse de «Nuevo empleado» sin competir con él, y reutiliza el verde de `--color-approved`,
+que ya es el del logo de la barra lateral.
 
 **El hueco previo al día 1 de cada mes es `grid-column-start`, no celdas vacías.** `monthCells()`
 devuelve solo días reales y `firstDayOffset()` coloca el primero en su columna. Añadir huecos de
