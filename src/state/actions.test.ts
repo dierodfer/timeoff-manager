@@ -10,6 +10,7 @@ import {
   resolveRequestDay,
   resolveRequestDays,
   terminateEmployee,
+  type RequestDaySelection,
 } from './actions'
 
 const employee = makeEmployee()
@@ -22,6 +23,18 @@ function makeDatabase(overrides: Partial<Database> = {}): Database {
     requests: [],
     allowances: [],
     ...overrides,
+  }
+}
+
+function twoPendingRequests(): { database: Database; selections: RequestDaySelection[] } {
+  const first = makeRequest({ id: 'req-a', status: 'pendiente', days: ['2026-05-04'] })
+  const second = makeRequest({ id: 'req-b', status: 'pendiente', days: ['2026-06-01'] })
+  return {
+    database: makeDatabase({ requests: [first, second] }),
+    selections: [
+      { requestId: 'req-a', day: '2026-05-04' },
+      { requestId: 'req-b', day: '2026-06-01' },
+    ],
   }
 }
 
@@ -80,19 +93,9 @@ describe('resolveRequestDay', () => {
 
 describe('resolveRequestDays', () => {
   it('resuelve varios días de solicitudes distintas de una vez', () => {
-    const first = makeRequest({ id: 'req-a', status: 'pendiente', days: ['2026-05-04'] })
-    const second = makeRequest({ id: 'req-b', status: 'pendiente', days: ['2026-06-01'] })
-    const database = makeDatabase({ requests: [first, second] })
+    const { database, selections } = twoPendingRequests()
 
-    const outcome = resolveRequestDays(
-      database,
-      [
-        { requestId: 'req-a', day: '2026-05-04' },
-        { requestId: 'req-b', day: '2026-06-01' },
-      ],
-      'aprobada',
-      'admin-1',
-    )
+    const outcome = resolveRequestDays(database, selections, 'aprobada', 'admin-1')
     expect(outcome.ok).toBe(true)
     if (!outcome.ok) return
 
@@ -127,16 +130,11 @@ describe('resolveRequestDays', () => {
   })
 
   it('añade el mismo motivo a todos los días resueltos', () => {
-    const first = makeRequest({ id: 'req-a', status: 'pendiente', days: ['2026-05-04'] })
-    const second = makeRequest({ id: 'req-b', status: 'pendiente', days: ['2026-06-01'] })
-    const database = makeDatabase({ requests: [first, second] })
+    const { database, selections } = twoPendingRequests()
 
     const outcome = resolveRequestDays(
       database,
-      [
-        { requestId: 'req-a', day: '2026-05-04' },
-        { requestId: 'req-b', day: '2026-06-01' },
-      ],
+      selections,
       'rechazada',
       'admin-1',
       'Sin cobertura ese día',
