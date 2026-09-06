@@ -7,7 +7,13 @@ interface ModalProps {
   readonly children: ReactNode
   readonly footer?: ReactNode
   /** Pie estándar Cancelar + acción. `form` lo hace `type="submit"` de ese formulario. */
-  readonly confirm?: { label: string; form?: string; onClick?: () => void; danger?: boolean }
+  readonly confirm?: {
+    label: string
+    form?: string
+    onClick?: () => void
+    danger?: boolean
+    disabled?: boolean
+  }
   readonly wide?: boolean
 }
 
@@ -74,6 +80,7 @@ export function Modal({
                   type={confirm?.form ? 'submit' : 'button'}
                   form={confirm?.form}
                   className={`btn ${confirm?.danger ? 'btn-danger' : 'btn-primary'}`}
+                  disabled={confirm?.disabled}
                   onClick={confirm?.onClick}
                 >
                   {confirm?.label}

@@ -230,6 +230,35 @@ export function resolveRequestDay(
   }
 }
 
+export interface RequestDaySelection {
+  requestId: string
+  day: IsoDate
+}
+
+/**
+ * Resuelve varios días sueltos de una vez (selección en la bandeja de Solicitudes), como una
+ * única transformación: nunca llamar a resolveRequestDay() en un bucle de apply() separados, que
+ * cada uno vería la base de datos previa a los demás y se pisarían entre sí.
+ */
+export function resolveRequestDays(
+  database: Database,
+  selections: RequestDaySelection[],
+  status: Extract<RequestStatus, 'aprobada' | 'rechazada'>,
+  adminId: string,
+  comment?: string,
+): Outcome {
+  if (selections.length === 0) return { ok: false, reason: 'No hay ningún día seleccionado.' }
+
+  let draft = database
+  for (const { requestId, day } of selections) {
+    const outcome = resolveRequestDay(draft, requestId, day, status, adminId, comment)
+    if (!outcome.ok) return outcome
+    draft = outcome.database
+  }
+
+  return { ok: true, database: draft }
+}
+
 export function resolveAllPending(
   database: Database,
   employeeId: string,

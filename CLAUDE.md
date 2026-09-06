@@ -106,7 +106,9 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
 - **Las fechas se muestran siempre como `dd-mm-aaaa`.** `formatDate()` (`domain/format.ts`) es lo
   único que las pinta; nadie más formatea una fecha a mano ni llama a `toLocaleDateString()`. No
   cubre el propio selector nativo (`<input type="date">`): su formato de fecha lo decide el
-  navegador según el idioma configurado en el dispositivo, no la página.
+  navegador según el idioma configurado en el dispositivo, no la página. `formatWeekdayShort()`
+  vive al lado, en el mismo fichero: pinta un dato distinto (el día de la semana en 3 letras, «Mar»,
+  «Mié»), así que no compite con `formatDate()` por ser «lo único que pinta fechas».
 - **Los días de vacaciones son decimales.** `formatDays()` (`domain/format.ts`) es lo único que los
   pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado. La tarjeta de saldo
   de Mi calendario trunca «Asignados» y «Disponibles» con `truncateDays()` en vez de mostrar los
@@ -171,6 +173,14 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   solicitud nueva y dejan el resto en la original. Por eso la bandeja de Solicitudes agrupa por
   empleado y muestra cada día por separado, no por solicitud: si un comentario colgara del
   `VacationRequest` sin separar el día, aparecería repetido en todos los días de esa solicitud.
+- **La bandeja de Solicitudes agrupa a cada empleado en una tarjeta plegable**, con el total de
+  solicitudes y días de todo el año (todos los estados) en la cabecera, independiente de la
+  pestaña activa (Pendientes/Aprobadas/Rechazadas/Todas), que sí filtra qué días se ven en la
+  tabla de debajo. Cada día pendiente lleva una casilla; seleccionar varias y pulsar «Aprobar» o
+  «Rechazar seleccionados» resuelve todas de una vez con `resolveRequestDays()`
+  (`state/actions.ts`), nunca con varias llamadas a `apply()` seguidas — ver la trampa
+  correspondiente. Un día con más de un comentario se pinta con «+N» y un desplegable con el hilo
+  completo (autor y fecha de cada uno).
 - **`Employee.activityPeriods` nunca está vacío**, sus periodos no se solapan y **como mucho uno
   tiene `end: null`, que es además el de inicio más tardío**. Todo lo que antes se leía de
   `hireDate`/`terminationDate` sale ahora de ahí: `hireDateOf()` es el inicio del primero,
@@ -198,6 +208,12 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   pulsado, y el rango se reduce a sus dos extremos.
 - **`apply()` es síncrona a propósito.** Si vuelve a ser `async`, el estado que depende del
   resultado se actualiza en otro render y la selección anterior se queda a la vista.
+- **Nunca llamar a `apply()` varias veces seguidas para una acción en lote.** `apply()` cierra
+  sobre el `database` del render en curso (vía `useCallback`), así que una segunda llamada en el
+  mismo manejador sigue viendo la base de datos anterior a la primera y la pisa al guardar: solo
+  sobrevive el último `commit()`. Una acción sobre varios elementos tiene que ser una única función
+  pura en `state/actions.ts` que va enhebrando el `Database` internamente y hace un solo `apply()`
+  al final — así lo hacen `bulkAssign()`, `resolveAllPending()` y `resolveRequestDays()`.
 - **`commit()` no espera a IndexedDB** y por eso devuelve `void`, no una promesa: la pantalla se
   actualiza al instante y la escritura va por detrás, avisando con un aviso si falla.
 - **Fechas en UTC, salvo en `EmployeeForm`.** `src/domain/dates.ts` trabaja sobre cadenas
@@ -291,9 +307,16 @@ Tokens en `src/index.css`: un único `@theme` con toda la paleta.
 **Solo hay tema claro.** No se sigue a `prefers-color-scheme` ni hay conmutador: `index.html`
 declara `color-scheme: light` y la paleta vive en un único `@theme`. Jerarquía por tipografía y espacio en vez de por bordes, radios generosos y un
 único color de acento. Los componentes reutilizables (`.card`, `.btn`, `.field`, `.segmented`,
-`.chip`, `.day`, `.grid-day`, `.avatar`, `.icon-btn`, `.badge-icon`, `.row-menu`, `.stat-card`)
-están en `@layer components`; preferirlos a repetir utilidades en el JSX y no pintar colores con `style`
-inline.
+`.chip`, `.day`, `.grid-day`, `.avatar`, `.icon-btn`, `.badge-icon`, `.row-menu`, `.stat-card`,
+`.filter-tab`) están en `@layer components`; preferirlos a repetir utilidades en el JSX y no pintar
+colores con `style` inline.
+
+**`.filter-tab` es distinto de `.segmented`, a propósito.** Los dos son controles de filtro con
+varias opciones, pero `.segmented` (Rol, Tipo de contrato) marca la opción activa con fondo blanco
+y sombra, estilo iOS; `.filter-tab` (pestañas de Solicitudes, con contador) la marca con
+`--color-accent-soft`, el mismo lenguaje visual que ya usa la fila activa de la barra lateral. No
+son intercambiables: usar uno u otro según si el control vive dentro de una tarjeta compacta
+(`.segmented`) o es la navegación principal de una vista (`.filter-tab`).
 
 **Los iconos son de `lucide-react` y la barra lateral de `react-pro-sidebar`.** Nada de SVG
 dibujados a mano: `lucide-react` se importa por nombre y solo entra en el bundle lo que se usa.
@@ -315,8 +338,9 @@ Editar, Dar de alta/baja y Eliminar en línea, la fila no cabía junto a las cif
 **Piezas compartidas que evitan copiar y pegar:** `ui/useDismiss.ts` (cerrar un popover al pulsar
 fuera o con Escape; lo usan `RowMenu` y `YearCalendar`), `ui/Metric.tsx` (la pareja cifra/etiqueta de
 `BalanceCard` y de la lista de Empleados), `ui/SelectField.tsx` (etiqueta + `select` de una lista de
-opciones) y el prop `confirm` de `Modal`, que pinta el pie Cancelar + acción en vez de repetir los
-dos botones en cada diálogo. `footer` sigue existiendo para un pie que no sea ese par.
+opciones) y el prop `confirm` de `Modal` (con `disabled` opcional, para el botón que exige rellenar
+algo antes, como el de «Añadir comentario»), que pinta el pie Cancelar + acción en vez de repetir
+los dos botones en cada diálogo. `footer` sigue existiendo para un pie que no sea ese par.
 
 **Solicitudes y Asignación masiva no están en la barra lateral**, que se queda con las cuatro
 pantallas que se visitan a diario. Sus rutas siguen existiendo y se llega a ellas desde donde hacen
