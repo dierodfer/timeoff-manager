@@ -137,39 +137,45 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
         </div>
       </div>
 
-      <div>
-        <span className="label">Rol</span>
-        <div className="segmented">
-          <button
-            type="button"
-            aria-pressed={values.role === 'employee'}
-            onClick={() => patch({ role: 'employee' })}
-          >
-            Empleado
-          </button>
-          <button
-            type="button"
-            aria-pressed={values.role === 'admin'}
-            onClick={() => patch({ role: 'admin' })}
-          >
-            Administrador
-          </button>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <span className="label">Rol</span>
+          <div className="segmented">
+            <button
+              type="button"
+              aria-pressed={values.role === 'employee'}
+              onClick={() => patch({ role: 'employee' })}
+            >
+              Empleado
+            </button>
+            <button
+              type="button"
+              aria-pressed={values.role === 'admin'}
+              onClick={() => patch({ role: 'admin' })}
+            >
+              Administrador
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div>
-        <span className="label">Tipo de contrato</span>
-        <div className="segmented">
-          <button
-            type="button"
-            aria-pressed={!values.isSeasonal}
-            onClick={() => setContract(false)}
-          >
-            Fijo
-          </button>
-          <button type="button" aria-pressed={values.isSeasonal} onClick={() => setContract(true)}>
-            Fijo discontinuo
-          </button>
+        <div>
+          <span className="label">Tipo de contrato</span>
+          <div className="segmented">
+            <button
+              type="button"
+              aria-pressed={!values.isSeasonal}
+              onClick={() => setContract(false)}
+            >
+              Fijo
+            </button>
+            <button
+              type="button"
+              aria-pressed={values.isSeasonal}
+              onClick={() => setContract(true)}
+            >
+              Fijo discontinuo
+            </button>
+          </div>
         </div>
       </div>
 
