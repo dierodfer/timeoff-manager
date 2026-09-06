@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { makeEmployee, makePeriod, makeRequest, testSettings } from '../domain/fixtures'
 import type { Database } from '../domain/types'
 import {
+  addRequestDayComment,
   deleteEmployee,
   rehireEmployee,
   removeRequestDay,
   resolveAllPending,
   resolveRequestDay,
+  resolveRequestDays,
   terminateEmployee,
 } from './actions'
 
@@ -72,6 +74,154 @@ describe('resolveRequestDay', () => {
     const database = makeDatabase({ requests: [request] })
 
     const outcome = resolveRequestDay(database, request.id, '2026-05-04', 'rechazada', 'admin-1')
+    expect(outcome.ok).toBe(false)
+  })
+})
+
+describe('resolveRequestDays', () => {
+  it('resuelve varios días de solicitudes distintas de una vez', () => {
+    const first = makeRequest({ id: 'req-a', status: 'pendiente', days: ['2026-05-04'] })
+    const second = makeRequest({ id: 'req-b', status: 'pendiente', days: ['2026-06-01'] })
+    const database = makeDatabase({ requests: [first, second] })
+
+    const outcome = resolveRequestDays(
+      database,
+      [
+        { requestId: 'req-a', day: '2026-05-04' },
+        { requestId: 'req-b', day: '2026-06-01' },
+      ],
+      'aprobada',
+      'admin-1',
+    )
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    expect(outcome.database.requests.every((request) => request.status === 'aprobada')).toBe(true)
+  })
+
+  it('resuelve dos días distintos de la misma solicitud original sin pisarse', () => {
+    const request = makeRequest({
+      status: 'pendiente',
+      days: ['2026-05-04', '2026-05-05', '2026-05-06'],
+    })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = resolveRequestDays(
+      database,
+      [
+        { requestId: request.id, day: '2026-05-04' },
+        { requestId: request.id, day: '2026-05-06' },
+      ],
+      'aprobada',
+      'admin-1',
+    )
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    const byDay = new Map(
+      outcome.database.requests.flatMap((item) => item.days.map((day) => [day, item.status])),
+    )
+    expect(byDay.get('2026-05-04')).toBe('aprobada')
+    expect(byDay.get('2026-05-05')).toBe('pendiente')
+    expect(byDay.get('2026-05-06')).toBe('aprobada')
+  })
+
+  it('añade el mismo motivo a todos los días resueltos', () => {
+    const first = makeRequest({ id: 'req-a', status: 'pendiente', days: ['2026-05-04'] })
+    const second = makeRequest({ id: 'req-b', status: 'pendiente', days: ['2026-06-01'] })
+    const database = makeDatabase({ requests: [first, second] })
+
+    const outcome = resolveRequestDays(
+      database,
+      [
+        { requestId: 'req-a', day: '2026-05-04' },
+        { requestId: 'req-b', day: '2026-06-01' },
+      ],
+      'rechazada',
+      'admin-1',
+      'Sin cobertura ese día',
+    )
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    for (const request of outcome.database.requests) {
+      expect(request.comments).toHaveLength(1)
+      expect(request.comments[0].text).toBe('Sin cobertura ese día')
+    }
+  })
+
+  it('rechaza una selección vacía', () => {
+    const outcome = resolveRequestDays(makeDatabase(), [], 'aprobada', 'admin-1')
+    expect(outcome.ok).toBe(false)
+  })
+
+  it('no deja ningún cambio a medias si un día de la selección falla', () => {
+    const request = makeRequest({ status: 'pendiente', days: ['2026-05-04'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = resolveRequestDays(
+      database,
+      [
+        { requestId: request.id, day: '2026-05-04' },
+        { requestId: request.id, day: '2026-06-01' }, // no pertenece a la solicitud
+      ],
+      'aprobada',
+      'admin-1',
+    )
+    expect(outcome.ok).toBe(false)
+  })
+})
+
+describe('addRequestDayComment', () => {
+  it('separa el día comentado y no lo muestra en el resto de días de la solicitud', () => {
+    const request = makeRequest({
+      status: 'pendiente',
+      days: ['2026-05-04', '2026-05-05', '2026-05-06'],
+    })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = addRequestDayComment(database, request.id, '2026-05-05', 'admin-1', 'Ok')
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    const [pending, commented] = outcome.database.requests
+    expect(pending.id).toBe(request.id)
+    expect(pending.days).toEqual(['2026-05-04', '2026-05-06'])
+    expect(pending.comments).toHaveLength(0)
+
+    expect(commented.id).not.toBe(request.id)
+    expect(commented.days).toEqual(['2026-05-05'])
+    expect(commented.comments).toHaveLength(1)
+    expect(commented.comments[0].text).toBe('Ok')
+    expect(commented.status).toBe(request.status)
+  })
+
+  it('comenta en el sitio cuando es el único día de la solicitud', () => {
+    const request = makeRequest({ status: 'pendiente', days: ['2026-05-04'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = addRequestDayComment(database, request.id, '2026-05-04', 'admin-1', 'Ok')
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    expect(outcome.database.requests).toHaveLength(1)
+    expect(outcome.database.requests[0].id).toBe(request.id)
+    expect(outcome.database.requests[0].comments).toHaveLength(1)
+  })
+
+  it('rechaza un comentario vacío', () => {
+    const request = makeRequest({ status: 'pendiente', days: ['2026-05-04'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = addRequestDayComment(database, request.id, '2026-05-04', 'admin-1', '   ')
+    expect(outcome.ok).toBe(false)
+  })
+
+  it('rechaza un día que no pertenece a la solicitud', () => {
+    const request = makeRequest({ status: 'pendiente', days: ['2026-05-04'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = addRequestDayComment(database, request.id, '2026-06-01', 'admin-1', 'Ok')
     expect(outcome.ok).toBe(false)
   })
 })

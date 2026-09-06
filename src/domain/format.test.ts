@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatDays, pluralDays, truncateDays } from './format'
+import { formatDate, formatDays, formatWeekdayShort, pluralDays, truncateDays } from './format'
 
 describe('formatDate', () => {
   it('reordena yyyy-MM-dd a dd-mm-aaaa', () => {
@@ -12,6 +12,14 @@ describe('formatDate', () => {
 
   it('acepta una marca de tiempo ISO completa, ignorando la hora', () => {
     expect(formatDate('2026-12-25T10:30:00.000Z')).toBe('25-12-2026')
+  })
+})
+
+describe('formatWeekdayShort', () => {
+  it('abrevia a 3 letras con la primera en mayúscula', () => {
+    expect(formatWeekdayShort('2026-01-05')).toBe('Lun')
+    expect(formatWeekdayShort('2026-09-16')).toBe('Mié')
+    expect(formatWeekdayShort('2027-01-01')).toBe('Vie')
   })
 })
 
