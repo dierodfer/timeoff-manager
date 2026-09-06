@@ -4,10 +4,7 @@ import { todayIso } from '../domain/dates'
 import type { Employee } from '../domain/types'
 import { displayName, sortByName } from '../state/actions'
 import { useApp } from '../state/appContext'
-
-function initials(employee: Employee): string {
-  return `${employee.firstName.at(0) ?? ''}${employee.lastName.at(0) ?? ''}`.toUpperCase()
-}
+import { Avatar } from '../ui/Avatar'
 
 export function SignIn() {
   const { database, signIn, notify } = useApp()
@@ -52,9 +49,7 @@ export function SignIn() {
                   onClick={() => setSelected(employee)}
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--color-surface-sunken)]"
                 >
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-sm font-semibold text-[var(--color-accent)]">
-                    {initials(employee)}
-                  </span>
+                  <Avatar employee={employee} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-medium">
                       {displayName(employee)}
@@ -73,9 +68,7 @@ export function SignIn() {
       ) : (
         <form onSubmit={(event) => void onSubmit(event)} className="card mt-6 space-y-4 p-6">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-sm font-semibold text-[var(--color-accent)]">
-              {initials(selected)}
-            </span>
+            <Avatar employee={selected} />
             <p className="text-[15px] font-medium">{displayName(selected)}</p>
           </div>
 

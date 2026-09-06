@@ -1,3 +1,4 @@
+import { Inbox, Plus, Search, Users } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { hashPin, randomSalt } from '../data/pin'
 import { createEmployee } from '../data/seed'
@@ -23,8 +24,10 @@ import {
   terminateEmployee,
 } from '../state/actions'
 import { useSession } from '../state/appContext'
+import { Avatar } from '../ui/Avatar'
 import { EmployeeForm, type EmployeeFormValues } from '../ui/EmployeeForm'
 import { Modal } from '../ui/Modal'
+import { RowMenu } from '../ui/RowMenu'
 import { Stepper } from '../ui/Stepper'
 
 type Dialog =
@@ -33,6 +36,10 @@ type Dialog =
   | { kind: 'alta'; employee: Employee }
   | { kind: 'delete'; employee: Employee }
   | null
+
+type StatusFilter = 'todos' | 'activos' | 'bajas'
+type ContractFilter = 'todos' | 'fijo' | 'discontinuo'
+type SortOrder = 'nombre' | 'nombre-desc' | 'alta'
 
 function minAltaDate(employee: Employee, today: IsoDate): IsoDate {
   const last = lastEndDate(employee)
@@ -51,23 +58,46 @@ function periodsSummary(employee: Employee): string {
 export function Employees() {
   const { database, currentUser, year, commit, apply, notify } = useSession()
   const [dialog, setDialog] = useState<Dialog>(null)
-  const [showInactive, setShowInactive] = useState(false)
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<StatusFilter>('todos')
+  const [contract, setContract] = useState<ContractFilter>('todos')
+  const [order, setOrder] = useState<SortOrder>('nombre')
 
   const today = todayIso()
   const [dialogDate, setDialogDate] = useState(today)
 
-  const employees = useMemo(
-    () =>
-      sortByName(
-        database.employees.filter((employee) => showInactive || isActive(employee, today)),
-      ),
-    [database.employees, showInactive, today],
-  )
+  const employees = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    const matching = database.employees.filter((employee) => {
+      if (term && !displayName(employee).toLowerCase().includes(term)) return false
+      if (status === 'activos' && !isActive(employee, today)) return false
+      if (status === 'bajas' && isActive(employee, today)) return false
+      if (contract === 'fijo' && employee.isSeasonal) return false
+      if (contract === 'discontinuo' && !employee.isSeasonal) return false
+      return true
+    })
+
+    if (order === 'alta') {
+      return [...matching].sort((a, b) =>
+        (sortedPeriods(b).at(-1)?.start ?? '').localeCompare(sortedPeriods(a).at(-1)?.start ?? ''),
+      )
+    }
+    const byName = sortByName(matching)
+    return order === 'nombre-desc' ? byName.reverse() : byName
+  }, [database.employees, search, status, contract, order, today])
 
   const rows = useMemo(
     () => withBalances(employees, year, database.settings, database.allowances, database.requests),
     [employees, year, database.settings, database.allowances, database.requests],
   )
+
+  const activeCount = database.employees.filter((employee) => isActiveInYear(employee, year)).length
+  const previousCount = database.employees.filter((employee) =>
+    isActiveInYear(employee, year - 1),
+  ).length
+  const pendingCount = database.requests
+    .filter((request) => request.status === 'pendiente' && request.year === year)
+    .reduce((total, request) => total + request.days.length, 0)
 
   const saveEmployee = async (values: EmployeeFormValues) => {
     if (dialog?.kind !== 'form') return
@@ -158,153 +188,269 @@ export function Employees() {
 
   const adminCount = database.employees.filter((employee) => employee.role === 'admin').length
 
+  const openBaja = (employee: Employee) => {
+    setDialogDate(today)
+    setDialog({ kind: 'baja', employee })
+  }
+
+  const openAlta = (employee: Employee) => {
+    const min = minAltaDate(employee, today)
+    setDialogDate(min > today ? min : today)
+    setDialog({ kind: 'alta', employee })
+  }
+
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl">Empleados</h1>
-          <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-            Los días de {year} salen de la estimación automática; ajústalos con + y − cuando haga
-            falta.
+          <h1 className="text-[28px] leading-tight">Empleados</h1>
+          <p className="mt-1 text-[15px] text-[var(--color-ink-muted)]">
+            Gestiona los empleados y sus periodos de actividad, vacaciones y ausencias.
           </p>
         </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => setDialog({ kind: 'form', employee: null })}
+        >
+          <Plus className="size-[18px]" />
+          Nuevo empleado
+        </button>
+      </div>
 
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm text-[var(--color-ink-muted)]">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(event) => setShowInactive(event.target.checked)}
-            />{' '}
-            Ver inactivos
-          </label>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setDialog({ kind: 'form', employee: null })}
-          >
-            Nuevo empleado
-          </button>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="card stat-card">
+          <span className="stat-icon">
+            <Users className="size-5" />
+          </span>
+          <span>
+            <span className="tabular block text-2xl font-semibold">{activeCount}</span>
+            <span className="block text-[13px] text-[var(--color-ink-muted)]">
+              {activeCount === 1 ? 'Empleado' : 'Empleados'} con actividad en {year}
+            </span>
+            {previousCount > 0 && activeCount !== previousCount && (
+              <span
+                className={`mt-0.5 block text-xs font-medium ${
+                  activeCount > previousCount
+                    ? 'text-[var(--color-approved)]'
+                    : 'text-[var(--color-rejected)]'
+                }`}
+              >
+                {activeCount > previousCount ? '↑' : '↓'} {Math.abs(activeCount - previousCount)}{' '}
+                vs. {year - 1}
+              </span>
+            )}
+          </span>
+        </div>
+
+        <div className="card stat-card">
+          <span className="stat-icon">
+            <Inbox className="size-5" />
+          </span>
+          <span>
+            <span className="tabular block text-2xl font-semibold">{pendingCount}</span>
+            <span className="block text-[13px] text-[var(--color-ink-muted)]">
+              {pendingCount === 1 ? 'Día pendiente' : 'Días pendientes'} de resolver
+            </span>
+          </span>
         </div>
       </div>
 
-      <div className="card divide-y divide-[var(--color-hairline)] overflow-hidden">
+      <div className="card grid gap-3 p-4 md:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))]">
+        <div>
+          <label className="label" htmlFor="buscar-empleado">
+            Buscar
+          </label>
+          <span className="relative block">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--color-ink-muted)]" />
+            <input
+              id="buscar-empleado"
+              type="search"
+              className="field pl-9"
+              placeholder="Buscar por nombre…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </span>
+        </div>
+
+        <div>
+          <label className="label" htmlFor="filtro-estado">
+            Estado
+          </label>
+          <select
+            id="filtro-estado"
+            className="field"
+            value={status}
+            onChange={(event) => setStatus(event.target.value as StatusFilter)}
+          >
+            <option value="todos">Todos</option>
+            <option value="activos">En activo</option>
+            <option value="bajas">De baja</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="label" htmlFor="filtro-contrato">
+            Tipo de contrato
+          </label>
+          <select
+            id="filtro-contrato"
+            className="field"
+            value={contract}
+            onChange={(event) => setContract(event.target.value as ContractFilter)}
+          >
+            <option value="todos">Todos</option>
+            <option value="fijo">Fijo</option>
+            <option value="discontinuo">Fijo discontinuo</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="label" htmlFor="filtro-orden">
+            Ordenar por
+          </label>
+          <select
+            id="filtro-orden"
+            className="field"
+            value={order}
+            onChange={(event) => setOrder(event.target.value as SortOrder)}
+          >
+            <option value="nombre">Nombre (A–Z)</option>
+            <option value="nombre-desc">Nombre (Z–A)</option>
+            <option value="alta">Alta más reciente</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="card divide-y divide-[var(--color-hairline)]">
         {rows.map(({ employee, balance }) => {
           const inYear = isActiveInYear(employee, year)
           const last = sortedPeriods(employee).at(-1)
+          const employed = Boolean(openPeriod(employee))
+          const onlyAdmin = employee.role === 'admin' && adminCount === 1
 
           return (
-            <div key={employee.id} className="flex flex-wrap items-center gap-4 p-4">
-              <div className="min-w-52 flex-1">
-                <p className="text-[15px] font-medium">
-                  {displayName(employee)}
-                  {employee.id === currentUser.id && (
-                    <span className="chip chip-neutral ml-2">Tú</span>
+            <div key={employee.id} className="flex flex-wrap items-center gap-x-6 gap-y-4 p-4">
+              <div className="flex min-w-60 flex-1 items-start gap-3">
+                <Avatar employee={employee} size="lg" />
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
+                    {displayName(employee)}
+                    {employee.id === currentUser.id && (
+                      <span className="chip chip-neutral">Tú</span>
+                    )}
+                    {employed ? (
+                      <span className="chip chip-aprobada">Activo</span>
+                    ) : (
+                      <span className="chip chip-neutral">De baja</span>
+                    )}
+                  </p>
+                  <p className="mt-0.5 text-[13px] text-[var(--color-ink-muted)]">
+                    {employee.role === 'admin' ? 'Administrador' : 'Empleado'}
+                    {employee.isSeasonal ? ' · Fijo discontinuo' : ' · Fijo'}
+                    {last ? ` · Alta ${formatDate(last.start)}` : ''}
+                    {last?.end ? ` · Baja ${formatDate(last.end)}` : ''}
+                  </p>
+                  {employee.activityPeriods.length > 1 && (
+                    <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                      Periodos de actividad: {periodsSummary(employee)}
+                    </p>
                   )}
-                </p>
-                <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-                  {employee.role === 'admin' ? 'Administrador' : 'Empleado'}
-                  {last ? ` · alta ${formatDate(last.start)}` : ''}
-                  {last?.end ? ` · baja ${formatDate(last.end)}` : ''}
-                  {employee.isSeasonal ? ' · fijo discontinuo' : ''}
-                </p>
-                {employee.activityPeriods.length > 1 && (
-                  <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-                    Periodos: {periodsSummary(employee)}
-                  </p>
-                )}
-                {inYear && (
-                  <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-                    {workedDaysInYear(employee, year, database.settings.workweek)} días trabajados
-                    en {year} · estimación {formatDays(balance.estimated)} · aprobados{' '}
-                    {balance.approved} · pendientes {balance.pending}
-                  </p>
-                )}
+                </div>
               </div>
 
               {inYear ? (
-                <div className="flex items-center gap-2">
-                  <Stepper
-                    label={displayName(employee)}
-                    value={balance.assigned}
-                    onChange={(next) => apply((db) => setAllowance(db, employee.id, year, next))}
-                  />
-                  {balance.isOverridden && (
-                    <button
-                      type="button"
-                      className="btn btn-quiet btn-sm"
-                      title={`Volver a la estimación (${formatDays(balance.estimated)} días)`}
-                      onClick={() => {
-                        commit(clearAllowance(database, employee.id, year))
-                        notify('Días restablecidos a la estimación.')
-                      }}
-                    >
-                      Restablecer
-                    </button>
-                  )}
-                </div>
+                <>
+                  <dl className="flex flex-none gap-6 text-[13px]">
+                    <div>
+                      <dd className="tabular text-lg font-semibold">
+                        {workedDaysInYear(employee, year, database.settings.workweek)}
+                      </dd>
+                      <dt className="text-[var(--color-ink-muted)]">
+                        Días trabajados
+                        <span className="block">en {year}</span>
+                      </dt>
+                    </div>
+                    <div>
+                      <dd className="tabular text-lg font-semibold">
+                        {formatDays(balance.estimated)}
+                      </dd>
+                      <dt className="text-[var(--color-ink-muted)]">Estimación</dt>
+                    </div>
+                    <div>
+                      <dd className="tabular text-lg font-semibold">{balance.approved}</dd>
+                      <dt className="text-[var(--color-ink-muted)]">Aprobados</dt>
+                    </div>
+                    <div>
+                      <dd
+                        className={`tabular text-lg font-semibold ${
+                          balance.pending > 0 ? 'text-[var(--color-pending)]' : ''
+                        }`}
+                      >
+                        {balance.pending}
+                      </dd>
+                      <dt className="text-[var(--color-ink-muted)]">Pendientes</dt>
+                    </div>
+                  </dl>
+
+                  <div className="flex items-center gap-2">
+                    <Stepper
+                      label={displayName(employee)}
+                      value={balance.assigned}
+                      onChange={(next) => apply((db) => setAllowance(db, employee.id, year, next))}
+                    />
+                    {balance.isOverridden && (
+                      <button
+                        type="button"
+                        className="btn btn-quiet btn-sm"
+                        title={`Volver a la estimación (${formatDays(balance.estimated)} días)`}
+                        onClick={() => {
+                          commit(clearAllowance(database, employee.id, year))
+                          notify('Días restablecidos a la estimación.')
+                        }}
+                      >
+                        Restablecer
+                      </button>
+                    )}
+                  </div>
+                </>
               ) : (
                 <span className="chip chip-neutral">Sin actividad en {year}</span>
               )}
 
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setDialog({ kind: 'form', employee })}
-                >
-                  Editar
-                </button>
-
-                {openPeriod(employee) ? (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => {
-                      setDialogDate(today)
-                      setDialog({ kind: 'baja', employee })
-                    }}
-                  >
-                    Dar de baja
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => {
-                      const min = minAltaDate(employee, today)
-                      setDialogDate(min > today ? min : today)
-                      setDialog({ kind: 'alta', employee })
-                    }}
-                  >
-                    Dar de alta
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm"
-                  disabled={
-                    Boolean(openPeriod(employee)) || (employee.role === 'admin' && adminCount === 1)
-                  }
-                  title={
-                    openPeriod(employee)
+              <RowMenu
+                label={`Acciones de ${displayName(employee)}`}
+                items={[
+                  { label: 'Editar', onSelect: () => setDialog({ kind: 'form', employee }) },
+                  employed
+                    ? { label: 'Dar de baja', onSelect: () => openBaja(employee) }
+                    : { label: 'Dar de alta', onSelect: () => openAlta(employee) },
+                  {
+                    label: 'Eliminar',
+                    danger: true,
+                    disabled: employed || onlyAdmin,
+                    disabledReason: employed
                       ? 'Da de baja al empleado antes de eliminarlo'
-                      : employee.role === 'admin' && adminCount === 1
-                        ? 'Es el único administrador'
-                        : undefined
-                  }
-                  onClick={() => setDialog({ kind: 'delete', employee })}
-                >
-                  Eliminar
-                </button>
-              </div>
+                      : 'Es el único administrador',
+                    onSelect: () => setDialog({ kind: 'delete', employee }),
+                  },
+                ]}
+              />
             </div>
           )
         })}
 
-        {employees.length === 0 && (
-          <p className="p-6 text-sm text-[var(--color-ink-muted)]">No hay empleados que mostrar.</p>
+        {rows.length === 0 && (
+          <p className="p-8 text-center text-sm text-[var(--color-ink-muted)]">
+            Ningún empleado coincide con los filtros.
+          </p>
+        )}
+
+        {rows.length > 0 && (
+          <p className="px-4 py-3 text-xs text-[var(--color-ink-muted)]">
+            Mostrando {rows.length} de {database.employees.length} empleados
+          </p>
         )}
       </div>
 
