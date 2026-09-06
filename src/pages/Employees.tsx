@@ -284,11 +284,15 @@ export function Employees() {
                 <button
                   type="button"
                   className="btn btn-danger btn-sm"
-                  disabled={employee.role === 'admin' && adminCount === 1}
+                  disabled={
+                    Boolean(openPeriod(employee)) || (employee.role === 'admin' && adminCount === 1)
+                  }
                   title={
-                    employee.role === 'admin' && adminCount === 1
-                      ? 'Es el único administrador'
-                      : undefined
+                    openPeriod(employee)
+                      ? 'Da de baja al empleado antes de eliminarlo'
+                      : employee.role === 'admin' && adminCount === 1
+                        ? 'Es el único administrador'
+                        : undefined
                   }
                   onClick={() => setDialog({ kind: 'delete', employee })}
                 >

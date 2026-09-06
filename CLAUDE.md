@@ -144,6 +144,9 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   recalculada cerrando el periodo en curso en la fecha elegida en el diálogo, no en la de hoy ni el
   31 de diciembre. Cuenta también los tramos anteriores del mismo año. Si la estimación es mayor, se
   le deben días; si es menor, los debe el empleado.
+- **Eliminar un empleado exige que esté de baja** (sin periodo en curso): el botón se deshabilita
+  mientras tenga uno abierto, para que la baja quede siempre registrada antes del borrado
+  definitivo. También se deshabilita si es el único administrador.
 - **Un día no laborable de Mi calendario se puede pulsar para saber por qué lo es**: abre un globo
   con el nombre del festivo y su ámbito, o con el día de la semana si solo es un domingo. El `title`
   nativo no basta porque en un móvil no hay puntero con el que pasar por encima.
