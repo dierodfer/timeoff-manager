@@ -621,6 +621,11 @@
     border-radius: 999px;
   }
 
+  .year-picker > button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
   /* Avatar con iniciales -------------------------------------------------- */
   .avatar {
     display: inline-flex;

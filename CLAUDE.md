@@ -336,7 +336,7 @@ iniciales: Acceso, la barra lateral y la lista de Empleados lo comparten.
 Editar, Dar de alta/baja y Eliminar en línea, la fila no cabía junto a las cifras y el contador.
 
 **Piezas compartidas que evitan copiar y pegar:** `ui/useDismiss.ts` (cerrar un popover al pulsar
-fuera o con Escape; lo usan `RowMenu` y `YearCalendar`), `ui/Metric.tsx` (la pareja cifra/etiqueta de
+fuera o con Escape; lo usan `RowMenu`, `UserMenu` y `YearCalendar`), `ui/Metric.tsx` (la pareja cifra/etiqueta de
 `BalanceCard` y de la lista de Empleados), `ui/SelectField.tsx` (etiqueta + `select` de una lista de
 opciones) y el prop `confirm` de `Modal` (con `disabled` opcional, para el botón que exige rellenar
 algo antes, como el de «Añadir comentario»), que pinta el pie Cancelar + acción en vez de repetir
@@ -350,6 +350,43 @@ globo de la campana cuenta días pendientes, así que va en `--color-pending` co
 pendiente, no en rojo. El recuento sale de `pendingDaysInYear()` (`domain/balance.ts`), que es lo
 único que define «día pendiente del año».
 
+**La barra lateral es solo para el administrador.** Un empleado normal tiene dos pantallas —Mi
+calendario y Mis solicitudes— y llega a la segunda desde la primera, así que un menú de navegación
+con una sola entrada sobra: `AppShell` no monta el `Sidebar` (ni el botón de menú del móvil) si el
+usuario no es administrador, y en su lugar la cabecera pinta el logo y el nombre de la organización,
+que si no se perderían con la barra.
+
+**El usuario vive en la esquina superior derecha (`ui/UserMenu.tsx`)**, no al pie de la barra
+lateral: al pulsar su avatar se abre un popover con su nombre, su rol y «Salir». Reutiliza las
+clases `.row-menu`/`.row-menu-item` del menú `⋮` de una fila y el `useDismiss()` de siempre, porque
+es el mismo patrón de popover. Es lo único que cierra la sesión, y está donde está para que también
+lo tenga a mano quien no ve barra lateral.
+
+**Mis solicitudes es una pantalla propia (`pages/MyRequests.tsx`)**, a la que se entra desde dos
+sitios de Mi calendario: el botón «Ver mis solicitudes» de `BalanceCard` (prop `requestsTo`) y el
+enlace «Ver todas» de la vista previa de solicitudes recientes de la propia página. Antes era una
+sección al final del calendario, donde quedaba lejos del saldo que la explica. **A quién mira un
+administrador vive en la URL** (`?empleado=<id>`) y no en un estado local: es lo que permite ir de
+un calendario ajeno a sus solicitudes y volver sin perder de vista a esa persona.
+
+**`BalanceCard` lleva sus propias acciones («Solicitar vacaciones» y «Ver mis solicitudes»)**, no
+una tarjeta clicable entera: son dos intenciones distintas (pedir días nuevos, consultar las que ya
+existen) y un botón por intención es más claro que un enlace ambiguo sobre toda la tarjeta.
+«Solicitar vacaciones» se deshabilita mientras no haya ningún día marcado en el calendario — abre el
+mismo diálogo que el botón «Solicitar vacaciones» de la barra flotante inferior, que aparece con la
+misma selección.
+
+**Mi calendario muestra sus últimas 4 solicitudes del año** bajo el saldo, cada una con el rango de
+fechas, el primer comentario (o el número de días si no hay comentario) y su chip de estado; toda la
+fila enlaza a Mis solicitudes. Es una vista previa, no una lista completa — para eso está «Ver
+todas». El aviso «Ten en cuenta» que la acompaña son las reglas reales de selección y cancelación
+(saldo, aprobación, cancelación en pendiente), no relleno genérico.
+
+**El botón «Hoy» de Mi calendario vuelve al año en curso** (`setYear` al año de `todayIso()`) y se
+deshabilita cuando ya se está en él. Es un atajo sobre el año, que es una selección global de toda
+la aplicación (cabecera de `AppShell`); la propia rejilla de meses ya muestra el año entero de una
+vez, así que no hace falta desplazarse dentro de la página como en la rejilla de Planificación.
+
 **`.btn-alt` es la única excepción al color de acento único.** Lo lleva Asignación masiva para
 distinguirse de «Nuevo empleado» sin competir con él, y reutiliza el verde de `--color-approved`,
 que ya es el del logo de la barra lateral.
@@ -357,6 +394,17 @@ que ya es el del logo de la barra lateral.
 **El hueco previo al día 1 de cada mes es `grid-column-start`, no celdas vacías.** `monthCells()`
 devuelve solo días reales y `firstDayOffset()` coloca el primero en su columna. Añadir huecos de
 relleno obligaría a inventarles una clave y a filtrarlos en cada `map`.
+
+**`YearCalendar` pinta un mes solo en móvil, los doce en pantallas `sm:` o mayores** —no los doce
+apilados en una columna—, porque desplazarse por un año entero de golpe en el móvil es demasiado.
+El selector de mes reutiliza la clase `.year-picker` (la misma del año, en la cabecera de
+`AppShell`) y `MonthCalendar` recibe `hideTitle` para no repetir el nombre del mes que ya pinta ese
+selector. **El mes mostrado en móvil vive en un componente aparte (`MobileMonth`) montado con
+`key={year}`**, no sincronizado con un efecto: así, al cambiar de año, React lo remonta entero y su
+`useState` vuelve a arrancar en el mes de hoy (o en enero si el año ya no es el actual) sin la
+cascada de renders de un `setState` dentro de un `useEffect`. Los botones anterior/siguiente se
+deshabilitan en enero y diciembre — cruzar a otro año es cosa del selector de año de la cabecera,
+no de este control.
 
 **Qué color gana en una celda de calendario lo decide `dayState()` (`ui/calendarGrid.ts`)**, no cada
 componente. `MONTH_DAY_CLASS` y `GRID_DAY_CLASS` traducen ese estado a las clases del calendario

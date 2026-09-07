@@ -4,6 +4,7 @@ import { BulkAssign } from './pages/BulkAssign'
 import { Employees } from './pages/Employees'
 import { FirstRun } from './pages/FirstRun'
 import { MyCalendar } from './pages/MyCalendar'
+import { MyRequests } from './pages/MyRequests'
 import { Planning } from './pages/Planning'
 import { Requests } from './pages/Requests'
 import { SettingsPage } from './pages/SettingsPage'
@@ -32,6 +33,7 @@ function CurrentScreen() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<MyCalendar />} />
+        <Route path="mis-solicitudes" element={<MyRequests />} />
         <Route
           path="planificacion"
           element={

@@ -33,6 +33,8 @@ interface MonthCalendarProps {
   readonly onToggle?: (date: IsoDate, extendRange: boolean) => void
   readonly infoDay?: IsoDate | null
   readonly onInfo?: (date: IsoDate | null) => void
+  /** La rejilla de un solo mes en móvil pinta su propio nombre en el selector de encima. */
+  readonly hideTitle?: boolean
 }
 
 export function MonthCalendar({
@@ -45,12 +47,13 @@ export function MonthCalendar({
   onToggle,
   infoDay,
   onInfo,
+  hideTitle,
 }: MonthCalendarProps) {
   const cells = monthCells(year, month)
 
   return (
     <section className="min-w-0">
-      <h3 className="mb-2 px-1 text-sm font-semibold">{MONTH_NAMES[month - 1]}</h3>
+      {!hideTitle && <h3 className="mb-2 px-1 text-sm font-semibold">{MONTH_NAMES[month - 1]}</h3>}
 
       <div className="mb-1 grid grid-cols-7 gap-1 px-1">
         {WEEK_COLUMNS.map((label, index) => (
