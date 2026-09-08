@@ -382,14 +382,14 @@ un calendario ajeno a sus solicitudes y volver sin perder de vista a esa persona
 una tarjeta clicable entera: son dos intenciones distintas (pedir días nuevos, consultar las que ya
 existen) y un botón por intención es más claro que un enlace ambiguo sobre toda la tarjeta.
 «Solicitar vacaciones» se deshabilita mientras no haya ningún día marcado en el calendario — abre el
-mismo diálogo que el botón «Solicitar vacaciones» de la barra flotante inferior, que aparece con la
-misma selección.
+mismo diálogo que el botón del mismo nombre del resumen de selección, encima de la rejilla de meses,
+que aparece con la misma selección. «Ver mis solicitudes» es la única vía a Mis solicitudes desde Mi
+calendario: no hay vista previa de solicitudes en la propia página, solo el botón.
 
-**Mi calendario muestra sus últimas 4 solicitudes del año** bajo el saldo, cada una con el rango de
-fechas, el primer comentario (o el número de días si no hay comentario) y su chip de estado; toda la
-fila enlaza a Mis solicitudes. Es una vista previa, no una lista completa — para eso está «Ver
-todas». El aviso «Ten en cuenta» que la acompaña son las reglas reales de selección y cancelación
-(saldo, aprobación, cancelación en pendiente), no relleno genérico.
+**El aviso «Ten en cuenta» de Mi calendario son solo las reglas que no son evidentes por sí solas**
+(qué días se pueden seleccionar y qué pasa con una solicitud pendiente), no una lista exhaustiva de
+todo lo que hace la pantalla: el límite de saldo y el bloqueo de un día ya solicitado ya se ven al
+intentar marcarlos, así que no hace falta explicarlos también aquí.
 
 **El botón «Hoy» de Mi calendario vuelve al año en curso** (`setYear` al año de `todayIso()`) y se
 deshabilita cuando ya se está en él. Es un atajo sobre el año, que es una selección global de toda
