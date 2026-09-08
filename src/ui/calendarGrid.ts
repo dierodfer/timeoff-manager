@@ -145,12 +145,13 @@ export interface DayInfo {
   detail: string
 }
 
-export function dayInfo(date: IsoDate, holiday: Holiday | undefined): DayInfo {
-  const day = WEEKDAY_NAMES[weekday(date)]
-  const named = day.charAt(0).toUpperCase() + day.slice(1)
-
+export function dayInfo(date: IsoDate, holiday: Holiday | undefined, mark: DayMark): DayInfo {
+  if (mark) return { title: MARK_TITLE[mark], detail: formatDate(date) }
   if (holiday) {
     return { title: holiday.name, detail: `${SCOPE_LABEL[holiday.scope]} · ${formatDate(date)}` }
   }
+
+  const day = WEEKDAY_NAMES[weekday(date)]
+  const named = day.charAt(0).toUpperCase() + day.slice(1)
   return { title: named, detail: `No laborable · ${formatDate(date)}` }
 }

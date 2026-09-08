@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { isActiveInYear } from '../domain/accrual'
 import { computeBalance, requestsOf } from '../domain/balance'
-import { formatDays, pluralDays } from '../domain/format'
+import { formatDays, pluralDays, truncateDays } from '../domain/format'
 import { compareIso, todayIso } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import { isWorkingDay } from '../domain/workdays'
@@ -73,14 +73,20 @@ export function MyCalendar() {
     [viewedEmployee, year, database],
   )
 
-  const canSelect = useCallback((date: IsoDate) => isWorkingDay(calendar, date), [calendar])
+  const canSelect = useCallback(
+    (date: IsoDate) => isWorkingDay(calendar, date) && !marks.get(date),
+    [calendar, marks],
+  )
   const selectionLimit: SelectionLimit = useMemo(
     () => ({
       max: balance.available,
       onExceeded: () =>
-        notify('No quedan días disponibles: no se puede seleccionar ninguno más.', 'error'),
+        notify(
+          `Solo tienes ${pluralDays(truncateDays(balance.available))} disponibles para ${year}, no puedes solicitar más.`,
+          'error',
+        ),
     }),
-    [balance.available, notify],
+    [balance.available, year, notify],
   )
   const { selected, toggle, clear } = useDaySelection(canSelect, selectionLimit)
 
@@ -253,6 +259,7 @@ export function MyCalendar() {
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--color-ink-soft)]">
               <li>Solo puedes seleccionar días laborables.</li>
+              <li>No puedes volver a seleccionar un día ya aprobado o pendiente.</li>
               <li>No puedes marcar más días de los que tienes disponibles.</li>
               <li>Las solicitudes quedan pendientes hasta que las aprueba un administrador.</li>
               <li>Puedes cancelar una solicitud mientras siga pendiente.</li>
@@ -327,7 +334,6 @@ function Legend() {
     { label: 'Pendiente', background: 'var(--color-pending)' },
     { label: 'Festivo', background: 'var(--color-holiday-soft)' },
     { label: 'No laborable', background: 'var(--color-surface-sunken)' },
-    { label: 'Laborable', background: 'var(--color-surface)' },
   ]
 
   return (

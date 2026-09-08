@@ -111,7 +111,7 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   «Mié»), así que no compite con `formatDate()` por ser «lo único que pinta fechas».
 - **Los días de vacaciones son decimales.** `formatDays()` (`domain/format.ts`) es lo único que los
   pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado. La tarjeta de saldo
-  de Mi calendario trunca «Asignados» y «Disponibles» con `truncateDays()` en vez de mostrar los
+  de Mi calendario trunca «Totales» y «Disponibles» con `truncateDays()` en vez de mostrar los
   decimales: solo cambia lo que se pinta, el saldo real sigue siendo decimal para las comprobaciones
   de `checkSelection()` y `useDaySelection()`.
 - **Días efectivos:** si existe un registro en `allowances` para ese empleado y año, manda ese
@@ -119,8 +119,14 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
 - **Saldo:** asignados − aprobados − pendientes. Las pendientes reservan saldo para que los mismos
   días no se comprometan dos veces.
 - **En Mi calendario no se puede marcar más días de los disponibles.** `useDaySelection()` rechaza
-  el clic (o el rango) que se pasaría del saldo y avisa con un error, en vez de dejar marcar de más
-  y fallar solo al enviar la solicitud.
+  el clic (o el rango) que se pasaría del saldo y avisa con «Solo tienes X días disponibles para
+  AAAA, no puedes solicitar más.», en vez de dejar marcar de más y fallar solo al enviar la
+  solicitud.
+- **Tampoco se puede volver a marcar un día ya aprobado o pendiente.** `canSelect()` (en
+  `pages/MyCalendar.tsx`) descarta esos días igual que descarta los no laborables, y
+  `MonthCalendar` los pinta con el mismo globo informativo de un festivo en vez de dejarlos pulsar
+  para seleccionar: al tocarlos se abre «Vacaciones aprobadas»/«Solicitud pendiente» con la fecha,
+  no se añaden a la selección.
 - **El límite se aplica también al administrador.** Para asignar más días hay que subir antes el
   contador del empleado. Tampoco se puede bajar el contador por debajo de lo ya comprometido.
 - **Cancelación:** el empleado solo retira solicitudes `pendiente`. El administrador puede eliminar
@@ -157,9 +163,12 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   dos reglas viven en `deleteEmployee()` (`state/actions.ts`), que devuelve `Outcome` como sus
   hermanas `terminateEmployee()`/`rehireEmployee()`; el menú de la fila solo deshabilita la opción
   por cortesía.
-- **Un día no laborable de Mi calendario se puede pulsar para saber por qué lo es**: abre un globo
-  con el nombre del festivo y su ámbito, o con el día de la semana si solo es un domingo. El `title`
-  nativo no basta porque en un móvil no hay puntero con el que pasar por encima.
+- **Un día que no se puede seleccionar en Mi calendario se puede pulsar para saber por qué**: abre
+  un globo con el nombre del festivo y su ámbito, con el día de la semana si solo es un domingo, o
+  con «Vacaciones aprobadas»/«Solicitud pendiente» si ya tiene una solicitud. El `title` nativo no
+  basta porque en un móvil no hay puntero con el que pasar por encima. El cursor al pasar por
+  encima es el normal de un enlace (`cursor-pointer`), no el de ayuda (`cursor-help`, la flecha con
+  interrogación): el día sí es pulsable, solo que para ver información en vez de para seleccionar.
 
 ### Invariantes de los datos
 
