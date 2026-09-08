@@ -2,7 +2,8 @@ import { ChevronLeft } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { requestsOf } from '../domain/balance'
-import { displayName, removeRequest } from '../state/actions'
+import type { IsoDate } from '../domain/types'
+import { displayName, removeRequestDays } from '../state/actions'
 import { useSession } from '../state/appContext'
 import { RequestCard } from '../ui/RequestCard'
 
@@ -25,8 +26,8 @@ export function MyRequests() {
     [database.requests, viewed.id, year],
   )
 
-  const cancel = (requestId: string) => {
-    if (apply((db) => removeRequest(db, requestId, currentUser))) {
+  const cancelRange = (requestId: string, days: IsoDate[]) => {
+    if (apply((db) => removeRequestDays(db, requestId, days, currentUser))) {
       notify(viewingSelf ? 'Solicitud cancelada.' : 'Solicitud eliminada.')
     }
   }
@@ -63,17 +64,9 @@ export function MyRequests() {
             <RequestCard
               key={request.id}
               request={request}
-              actions={
-                request.status === 'pendiente' || isAdmin ? (
-                  <button
-                    type="button"
-                    className="btn btn-danger btn-sm"
-                    onClick={() => cancel(request.id)}
-                  >
-                    {request.status === 'pendiente' ? 'Cancelar' : 'Eliminar'}
-                  </button>
-                ) : null
-              }
+              canCancel={request.status === 'pendiente' || isAdmin}
+              cancelLabel={request.status === 'pendiente' ? 'Cancelar' : 'Eliminar'}
+              onCancelRange={(days) => cancelRange(request.id, days)}
             />
           ))}
         </div>

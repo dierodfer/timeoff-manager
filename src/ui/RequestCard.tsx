@@ -1,22 +1,28 @@
-import type { ReactNode } from 'react'
 import { formatDate } from '../domain/format'
-import type { VacationRequest } from '../domain/types'
-import { STATUS_LABEL, summarizeDays } from './calendarGrid'
+import type { IsoDate, VacationRequest } from '../domain/types'
+import { dayRanges, formatDayRange, STATUS_LABEL } from './calendarGrid'
 
 interface RequestCardProps {
   readonly request: VacationRequest
   readonly employeeName?: string
-  readonly actions?: ReactNode
+  readonly canCancel: boolean
+  readonly cancelLabel: string
+  readonly onCancelRange: (days: IsoDate[]) => void
 }
 
-export function RequestCard({ request, employeeName, actions }: RequestCardProps) {
+export function RequestCard({
+  request,
+  employeeName,
+  canCancel,
+  cancelLabel,
+  onCancelRange,
+}: RequestCardProps) {
   return (
     <article className="card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           {employeeName && <p className="text-sm font-semibold">{employeeName}</p>}
-          <p className="text-sm text-[var(--color-ink-soft)]">{summarizeDays(request.days)}</p>
-          <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+          <p className="text-xs text-[var(--color-ink-muted)]">
             {request.days.length} {request.days.length === 1 ? 'día' : 'días'} · {request.year} ·
             solicitada el {formatDate(request.createdAt)}
             {request.batchId ? ' · asignación masiva' : ''}
@@ -25,6 +31,23 @@ export function RequestCard({ request, employeeName, actions }: RequestCardProps
 
         <span className={`chip chip-${request.status}`}>{STATUS_LABEL[request.status]}</span>
       </div>
+
+      <ul className="hairline mt-3 divide-y divide-[var(--color-hairline)] border-t">
+        {dayRanges(request.days).map((range) => (
+          <li key={range[0]} className="flex items-center justify-between gap-3 py-2 text-sm">
+            <span>{formatDayRange(range)}</span>
+            {canCancel && (
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={() => onCancelRange(range)}
+              >
+                {cancelLabel}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
 
       {request.comments.length > 0 && (
         <ul className="hairline mt-3 space-y-2 border-t pt-3">
@@ -39,8 +62,6 @@ export function RequestCard({ request, employeeName, actions }: RequestCardProps
           ))}
         </ul>
       )}
-
-      {actions && <div className="mt-3 flex flex-wrap justify-end gap-2">{actions}</div>}
     </article>
   )
 }
