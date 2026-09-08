@@ -1,6 +1,6 @@
-import { ChevronRight, Info } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { isActiveInYear } from '../domain/accrual'
 import { computeBalance, requestsOf } from '../domain/balance'
 import { formatDays, pluralDays, truncateDays } from '../domain/format'
@@ -11,7 +11,7 @@ import { createVacation, displayName, sortByName } from '../state/actions'
 import { useSession } from '../state/appContext'
 import { BalanceCard } from '../ui/BalanceCard'
 import { Modal } from '../ui/Modal'
-import { STATUS_LABEL, summarizeDays } from '../ui/calendarGrid'
+import { summarizeDays } from '../ui/calendarGrid'
 import type { DayMark } from '../ui/MonthCalendar'
 import { useDaySelection, type SelectionLimit } from '../ui/useDaySelection'
 import { YearCalendar } from '../ui/YearCalendar'
@@ -45,11 +45,6 @@ export function MyCalendar() {
   const requests = useMemo(
     () => requestsOf(database.requests, viewedEmployee.id, year),
     [database.requests, viewedEmployee.id, year],
-  )
-
-  const recentRequests = useMemo(
-    () => [...requests].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4),
-    [requests],
   )
 
   const marks = useMemo(() => {
@@ -210,48 +205,6 @@ export function MyCalendar() {
             requestsTo={requestsPath}
           />
 
-          <section className="card p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Mis solicitudes</h2>
-              <Link
-                to={requestsPath}
-                className="text-xs font-medium text-[var(--color-accent)] hover:underline"
-              >
-                Ver todas
-              </Link>
-            </div>
-
-            {recentRequests.length === 0 ? (
-              <p className="mt-3 text-sm text-[var(--color-ink-muted)]">
-                Todavía no hay solicitudes en {year}.
-              </p>
-            ) : (
-              <ul className="mt-1 divide-y divide-[var(--color-hairline)]">
-                {recentRequests.map((request) => (
-                  <li key={request.id}>
-                    <Link
-                      to={requestsPath}
-                      className="-mx-1 flex items-center gap-3 rounded-[var(--radius-control)] px-1 py-3 hover:bg-[var(--color-surface-sunken)]"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {summarizeDays(request.days)}
-                        </p>
-                        <p className="truncate text-xs text-[var(--color-ink-muted)]">
-                          {request.comments[0]?.text ?? pluralDays(request.days.length)}
-                        </p>
-                      </div>
-                      <span className={`chip chip-${request.status}`}>
-                        {STATUS_LABEL[request.status]}
-                      </span>
-                      <ChevronRight className="size-4 shrink-0 text-[var(--color-ink-muted)]" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
           <section className="rounded-[var(--radius-card)] border border-[var(--color-accent)]/25 bg-[var(--color-accent-soft)] p-4">
             <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
               <Info className="size-4" />
@@ -259,8 +212,6 @@ export function MyCalendar() {
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--color-ink-soft)]">
               <li>Solo puedes seleccionar días laborables.</li>
-              <li>No puedes volver a seleccionar un día ya aprobado o pendiente.</li>
-              <li>No puedes marcar más días de los que tienes disponibles.</li>
               <li>Las solicitudes quedan pendientes hasta que las aprueba un administrador.</li>
               <li>Puedes cancelar una solicitud mientras siga pendiente.</li>
             </ul>
