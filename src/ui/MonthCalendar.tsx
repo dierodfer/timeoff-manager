@@ -86,9 +86,12 @@ export function MonthCalendar({
 
           const title = dayTitle(holiday, mark)
           const style = index === 0 ? firstDayOffset(date) : undefined
+          // Un día ya aprobado o pendiente no se puede volver a seleccionar, igual que uno no
+          // laborable: los dos se pintan con el mismo globo informativo en vez de dejarse pulsar.
+          const blocked = !workable || Boolean(mark)
 
-          if (!workable && onInfo) {
-            const info = dayInfo(date, holiday)
+          if (blocked && onInfo) {
+            const info = dayInfo(date, holiday, mark)
             const isOpen = infoDay === date
 
             return (
@@ -100,7 +103,7 @@ export function MonthCalendar({
                 aria-label={`${formatLongDate(date)}: ${info.title}`}
                 aria-expanded={isOpen}
                 onClick={() => onInfo(isOpen ? null : date)}
-                className={`${classes.join(' ')} cursor-help`}
+                className={`${classes.join(' ')} cursor-pointer`}
               >
                 {dayOf(date)}
                 {isOpen && (
@@ -113,7 +116,7 @@ export function MonthCalendar({
             )
           }
 
-          if (!onToggle || !workable) {
+          if (!onToggle || blocked) {
             return (
               <span key={date} className={classes.join(' ')} title={title} style={style}>
                 {dayOf(date)}
