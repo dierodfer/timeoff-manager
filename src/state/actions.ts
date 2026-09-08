@@ -333,27 +333,27 @@ export function removeRequestDay(
   }
 }
 
-export function removeRequest(database: Database, requestId: string, actor: Employee): Outcome {
-  const request = database.requests.find((item) => item.id === requestId)
-  if (!request) return { ok: false, reason: 'La solicitud no existe.' }
+/**
+ * Cancela un tramo de días consecutivos (o uno suelto) de una solicitud de una vez, como una única
+ * transformación — el mismo motivo que resolveRequestDays(): nunca varios apply() seguidos. Si el
+ * tramo es la solicitud entera, la elimina; si no, deja el resto intacto con el mismo id.
+ */
+export function removeRequestDays(
+  database: Database,
+  requestId: string,
+  days: IsoDate[],
+  actor: Employee,
+): Outcome {
+  if (days.length === 0) return { ok: false, reason: 'No hay ningún día que cancelar.' }
 
-  const isAdmin = actor.role === 'admin'
-  if (!isAdmin) {
-    if (request.employeeId !== actor.id) {
-      return { ok: false, reason: 'Solo puedes cancelar tus propias solicitudes.' }
-    }
-    if (request.status !== 'pendiente') {
-      return { ok: false, reason: 'Solo se pueden cancelar las solicitudes pendientes.' }
-    }
+  let draft = database
+  for (const day of days) {
+    const outcome = removeRequestDay(draft, requestId, day, actor)
+    if (!outcome.ok) return outcome
+    draft = outcome.database
   }
 
-  return {
-    ok: true,
-    database: {
-      ...database,
-      requests: database.requests.filter((item) => item.id !== requestId),
-    },
-  }
+  return { ok: true, database: draft }
 }
 
 export function addRequestDayComment(

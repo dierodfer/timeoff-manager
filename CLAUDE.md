@@ -387,6 +387,21 @@ deshabilita cuando ya se está en él. Es un atajo sobre el año, que es una sel
 la aplicación (cabecera de `AppShell`); la propia rejilla de meses ya muestra el año entero de una
 vez, así que no hace falta desplazarse dentro de la página como en la rejilla de Planificación.
 
+**La selección de días de Mi calendario no lleva barra flotante.** El resumen («N días: rango») y el
+botón «Limpiar» viven dentro de la propia tarjeta del calendario, encima de la rejilla de meses;
+«Solicitar vacaciones» ya vive en `BalanceCard` y no necesita otro sitio. Una barra `fixed` tapaba
+contenido en pantallas pequeñas y obligaba a un `pb-24` de relleno que ya no hace falta.
+
+**Una solicitud se muestra y se cancela por tramos de días consecutivos, no por solicitud entera.**
+`RequestCard` (`ui/RequestCard.tsx`) agrupa `request.days` con `dayRanges()`
+(`ui/calendarGrid.ts`, la misma agrupación que ya usaba `summarizeDays()` para el texto) y pinta una
+fila por tramo, cada una con su propio botón de cancelar. `removeRequestDays()`
+(`state/actions.ts`) cancela los días de un tramo de una sola vez —el mismo motivo que
+`resolveRequestDays()`: nunca varios `apply()` seguidos—, reutilizando `removeRequestDay()` en un
+bucle interno; como no cambia el id de la solicitud al quitar un día (a diferencia de
+`resolveRequestDay()`, que sí lo hace al resolver), no hace falta enhebrar ningún id entre
+iteraciones. Sustituye a la antigua `removeRequest()`, que cancelaba la solicitud entera de golpe.
+
 **`.btn-alt` es la única excepción al color de acento único.** Lo lleva Asignación masiva para
 distinguirse de «Nuevo empleado» sin competir con él, y reutiliza el verde de `--color-approved`,
 que ya es el del logo de la barra lateral.

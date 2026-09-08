@@ -6,6 +6,7 @@ import {
   deleteEmployee,
   rehireEmployee,
   removeRequestDay,
+  removeRequestDays,
   resolveAllPending,
   resolveRequestDay,
   resolveRequestDays,
@@ -274,6 +275,65 @@ describe('removeRequestDay', () => {
     const database = makeDatabase({ requests: [request] })
 
     const outcome = removeRequestDay(database, request.id, '2026-01-12', employee)
+    expect(outcome.ok).toBe(false)
+  })
+})
+
+describe('removeRequestDays', () => {
+  it('cancela un tramo de días consecutivos y deja el resto de la solicitud intacto', () => {
+    const request = makeRequest({
+      status: 'aprobada',
+      days: ['2026-01-10', '2026-01-12', '2026-01-13', '2026-01-14'],
+    })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = removeRequestDays(
+      database,
+      request.id,
+      ['2026-01-12', '2026-01-13', '2026-01-14'],
+      { ...employee, role: 'admin' },
+    )
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    expect(outcome.database.requests).toHaveLength(1)
+    expect(outcome.database.requests[0].id).toBe(request.id)
+    expect(outcome.database.requests[0].days).toEqual(['2026-01-10'])
+  })
+
+  it('elimina la solicitud entera cuando el tramo cubre todos sus días', () => {
+    const request = makeRequest({
+      status: 'aprobada',
+      days: ['2026-01-12', '2026-01-13'],
+    })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = removeRequestDays(database, request.id, ['2026-01-12', '2026-01-13'], {
+      ...employee,
+      role: 'admin',
+    })
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+
+    expect(outcome.database.requests).toHaveLength(0)
+  })
+
+  it('rechaza un tramo vacío', () => {
+    const request = makeRequest({ status: 'aprobada', days: ['2026-01-12'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = removeRequestDays(database, request.id, [], { ...employee, role: 'admin' })
+    expect(outcome.ok).toBe(false)
+  })
+
+  it('rechaza el tramo y no deja ningún cambio a medias si un día no pertenece a la solicitud', () => {
+    const request = makeRequest({ status: 'aprobada', days: ['2026-01-12', '2026-01-13'] })
+    const database = makeDatabase({ requests: [request] })
+
+    const outcome = removeRequestDays(database, request.id, ['2026-01-12', '2026-06-01'], {
+      ...employee,
+      role: 'admin',
+    })
     expect(outcome.ok).toBe(false)
   })
 })

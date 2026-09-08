@@ -121,7 +121,7 @@ export function MyCalendar() {
   }
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl">
@@ -170,6 +170,21 @@ export function MyCalendar() {
         <div className="space-y-4">
           <Legend />
           <div className="card p-4 sm:p-6">
+            {selectedDays.length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-control)] bg-[var(--color-accent-soft)] px-3 py-2 text-sm">
+                <p>
+                  <span className="font-semibold">
+                    {selectedDays.length} {selectedDays.length === 1 ? 'día' : 'días'}
+                  </span>{' '}
+                  <span className="text-[var(--color-ink-muted)]">
+                    {summarizeDays(selectedDays)}
+                  </span>
+                </p>
+                <button type="button" className="btn btn-quiet btn-sm" onClick={clear}>
+                  Limpiar
+                </button>
+              </div>
+            )}
             <YearCalendar
               year={year}
               calendar={calendar}
@@ -245,30 +260,6 @@ export function MyCalendar() {
           </section>
         </div>
       </div>
-
-      {selectedDays.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 p-4">
-          <div
-            className="card glass mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-3 px-4 py-3"
-            style={{ boxShadow: 'var(--shadow-raised)' }}
-          >
-            <p className="text-sm">
-              <span className="font-semibold">
-                {selectedDays.length} {selectedDays.length === 1 ? 'día' : 'días'}
-              </span>{' '}
-              <span className="text-[var(--color-ink-muted)]">{summarizeDays(selectedDays)}</span>
-            </p>
-            <div className="flex gap-2">
-              <button type="button" className="btn btn-secondary btn-sm" onClick={clear}>
-                Limpiar
-              </button>
-              <button type="button" className="btn btn-primary btn-sm" onClick={openRequestDialog}>
-                Solicitar vacaciones
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {dialogOpen && (
         <Modal
