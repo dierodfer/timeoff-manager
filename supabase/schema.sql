@@ -10,6 +10,12 @@
 -- puede saltar llamando a la API REST con un curl.
 --
 -- El diagrama del modelo y los pasos del panel están en supabase/README.md.
+--
+-- Si ya ejecutaste una versión anterior con `vacation_requests.org_id`: como el
+-- fichero no migra, hay que quitarla a mano antes de reejecutar este, o las
+-- políticas de más abajo (que ya no la usan) convivirían con una columna
+-- `not null` sin ningún `insert`/`update` que la rellene.
+--   alter table public.vacation_requests drop column org_id;
 -- =============================================================================
 
 -- Para el EXCLUDE de activity_periods: mezcla = sobre uuid con && sobre un rango
@@ -92,9 +98,12 @@ create table if not exists public.allowances (
   primary key (employee_id, year)
 );
 
+-- Sin org_id: sería redundante con employee_id (que ya la fija vía employees) y
+-- sin una FK que lo comprobara, nada impediría que se desincronizaran. Las
+-- políticas usan employee_in_my_org(employee_id), igual que activity_periods y
+-- allowances.
 create table if not exists public.vacation_requests (
   id uuid primary key default gen_random_uuid(),
-  org_id uuid not null references public.organizations (id) on delete cascade,
   employee_id uuid not null references public.employees (id) on delete cascade,
   year smallint not null,
   status text not null default 'pendiente'
@@ -217,7 +226,7 @@ language sql stable security definer set search_path = public as $$
      where r.id = p_request_id
        and (
          r.employee_id = public.current_employee_id()
-         or (public.is_admin() and r.org_id = public.current_org_id())
+         or (public.is_admin() and public.employee_in_my_org(r.employee_id))
        )
   )
 $$;
@@ -230,7 +239,7 @@ language sql stable security definer set search_path = public as $$
      where r.id = p_request_id
        and (
          (r.employee_id = public.current_employee_id() and r.status = 'pendiente')
-         or (public.is_admin() and r.org_id = public.current_org_id())
+         or (public.is_admin() and public.employee_in_my_org(r.employee_id))
        )
   )
 $$;
@@ -340,33 +349,32 @@ create policy vacation_requests_select on public.vacation_requests
   for select to authenticated
   using (
     employee_id = public.current_employee_id()
-    or (public.is_admin() and org_id = public.current_org_id())
+    or (public.is_admin() and public.employee_in_my_org(employee_id))
   );
 
 -- Un empleado solo crea solicitudes suyas y pendientes. El administrador puede
--- crearlas para cualquiera y ya aprobadas («Crear directamente como aprobadas»).
+-- crearlas para cualquiera de su empresa y ya aprobadas («Crear directamente
+-- como aprobadas»). employee_in_my_org() es lo que evita que un administrador
+-- cree una solicitud a nombre de alguien de otra empresa.
 create policy vacation_requests_insert on public.vacation_requests
   for insert to authenticated
   with check (
-    org_id = public.current_org_id()
-    and (
-      (employee_id = public.current_employee_id() and status = 'pendiente')
-      or public.is_admin()
-    )
+    (employee_id = public.current_employee_id() and status = 'pendiente')
+    or (public.is_admin() and public.employee_in_my_org(employee_id))
   );
 
 -- Resolver (aprobar o rechazar) es cosa del administrador.
 create policy vacation_requests_update on public.vacation_requests
   for update to authenticated
-  using (public.is_admin() and org_id = public.current_org_id())
-  with check (public.is_admin() and org_id = public.current_org_id());
+  using (public.is_admin() and public.employee_in_my_org(employee_id))
+  with check (public.is_admin() and public.employee_in_my_org(employee_id));
 
 -- «El empleado solo retira solicitudes pendientes; el administrador, cualquiera».
 create policy vacation_requests_delete on public.vacation_requests
   for delete to authenticated
   using (
     (employee_id = public.current_employee_id() and status = 'pendiente')
-    or (public.is_admin() and org_id = public.current_org_id())
+    or (public.is_admin() and public.employee_in_my_org(employee_id))
   );
 
 -- vacation_request_days -------------------------------------------------------

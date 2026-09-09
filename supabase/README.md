@@ -17,7 +17,6 @@ erDiagram
     auth_users |o--o| employees : "enlazados por email"
     organizations ||--o{ employees : ""
     organizations ||--o{ holidays : ""
-    organizations ||--o{ vacation_requests : ""
     employees ||--|{ activity_periods : ""
     employees ||--o{ allowances : ""
     employees ||--o{ vacation_requests : ""
@@ -60,7 +59,6 @@ erDiagram
     }
     vacation_requests {
         uuid id PK
-        uuid org_id FK
         uuid employee_id FK
         smallint year
         text status "pendiente | aprobada | rechazada"
@@ -109,6 +107,15 @@ cliente los ve como cadenas igual, así que `STATUS_LABEL` y `SCOPE_LABELS` sigu
 
 Multiempresa: cada empleado pertenece a una empresa y las políticas aíslan por empresa, así que en
 el mismo proyecto pueden convivir varias sin verse entre ellas.
+
+**`vacation_requests` no guarda su propio `org_id`**, a propósito: sería redundante con
+`employee_id` (que ya la fija vía `employees`) y, sin una `foreign key` que lo comprobara, nada
+impediría que se desincronizaran. Sus políticas usan `employee_in_my_org(employee_id)`, la misma
+función que ya usaban `activity_periods` y `allowances` para lo mismo. La columna llegó a existir
+en una versión anterior del esquema, y su política de `insert` para el administrador comprobaba
+`org_id = current_org_id()` sin comprobar que `employee_id` fuera de su empresa: un admin podía
+crear una solicitud a nombre de un empleado de otra empresa con solo poner su propio `org_id`. Sin
+la columna, ese hueco no puede existir.
 
 ## Por qué RLS es aquí lo único que protege
 
