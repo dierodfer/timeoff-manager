@@ -128,7 +128,14 @@ Quién puede hacer qué, con sesión iniciada:
 | `vacation_request_days` | según su solicitud                         | según su solicitud                                                                                    |
 | `request_comments`      | según su solicitud                         | crear firmando como uno mismo; no se editan ni se borran                                              |
 
-Sin sesión (`anon`) no hay ninguna política: no se ve absolutamente nada.
+Esa matriz se aplica en dos capas, y hacen falta las dos: los **permisos de tabla** deciden si el rol
+puede tocarla siquiera, y las **políticas RLS** filtran qué filas ve. PostgREST se conecta como
+`authenticated` (o como `anon` si no hay sesión), así que sin los `grant` del script la API responde
+«permission denied» aunque las políticas sean correctas.
+
+A `anon` no se le concede nada: **sin sesión ni siquiera se llega a evaluar RLS**, la petición se
+rechaza antes. Y los verbos que no aparecen arriba tampoco están concedidos, de modo que borrar una
+empresa o editar un comentario fallan por permisos, sin depender de que no exista una política.
 
 Además, dos invariantes del dominio son restricciones declarativas, no código:
 
@@ -143,7 +150,15 @@ ya estaban.
 
 ## Configuración en el panel de Supabase
 
-1. **Crear el proyecto** (región de la UE) y ejecutar `schema.sql` en el **SQL Editor**.
+1. **Crear el proyecto** (región de la UE). En el apartado **Security** de la creación:
+
+   | Opción                              | Cómo                                                                                                                                              |
+   | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | **Enable Data API**                 | **Activada.** Es la API REST contra la que habla `supabase-js`; sin ella la aplicación no tiene por dónde entrar                                  |
+   | **Automatically expose new tables** | **Desactivada.** `schema.sql` concede los permisos tabla por tabla, así que lo que se expone es exactamente eso y no lo que aparezca en el futuro |
+   | **Enable automatic RLS**            | Opcional. El script ya activa RLS en las ocho tablas; esto solo añade una red por si algún día alguien crea una tabla a mano y se olvida          |
+
+   Después, ejecutar `schema.sql` en el **SQL Editor**.
 
 2. **Authentication → Sign In / Providers → Email**: dejar el proveedor activo, pero
    - **desactivar «Allow new users to sign up»** — nadie se registra solo; las altas las hace el

@@ -216,6 +216,27 @@ $$;
 -- -----------------------------------------------------------------------------
 -- Todas las políticas son para el rol `authenticated`. No hay ninguna para
 -- `anon`: sin sesión no se ve absolutamente nada.
+--
+-- Los permisos de tabla van primero y son imprescindibles: PostgREST se conecta
+-- como `authenticated` (o como `anon` si no hay sesión), y RLS solo filtra filas
+-- una vez que el rol tiene permiso sobre la tabla. Sin estos grants la API
+-- responde «permission denied» aunque las políticas sean correctas.
+--
+-- Están aquí escritos a mano a propósito, para poder crear el proyecto con
+-- «Automatically expose new tables» desactivado, que es lo que recomienda
+-- Supabase: así lo que se expone es solo esto y no lo que aparezca en el futuro.
+-- A `anon` no se le concede nada.
+
+grant usage on schema public to authenticated;
+
+grant select, update                 on public.organizations         to authenticated;
+grant select, insert, update, delete on public.employees             to authenticated;
+grant select, insert, update, delete on public.activity_periods      to authenticated;
+grant select, insert, update, delete on public.holidays              to authenticated;
+grant select, insert, update, delete on public.allowances            to authenticated;
+grant select, insert, update, delete on public.vacation_requests     to authenticated;
+grant select, insert, update, delete on public.vacation_request_days to authenticated;
+grant select, insert                 on public.request_comments      to authenticated;
 
 do $$
 declare t text;
