@@ -407,21 +407,24 @@ create policy request_comments_insert on public.request_comments
 -- No hay ninguna función RPC para esto a propósito: una que aceptara un user_id
 -- arbitrario sería un agujero si quedara expuesta en la API.
 --
--- ANTES: crear el usuario en Authentication -> Users -> Add user (con «Auto
--- Confirm User») y copiar su UUID. Después, descomentar, rellenar y ejecutar.
--- Los festivos se añaden luego desde Ajustes.
+-- No hace falta copiar ningún UUID: la ficha se crea aquí SIN user_id, y el
+-- trigger link_employee_to_auth_user() de la sección 2 la empareja solo en
+-- cuanto creas el usuario en el panel con el mismo email.
+--
+-- ANTES: descomentar, rellenar y ejecutar este bloque.
+-- DESPUÉS: Authentication -> Users -> Add user, con el MISMO email y marcando
+-- «Auto Confirm User». Los festivos se añaden luego desde Ajustes.
 
 -- do $$
 -- declare
---   v_user  uuid := 'PEGA-AQUI-EL-UUID-DEL-USUARIO';
---   v_email text := 'mari@agrorifer.local';  -- el mismo del usuario de auth
+--   v_email text := 'mari@agrorifer.local';
 --   v_org   uuid;
 --   v_admin uuid;
 -- begin
 --   insert into public.organizations (slug, name) values ('agrorifer', 'Agrorifer') returning id into v_org;
 --
---   insert into public.employees (org_id, user_id, email, first_name, last_name, role)
---        values (v_org, v_user, v_email, 'Mari', 'Rivas', 'admin')
+--   insert into public.employees (org_id, email, first_name, last_name, role)
+--        values (v_org, v_email, 'Mari', 'Rivas', 'admin')
 --     returning id into v_admin;
 --
 --   insert into public.activity_periods (employee_id, start_date)

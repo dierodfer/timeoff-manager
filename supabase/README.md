@@ -236,14 +236,17 @@ qué empresa listar, ya que sin sesión no hay forma de saberlo. La aplicación 
      opcional: con 8 caracteres libres la longitud ya hace el trabajo, y forzar composición suele
      acabar en la contraseña apuntada en un papel.
 
-3. **Authentication → Users → Add user**: crear el primer usuario con su email y contraseña,
-   marcando **«Auto Confirm User»**. Copiar su UUID.
+3. **Arranque**: en el SQL Editor, descomentar el bloque del final de `schema.sql`, rellenar el email
+   y ejecutarlo. Crea la empresa, la ficha del primer administrador (sin `user_id` todavía) y su
+   periodo de actividad. Hace falta hacerlo desde ahí porque el SQL Editor ejecuta como `postgres` y
+   no pasa por RLS: RLS necesita una fila en `employees` para saber a qué empresa perteneces, y el
+   primer administrador todavía no la tiene.
 
-4. **Arranque**: en el SQL Editor, descomentar el bloque del final de `schema.sql`, pegar ese UUID y
-   ejecutarlo. Crea la empresa, su primer administrador y su periodo de actividad. Hace falta
-   hacerlo desde ahí porque el SQL Editor ejecuta como `postgres` y no pasa por RLS: RLS necesita una
-   fila en `employees` para saber a qué empresa perteneces, y el primer administrador todavía no la
-   tiene.
+4. **Authentication → Users → Add user**: crear el usuario con el **mismo email** que acabas de poner
+   en el SQL Editor y una contraseña, marcando **«Auto Confirm User»**. No hace falta copiar ningún
+   UUID ni volver al SQL Editor: el trigger `link_employee_to_auth_user()` empareja la ficha con este
+   usuario en cuanto se crea, por email — es el mismo trigger que enlaza a cualquier empleado
+   posterior si alguna vez creas su usuario a mano en el panel en vez de por la aplicación.
 
 5. **Los festivos** se añaden desde Ajustes. No van en el script a propósito: la lista ya vive en
    `src/domain/holidays.es.ts` y `CLAUDE.md` obliga a contrastarla con el BOE y el BOJA, así que
