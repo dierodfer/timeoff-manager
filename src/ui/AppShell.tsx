@@ -15,6 +15,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Menu, MenuItem, Sidebar } from 'react-pro-sidebar'
 import { pendingDaysInYear } from '../domain/balance'
 import { useSession } from '../state/appContext'
+import { LocalModeBadge } from './LocalModeBadge'
 import { UserMenu } from './UserMenu'
 
 interface NavItem {
@@ -125,6 +126,7 @@ export function AppShell() {
           </div>
 
           <span className="ml-auto flex items-center gap-2">
+            <LocalModeBadge />
             {isAdmin && (
               <NavLink
                 to="/solicitudes"
