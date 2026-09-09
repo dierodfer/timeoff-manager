@@ -26,6 +26,10 @@ create extension if not exists btree_gist;
 -- Settings del modelo actual: nombre, base anual y jornada semanal.
 create table if not exists public.organizations (
   id uuid primary key default gen_random_uuid(),
+  -- Identifica a la empresa en la pantalla de acceso, cuando todavía no hay
+  -- sesión y por tanto no se sabe de quién es la base de datos. La aplicación
+  -- lo lleva en VITE_ORG_SLUG: un despliegue por empresa.
+  slug text not null unique,
   name text not null,
   default_annual_days numeric(5, 2) not null default 23,
   -- 0 = domingo … 6 = sábado, igual que Settings.workweek.
@@ -151,6 +155,26 @@ end $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function public.link_employee_to_auth_user();
+
+-- La pantalla de acceso lista a los empleados de la empresa para elegir perfil,
+-- y eso ocurre SIN sesión: ninguna política puede servirlo, así que va por esta
+-- función security definer, que es la única rendija abierta a `anon`.
+--
+-- Devuelve solo lo justo para pintar la lista y para poder llamar después a
+-- signInWithPassword(). Asúmelo como público: quien tenga la URL puede leer la
+-- plantilla de la empresa. Lo que protege los datos es el PIN, igual que antes.
+create or replace function public.perfiles_para_acceso(p_slug text)
+returns table (id uuid, first_name text, last_name text, email text)
+language sql stable security definer set search_path = public as $$
+  select e.id, e.first_name, e.last_name, e.email
+    from public.employees e
+    join public.organizations o on o.id = e.org_id
+   where o.slug = p_slug
+     and e.user_id is not null
+   order by e.first_name, e.last_name
+$$;
+
+grant execute on function public.perfiles_para_acceso(text) to anon, authenticated;
 
 -- -----------------------------------------------------------------------------
 -- 3. Funciones auxiliares de RLS
@@ -386,7 +410,7 @@ create policy request_comments_insert on public.request_comments
 --   v_org   uuid;
 --   v_admin uuid;
 -- begin
---   insert into public.organizations (name) values ('Agrorifer') returning id into v_org;
+--   insert into public.organizations (slug, name) values ('agrorifer', 'Agrorifer') returning id into v_org;
 --
 --   insert into public.employees (org_id, user_id, email, first_name, last_name, role)
 --        values (v_org, v_user, v_email, 'Mari', 'Rivas', 'admin')

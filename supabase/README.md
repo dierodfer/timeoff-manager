@@ -7,6 +7,8 @@ cliente (`supabase-js`, la pantalla de acceso con email y contraseña y la imple
 - **`schema.sql`** — ocho tablas, restricciones, el enlace con Supabase Auth y las políticas RLS. Se
   pega entero en el **SQL Editor** de Supabase. Se puede reejecutar sin que falle, pero no migra: si
   una tabla ya existe, se deja como está.
+- **`functions/crear-empleado/`** — Edge Function que da de alta a un empleado (usuario de Auth +
+  ficha) desde la propia aplicación, para que el administrador no tenga que entrar en Supabase.
 
 ## El modelo
 
@@ -148,6 +150,44 @@ El resto de reglas de negocio (no comprometer el mismo día dos veces, no borrar
 administrador, no borrar a quien no está de baja) se quedan en `src/state/actions.ts`, que es donde
 ya estaban.
 
+## Altas y acceso: el administrador lo hace todo
+
+Nadie se registra por su cuenta y **el administrador nunca entra en Supabase**. Da de alta desde la
+propia aplicación, incluido el PIN:
+
+```
+Admin en la app: «Nuevo empleado» → nombre, rol, tipo de contrato y PIN
+        │  (llamada con el JWT del admin)
+        ▼
+Edge Function `crear-empleado`     ← aquí vive la service_role key, nunca en el navegador
+        │  1. comprueba en la base de datos que quien llama es admin
+        │  2. crea el usuario en auth.users con el PIN como contraseña, ya confirmado
+        │  3. inserta la ficha en employees y su primer periodo de actividad
+        ▼
+El empleado ya puede entrar con su PIN
+```
+
+Si algo falla a mitad, la función deshace lo anterior: un usuario de auth huérfano bloquearía ese
+email para siempre.
+
+**El PIN es de 6 a 8 dígitos, no de 4.** No es una elección: Supabase Auth impone un mínimo de 6
+caracteres en la contraseña y sube en silencio cualquier valor menor que configures
+(`defaultMinPasswordLength = 6` en su código). Tampoco puede quedarse en blanco, como permitía la
+aplicación antigua. Al conectar el cliente hay que ajustar `isValidPin()` en `src/data/pin.ts`.
+
+**La pantalla de acceso sigue siendo elegir perfil y teclear el PIN.** Esa lista se pide sin sesión,
+así que ninguna política puede servirla: la sirve `perfiles_para_acceso(slug)`, una función
+`security definer` que es la única rendija abierta a `anon`. Devuelve nombre y email interno de los
+empleados de una empresa, y solo de los que ya tienen usuario.
+
+Asúmelo como público: **quien tenga la URL puede leer la plantilla de la empresa** (nombres, no
+datos). Lo que protege la información es el PIN, igual que antes. Si eso no te vale, la alternativa
+es pedir el email en vez de listar perfiles, y entonces sin sesión no se puede leer nada en absoluto.
+
+El `slug` de la empresa (`organizations.slug`, p. ej. `agrorifer`) es lo que le dice a esa función de
+qué empresa listar, ya que sin sesión no hay forma de saberlo. La aplicación lo lleva en
+`VITE_ORG_SLUG`: un despliegue por empresa.
+
 ## Configuración en el panel de Supabase
 
 1. **Crear el proyecto** (región de la UE). En el apartado **Security** de la creación:
@@ -181,11 +221,18 @@ ya estaban.
    tenerla en dos sitios sería una trampa. Cuando se conecte el cliente los sembrará
    `seedHolidays()`, que ya existe.
 
-6. **Dar de alta a alguien nuevo** (mientras no exista la Edge Function del paso siguiente):
-   1. crear el empleado desde la aplicación, con su email;
-   2. crear el usuario en **Authentication → Users** con **ese mismo email**.
+6. **Desplegar la Edge Function** que da de alta a los empleados, con el
+   [CLI de Supabase](https://supabase.com/docs/guides/cli):
 
-   El trigger `link_employee_to_auth_user()` los empareja solo en cuanto se crea el usuario.
+   ```bash
+   supabase functions deploy crear-empleado
+   ```
+
+   No hace falta configurarle nada: `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` ya están en el
+   entorno de toda Edge Function. A partir de aquí, las altas se hacen desde la aplicación.
+
+   El trigger `link_employee_to_auth_user()` se queda como red de seguridad, por si alguna vez creas
+   un usuario a mano en el panel: empareja por email la ficha que estuviera esperando.
 
 7. **Database → Replication**: añadir las ocho tablas a la publicación `supabase_realtime` si quieres
    que un cambio hecho en un dispositivo aparezca en el otro sin recargar. Es justo lo que hoy no se
@@ -205,6 +252,4 @@ scripts que ejecutes tú o para una Edge Function.
 
 - Cliente `supabase-js`, acceso con email y contraseña e implementación de `VacationRepository`
   contra Supabase.
-- Edge Function para que el administrador cree usuarios desde la propia aplicación (la Admin API
-  necesita la `service_role key`, que nunca puede ir en el navegador). Mientras tanto, el paso 6.
 - Subir lo que ya tengas en IndexedDB: exportar el JSON desde Ajustes y volcarlo con un script.
