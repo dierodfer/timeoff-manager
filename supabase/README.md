@@ -93,7 +93,7 @@ después.
 | ------------------------------ | ----------------------------------------------------- |
 | `Settings`                     | fila de `organizations` (nombre, base anual, jornada) |
 | `Employee`                     | `employees` (+ `user_id` → `auth.users`)              |
-| `Employee.pinHash` / `pinSalt` | **desaparecen**: los sustituye Supabase Auth          |
+| `Employee.pinHash` / `pinSalt` | **desaparecen**: los sustituye la contraseña de Auth  |
 | `Employee.activityPeriods[]`   | `activity_periods`                                    |
 | `VacationRequest`              | `vacation_requests`                                   |
 | `VacationRequest.days[]`       | `vacation_request_days`                               |
@@ -153,36 +153,53 @@ ya estaban.
 ## Altas y acceso: el administrador lo hace todo
 
 Nadie se registra por su cuenta y **el administrador nunca entra en Supabase**. Da de alta desde la
-propia aplicación, incluido el PIN:
+propia aplicación, incluida la contraseña:
 
 ```
-Admin en la app: «Nuevo empleado» → nombre, rol, tipo de contrato y PIN
+Admin en la app: «Nuevo empleado» → nombre, rol, tipo de contrato y contraseña
         │  (llamada con el JWT del admin)
         ▼
 Edge Function `crear-empleado`     ← aquí vive la service_role key, nunca en el navegador
         │  1. comprueba en la base de datos que quien llama es admin
-        │  2. crea el usuario en auth.users con el PIN como contraseña, ya confirmado
+        │  2. crea el usuario en auth.users con esa contraseña, ya confirmado
         │  3. inserta la ficha en employees y su primer periodo de actividad
         ▼
-El empleado ya puede entrar con su PIN
+El empleado ya puede entrar con su contraseña
 ```
 
 Si algo falla a mitad, la función deshace lo anterior: un usuario de auth huérfano bloquearía ese
 email para siempre.
 
-**El PIN es de 6 a 8 dígitos, no de 4.** No es una elección: Supabase Auth impone un mínimo de 6
-caracteres en la contraseña y sube en silencio cualquier valor menor que configures
-(`defaultMinPasswordLength = 6` en su código). Tampoco puede quedarse en blanco, como permitía la
-aplicación antigua. Al conectar el cliente hay que ajustar `isValidPin()` en `src/data/pin.ts`.
+**Es una contraseña de 8 caracteres o más, no un PIN numérico**, y este es el motivo: el PIN de la
+aplicación antigua no protegía nada —los datos estaban en el IndexedDB del dispositivo y se leían
+igual—, así que daba lo mismo que fuera adivinable. Con Supabase pasa a ser lo único que separa a un
+desconocido de los datos de la empresa, y un PIN de 6 dígitos son 10⁶ combinaciones contra un
+endpoint público: el límite de Supabase Auth al `grant_type=password` es
+`GOTRUE_RATE_LIMIT_TOKEN_REFRESH`, 150 intentos por cada 5 minutos, con lo que recorrer ese espacio
+entero desde una sola IP son unas tres semanas. Con caracteres libres no hay tal cuenta que hacer.
 
-**La pantalla de acceso sigue siendo elegir perfil y teclear el PIN.** Esa lista se pide sin sesión,
-así que ninguna política puede servirla: la sirve `perfiles_para_acceso(slug)`, una función
+El mínimo de Supabase son 6 caracteres (`defaultMinPasswordLength` en su código, sube en silencio
+cualquier valor menor que configures); aquí se piden 8, y el tope de 72 lo pone bcrypt, que ignora
+lo que pase de ahí. Tampoco puede quedarse en blanco, como sí permitía la aplicación antigua.
+
+La aplicación todavía pide un PIN, y se queda así hasta que se conecte el cliente: cambiarlo antes
+solo endurecería el acceso a unos datos que siguen estando en el IndexedDB del dispositivo, sin
+ganar nada. Con el cliente se van `hashPin()`/`verifyPin()` enteras —de eso se encarga Auth— y
+`isValidPin()` pasa a ser una comprobación de longitud sobre una contraseña.
+
+**La pantalla de acceso sigue siendo elegir perfil y teclear la contraseña.** Esa lista se pide sin
+sesión, así que ninguna política puede servirla: la sirve `perfiles_para_acceso(slug)`, una función
 `security definer` que es la única rendija abierta a `anon`. Devuelve nombre y email interno de los
 empleados de una empresa, y solo de los que ya tienen usuario.
 
 Asúmelo como público: **quien tenga la URL puede leer la plantilla de la empresa** (nombres, no
-datos). Lo que protege la información es el PIN, igual que antes. Si eso no te vale, la alternativa
-es pedir el email en vez de listar perfiles, y entonces sin sesión no se puede leer nada en absoluto.
+datos). Lo que protege la información es la contraseña. Si eso no te vale, la alternativa es pedir el
+email en vez de listar perfiles, y entonces sin sesión no se puede leer nada en absoluto.
+
+**Que el administrador reparta la contraseña inicial no quita que se pueda cambiar después.**
+Cambiarla es `supabase.auth.updateUser({ password })` con la sesión ya iniciada: no es registrarse,
+no pasa por el correo y no obliga al administrador a intervenir. Merece la pena, porque una
+contraseña dictada por WhatsApp y jamás rotada acaba siendo peor que un PIN.
 
 El `slug` de la empresa (`organizations.slug`, p. ej. `agrorifer`) es lo que le dice a esa función de
 qué empresa listar, ya que sin sesión no hay forma de saberlo. La aplicación lo lleva en
@@ -205,7 +222,12 @@ qué empresa listar, ya que sin sesión no hay forma de saberlo. La aplicación 
      administrador;
    - **desactivar «Confirm email»** — los usuarios que crea el administrador llevan una contraseña
      entregada en mano y deben poder entrar sin pasar por el correo (los emails son internos, del
-     tipo `luis@agrorifer.local`, y no reciben nada).
+     tipo `luis@agrorifer.local`, y no reciben nada);
+   - **subir «Minimum password length» a 8**, a juego con lo que exige la Edge Function. Aquí está
+     también **«Prevent use of leaked passwords»** (contrasta contra Have I Been Pwned), que no
+     cuesta nada activar. «Password Requirements» (obligar a mayúsculas, dígitos o símbolos) es
+     opcional: con 8 caracteres libres la longitud ya hace el trabajo, y forzar composición suele
+     acabar en la contraseña apuntada en un papel.
 
 3. **Authentication → Users → Add user**: crear el primer usuario con su email y contraseña,
    marcando **«Auto Confirm User»**. Copiar su UUID.

@@ -162,7 +162,7 @@ create trigger on_auth_user_created after insert on auth.users
 --
 -- Devuelve solo lo justo para pintar la lista y para poder llamar después a
 -- signInWithPassword(). Asúmelo como público: quien tenga la URL puede leer la
--- plantilla de la empresa. Lo que protege los datos es el PIN, igual que antes.
+-- plantilla de la empresa. Lo que protege los datos es la contraseña.
 create or replace function public.perfiles_para_acceso(p_slug text)
 returns table (id uuid, first_name text, last_name text, email text)
 language sql stable security definer set search_path = public as $$

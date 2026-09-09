@@ -17,7 +17,7 @@ const CORS = {
 interface Alta {
   firstName: string
   lastName?: string
-  pin: string
+  password: string
   role?: 'admin' | 'employee'
   isSeasonal?: boolean
   startDate?: string
@@ -72,11 +72,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const lastName = alta.lastName?.trim() ?? ''
   if (!firstName) return responde({ error: 'Falta el nombre.' }, 400)
 
-  // Supabase Auth impone un mínimo de 6 caracteres para la contraseña: está en
-  // su código (defaultMinPasswordLength = 6) y sube cualquier valor menor, así
-  // que el PIN no puede ser de 4 dígitos aunque lo configures en el panel.
-  if (!/^\d{6,8}$/.test(alta.pin ?? '')) {
-    return responde({ error: 'El PIN debe tener entre 6 y 8 dígitos.' }, 400)
+  // Contraseña libre, no un PIN numérico: la lista de perfiles es pública, así
+  // que el único secreto es este. Ocho caracteres cualesquiera ya son órdenes de
+  // magnitud más que las 10⁶ combinaciones de un PIN de 6 dígitos. El mínimo de
+  // Supabase Auth es 6 (defaultMinPasswordLength en su código, sube en silencio
+  // cualquier valor menor); aquí se pide 8. El tope de 72 es de bcrypt, que
+  // ignora lo que pase de ahí.
+  const password = alta.password ?? ''
+  if (password.length < 8 || new TextEncoder().encode(password).length > 72) {
+    return responde({ error: 'La contraseña debe tener entre 8 y 72 caracteres.' }, 400)
   }
 
   const { data: empresa } = await admin
@@ -100,7 +104,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const { data: creado, error: errorAlta } = await admin.auth.admin.createUser({
     email,
-    password: alta.pin,
+    password,
     email_confirm: true,
   })
   if (errorAlta || !creado.user) {
