@@ -5,6 +5,7 @@ import type { Employee } from '../domain/types'
 import { displayName, sortByName } from '../state/actions'
 import { useApp } from '../state/appContext'
 import { Avatar } from '../ui/Avatar'
+import { LocalModeBadge } from '../ui/LocalModeBadge'
 
 export function SignIn() {
   const { database, signIn, notify } = useApp()
@@ -33,6 +34,9 @@ export function SignIn() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
+      <div className="mb-3">
+        <LocalModeBadge />
+      </div>
       <h1 className="text-2xl">{database.settings.organizationName}</h1>
       <p className="mt-1 text-[15px] text-[var(--color-ink-muted)]">
         {selected ? 'Introduce tu PIN para continuar.' : 'Elige tu perfil para continuar.'}
@@ -82,7 +86,6 @@ export function SignIn() {
               type="password"
               inputMode="numeric"
               autoComplete="off"
-              autoFocus
               value={pin}
               onChange={(event) => setPin(event.target.value)}
             />

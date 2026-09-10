@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { isValidPin, PIN_RULE } from '../data/pin'
 import { useApp } from '../state/appContext'
+import { LocalModeBadge } from '../ui/LocalModeBadge'
 
 export function FirstRun() {
   const { bootstrap, notify } = useApp()
@@ -33,6 +34,9 @@ export function FirstRun() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-10">
+      <div className="mb-3">
+        <LocalModeBadge />
+      </div>
       <h1 className="text-3xl">Vacaciones</h1>
       <p className="mt-2 text-[15px] text-[var(--color-ink-muted)]">
         Configura la aplicación en este dispositivo. Los datos se guardan en este navegador; desde
@@ -50,7 +54,6 @@ export function FirstRun() {
             value={organizationName}
             onChange={(event) => setOrganizationName(event.target.value)}
             placeholder="Mi empresa"
-            autoFocus
           />
         </div>
 

@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage'] },
+  // supabase/functions es código Deno, fuera de los tsconfig de la aplicación:
+  // lo revisan `deno check` y `deno lint`, no este ESLint.
+  { ignores: ['dist', 'coverage', 'supabase/functions'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
