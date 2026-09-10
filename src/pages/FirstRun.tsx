@@ -54,7 +54,6 @@ export function FirstRun() {
             value={organizationName}
             onChange={(event) => setOrganizationName(event.target.value)}
             placeholder="Mi empresa"
-            autoFocus
           />
         </div>
 

@@ -86,7 +86,6 @@ export function SignIn() {
               type="password"
               inputMode="numeric"
               autoComplete="off"
-              autoFocus
               value={pin}
               onChange={(event) => setPin(event.target.value)}
             />
