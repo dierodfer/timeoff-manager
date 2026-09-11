@@ -9,47 +9,24 @@ import {
   Sprout,
   Users,
 } from 'lucide-react'
-import type { ComponentType } from 'react'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Menu, MenuItem, Sidebar } from 'react-pro-sidebar'
 import { pendingDaysInYear } from '../domain/balance'
 import { useSession } from '../state/appContext'
+import type { NavItem } from './AppSidebar'
 import { LocalModeBadge } from './LocalModeBadge'
 import { UserMenu } from './UserMenu'
 
-interface NavItem {
-  to: string
-  label: string
-  icon: ComponentType<{ className?: string }>
-  adminOnly?: boolean
-}
+// Perezosa: se lleva con ella react-pro-sidebar y su emotion, que son de lo más pesado
+// del bundle y solo hacen falta si quien entra es administrador.
+const AppSidebar = lazy(() => import('./AppSidebar').then((m) => ({ default: m.AppSidebar })))
 
-const LINKS: NavItem[] = [
+const LINKS: (NavItem & { adminOnly?: boolean })[] = [
   { to: '/', label: 'Mi calendario', icon: CalendarDays },
   { to: '/planificacion', label: 'Planificación', icon: CalendarRange, adminOnly: true },
   { to: '/empleados', label: 'Empleados', icon: Users, adminOnly: true },
   { to: '/ajustes', label: 'Ajustes', icon: Settings, adminOnly: true },
 ]
-
-const MENU_ITEM_STYLES = {
-  button: ({ active }: { active?: boolean }) => ({
-    height: '42px',
-    borderRadius: '10px',
-    paddingLeft: '12px',
-    paddingRight: '12px',
-    fontSize: '14px',
-    fontWeight: active ? 600 : 500,
-    color: active ? 'var(--color-accent)' : 'var(--color-ink-soft)',
-    backgroundColor: active ? 'var(--color-accent-soft)' : 'transparent',
-    '&:hover': {
-      backgroundColor: active ? 'var(--color-accent-soft)' : 'var(--color-surface-sunken)',
-      color: active ? 'var(--color-accent)' : 'var(--color-ink)',
-    },
-  }),
-  icon: { marginRight: '10px', width: 'auto', minWidth: 'auto' },
-  label: { overflow: 'visible' },
-}
 
 export function AppShell() {
   const { database, currentUser, year, setYear } = useSession()
@@ -62,37 +39,15 @@ export function AppShell() {
   return (
     <div className="flex min-h-dvh">
       {isAdmin && (
-        <Sidebar
-          breakPoint="lg"
-          toggled={toggled}
-          onBackdropClick={() => setToggled(false)}
-          width="264px"
-          backgroundColor="var(--color-surface)"
-          rootStyles={{ borderColor: 'var(--color-hairline)' }}
-        >
-          <div className="flex min-h-dvh flex-col">
-            <p className="flex items-center gap-2.5 px-5 py-5 text-[17px] font-semibold">
-              <span className="badge-icon badge-icon-sm">
-                <Sprout className="size-5" />
-              </span>
-              <span className="truncate">{database.settings.organizationName}</span>
-            </p>
-
-            <Menu className="px-2" menuItemStyles={MENU_ITEM_STYLES}>
-              {links.map((link) => (
-                <MenuItem
-                  key={link.to}
-                  active={link.to === '/' ? pathname === '/' : pathname.startsWith(link.to)}
-                  icon={<link.icon className="size-[18px]" />}
-                  component={<NavLink to={link.to} end={link.to === '/'} />}
-                  onClick={() => setToggled(false)}
-                >
-                  {link.label}
-                </MenuItem>
-              ))}
-            </Menu>
-          </div>
-        </Sidebar>
+        <Suspense fallback={null}>
+          <AppSidebar
+            organizationName={database.settings.organizationName}
+            links={links}
+            pathname={pathname}
+            toggled={toggled}
+            onClose={() => setToggled(false)}
+          />
+        </Suspense>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
