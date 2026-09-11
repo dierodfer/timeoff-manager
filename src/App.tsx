@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { isCompanySlug } from './domain/orgSlug'
 import { BulkAssign } from './pages/BulkAssign'
+import { CompanySignIn } from './pages/CompanySignIn'
 import { Employees } from './pages/Employees'
 import { FirstRun } from './pages/FirstRun'
 import { MyCalendar } from './pages/MyCalendar'
@@ -23,6 +25,17 @@ export default function App() {
 }
 
 function CurrentScreen() {
+  // El primer tramo de la URL decide el modo: si no es ninguna de las rutas locales de
+  // abajo, se trata como el slug de una empresa y entra por Supabase en vez de por
+  // IndexedDB. isCompanySlug() es la misma lista que prohíbe supabase/schema.sql como
+  // organizations.slug, para que un slug nunca quede detrás de una ruta local.
+  const { pathname } = useLocation()
+  const firstSegment = pathname.split('/')[1] ?? ''
+  if (isCompanySlug(firstSegment)) return <CompanySignIn slug={firstSegment} />
+  return <LocalApp />
+}
+
+function LocalApp() {
   const { status, database, currentUser } = useApp()
 
   if (status === 'loading') return <Splash />

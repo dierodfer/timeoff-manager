@@ -32,10 +32,14 @@ create extension if not exists btree_gist;
 -- Settings del modelo actual: nombre, base anual y jornada semanal.
 create table if not exists public.organizations (
   id uuid primary key default gen_random_uuid(),
-  -- Identifica a la empresa en la pantalla de acceso, cuando todavía no hay
-  -- sesión y por tanto no se sabe de quién es la base de datos. La aplicación
-  -- lo lleva en VITE_ORG_SLUG: un despliegue por empresa.
-  slug text not null unique,
+  -- Identifica a la empresa en la URL (/<slug>), que es lo único que dice qué
+  -- empresa mostrar antes de que exista sesión. Los valores del check son las
+  -- rutas del modo local (App.tsx): un slug igual a una de ellas sería
+  -- inalcanzable, porque el primer tramo de la URL ya cae en modo local.
+  slug text not null unique
+    check (slug ~ '^[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$')
+    check (slug not in
+      ('mis-solicitudes', 'planificacion', 'solicitudes', 'empleados', 'asignacion', 'ajustes')),
   name text not null,
   default_annual_days numeric(5, 2) not null default 23,
   -- 0 = domingo … 6 = sábado, igual que Settings.workweek.
@@ -172,14 +176,18 @@ create trigger on_auth_user_created after insert on auth.users
 -- Devuelve solo lo justo para pintar la lista y para poder llamar después a
 -- signInWithPassword(). Asúmelo como público: quien tenga la URL puede leer la
 -- plantilla de la empresa. Lo que protege los datos es la contraseña.
+--
+-- left join a propósito: si la empresa existe pero todavía no tiene ningún
+-- perfil con usuario, sigue devolviendo una fila (con id null) para que el
+-- cliente distinga «no existe esa empresa» (0 filas) de «existe, sin perfiles
+-- listos todavía» (1+ filas con id null), sin otra llamada para el nombre.
 create or replace function public.perfiles_para_acceso(p_slug text)
-returns table (id uuid, first_name text, last_name text, email text)
+returns table (org_name text, id uuid, first_name text, last_name text, email text)
 language sql stable security definer set search_path = public as $$
-  select e.id, e.first_name, e.last_name, e.email
-    from public.employees e
-    join public.organizations o on o.id = e.org_id
+  select o.name, e.id, e.first_name, e.last_name, e.email
+    from public.organizations o
+    left join public.employees e on e.org_id = o.id and e.user_id is not null
    where o.slug = p_slug
-     and e.user_id is not null
    order by e.first_name, e.last_name
 $$;
 

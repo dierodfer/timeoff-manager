@@ -309,6 +309,19 @@ Viven en el navegador de cada dispositivo. Lo que registra el administrador en s
 ve un empleado desde su móvil. El fichero JSON que se exporta desde Ajustes es la única forma de
 mover los datos. Tenerlo presente antes de prometer flujos multiusuario.
 
+**Salvo en `/<slug>`, que es la puerta de una empresa conectada a Supabase.** `App.tsx` decide el
+modo mirando el primer tramo de la URL: si coincide con una ruta local (`empleados`, `ajustes`…) o
+está vacío, es el modo de siempre; si no, `isCompanySlug()` (`src/domain/orgSlug.ts`) lo trata como
+el slug de una empresa y monta `CompanySignIn`, que entra por Supabase (`perfiles_para_acceso()` +
+`signInWithPassword()`). Las mismas palabras reservadas viven también en el `check` de
+`organizations.slug` en `supabase/schema.sql`, para que no se pueda crear una empresa cuyo slug
+quede detrás de una ruta local y sea inalcanzable. Los detalles de ese modo —qué se ha construido y
+qué falta— están en `supabase/README.md`, no aquí: este fichero documenta la aplicación local.
+
+**La etiqueta «Modo local» (`ui/LocalModeBadge.tsx`) es la señal de en qué modo se está.** Sale en
+Acceso, en la primera configuración y en la cabecera; hoy sale siempre, porque hasta que exista
+`VacationRepository` contra Supabase el modo local es el único que hace algo más que iniciar sesión.
+
 ## Diseño
 
 Tokens en `src/index.css`: un único `@theme` con toda la paleta.
