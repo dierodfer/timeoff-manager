@@ -158,9 +158,11 @@ function CompanySignInScreen({ slug, onRetry }: CompanySignInScreenProps) {
       <Centered>
         <h1 className="text-2xl">/{slug}</h1>
         <p className="mt-2 text-[15px] text-[var(--color-ink-muted)]">
-          Esta URL es de una empresa, pero el despliegue no tiene configurado Supabase (
-          <code className="tabular">VITE_SUPABASE_URL</code> /{' '}
-          <code className="tabular">VITE_SUPABASE_ANON_KEY</code>).
+          {'Esta URL es de una empresa, pero el despliegue no tiene configurado Supabase ('}
+          <code className="tabular">VITE_SUPABASE_URL</code>
+          {' / '}
+          <code className="tabular">VITE_SUPABASE_ANON_KEY</code>
+          {').'}
         </p>
       </Centered>
     )
@@ -197,6 +199,33 @@ function CompanySignInScreen({ slug, onRetry }: CompanySignInScreenProps) {
     )
   }
 
+  const profileList =
+    state.profiles.length === 0 ? (
+      <p className="card mt-6 p-6 text-sm text-[var(--color-ink-muted)]">
+        Esta empresa todavía no tiene ningún perfil configurado para entrar.
+      </p>
+    ) : (
+      <ul className="card mt-6 divide-y divide-[var(--color-hairline)] overflow-hidden">
+        {state.profiles.map((profile) => (
+          <li key={profile.id}>
+            <button
+              type="button"
+              onClick={() => setSelected(profile)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--color-surface-sunken)]"
+            >
+              <Avatar employee={avatarPerson(profile)} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-medium">
+                  {profile.first_name} {profile.last_name}
+                </span>
+              </span>
+              <span className="text-[var(--color-ink-muted)]">›</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    )
+
   return (
     <Centered>
       <h1 className="text-2xl">{state.orgName}</h1>
@@ -205,31 +234,7 @@ function CompanySignInScreen({ slug, onRetry }: CompanySignInScreenProps) {
       </p>
 
       {!selected ? (
-        state.profiles.length === 0 ? (
-          <p className="card mt-6 p-6 text-sm text-[var(--color-ink-muted)]">
-            Esta empresa todavía no tiene ningún perfil configurado para entrar.
-          </p>
-        ) : (
-          <ul className="card mt-6 divide-y divide-[var(--color-hairline)] overflow-hidden">
-            {state.profiles.map((profile) => (
-              <li key={profile.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelected(profile)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--color-surface-sunken)]"
-                >
-                  <Avatar employee={avatarPerson(profile)} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-medium">
-                      {profile.first_name} {profile.last_name}
-                    </span>
-                  </span>
-                  <span className="text-[var(--color-ink-muted)]">›</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )
+        profileList
       ) : (
         <form onSubmit={(event) => void onSubmit(event)} className="card mt-6 space-y-4 p-6">
           <div className="flex items-center gap-3">
