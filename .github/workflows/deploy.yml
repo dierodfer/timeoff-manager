@@ -27,7 +27,12 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
+      # Si faltan los secretos, quedan vacíos y la aplicación compila en modo local:
+      # getSupabaseClient() trata una URL/clave vacía igual que si no existieran.
       - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
