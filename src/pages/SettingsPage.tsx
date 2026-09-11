@@ -1,5 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { BackupFormatError, downloadBackup, parseBackup } from '../data/backup'
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { newId } from '../data/ids'
 import { yearOf, yearStart } from '../domain/dates'
 import { formatDate } from '../domain/format'
@@ -120,8 +119,7 @@ function AddHolidayForm({
 }
 
 export function SettingsPage() {
-  const { database, year, commit, notify, replaceDatabase, wipe } = useSession()
-  const fileInput = useRef<HTMLInputElement>(null)
+  const { database, year, commit, notify, wipe } = useSession()
   const [confirmWipe, setConfirmWipe] = useState(false)
 
   const holidays = useMemo(
@@ -183,25 +181,12 @@ export function SettingsPage() {
     notify(`${missing.length} festivos oficiales añadidos a ${year}.`)
   }
 
-  const importBackup = async (file: File) => {
-    try {
-      const imported = parseBackup(await file.text())
-      replaceDatabase(imported)
-      notify('Copia importada. Vuelve a identificarte.')
-    } catch (error) {
-      notify(
-        error instanceof BackupFormatError ? error.message : 'No se ha podido leer el fichero.',
-        'error',
-      )
-    }
-  }
-
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
         <h1 className="text-2xl">Ajustes</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-          Configuración general, calendario de festivos y copias de seguridad.
+          Configuración general, calendario de festivos y datos guardados.
         </p>
       </div>
 
@@ -309,47 +294,10 @@ export function SettingsPage() {
 
       <Section
         title="Datos"
-        description="Todo se guarda en este navegador. Exporta una copia para no perderla al borrar los datos de navegación o al cambiar de equipo."
+        description="Todo se guarda en este navegador y no sale de él. Es una demostración: si borras los datos de navegación o cambias de equipo, se empieza de cero."
       >
         <Row
-          label="Copia de seguridad"
-          hint="Un fichero JSON con empleados, solicitudes, festivos y ajustes."
-          control={
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  downloadBackup(database)
-                  notify('Copia descargada.')
-                }}
-              >
-                Exportar copia
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => fileInput.current?.click()}
-              >
-                Importar copia
-              </button>
-              <input
-                ref={fileInput}
-                type="file"
-                accept="application/json,.json"
-                className="hidden"
-                onChange={(event) => {
-                  const file = event.target.files?.[0]
-                  if (file) void importBackup(file)
-                  event.target.value = ''
-                }}
-              />
-            </div>
-          }
-        />
-
-        <Row
-          label="Borrar todo"
+          label="Empezar de cero"
           hint="Elimina empleados, solicitudes, festivos y ajustes de este navegador."
           control={
             <button

@@ -29,7 +29,6 @@ export interface AppContextValue {
   commit: (next: Database) => void
   /** Síncrona a propósito: esperar al disco dejaba la selección anterior a la vista. */
   apply: (mutation: (database: Database) => Outcome) => boolean
-  replaceDatabase: (next: Database) => void
   wipe: () => Promise<void>
 }
 

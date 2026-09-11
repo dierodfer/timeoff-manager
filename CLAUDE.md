@@ -20,7 +20,7 @@ local, también falla el despliegue.
 | Carpeta       | Qué hace                                             | Reglas                                                |
 | ------------- | ---------------------------------------------------- | ----------------------------------------------------- |
 | `src/domain/` | Fechas, días laborables, estimación, saldo, festivos | Código puro. Sin React ni almacenamiento              |
-| `src/data/`   | IndexedDB, copias de seguridad, PIN, datos iniciales | Nadie más habla con el almacenamiento                 |
+| `src/data/`   | IndexedDB, PIN, datos iniciales                      | Nadie más habla con el almacenamiento                 |
 | `src/state/`  | Operaciones de negocio y estado de la aplicación     | `actions.ts` son funciones puras `Database → Outcome` |
 | `src/ui/`     | Componentes: calendarios, rejilla anual, formularios |                                                       |
 | `src/pages/`  | Pantallas                                            |                                                       |
@@ -30,14 +30,12 @@ interfaz de usuario nunca toca IndexedDB. Cambiar a un almacenamiento compartido
 es escribir otra implementación de esa interfaz, sin tocar la interfaz de usuario.
 
 **Toda la base de datos se guarda como un único documento JSON.** El volumen es pequeño —una
-plantilla y sus días— así que no compensa coordinar escrituras entre colecciones, y la copia de
-seguridad sale gratis.
+plantilla y sus días— así que no compensa coordinar escrituras entre colecciones.
 
-**`src/data/migrations.ts` es el único sitio donde se migran formatos antiguos.** Lo usan los dos
-puntos por los que entran datos de fuera: `indexedDbRepository.load()` y el `parseBackup()` de
-`backup.ts`, que antes aceptaba una copia antigua sin migrarla. Es una función pura, y por eso tiene
-tests igual que el dominio y `state/actions.ts`. La migración se persiste en la primera escritura, no
-al leer.
+**`src/data/migrations.ts` es el único sitio donde se migran formatos antiguos**, y lo usa el único
+punto por el que entran datos de fuera: `indexedDbRepository.load()`. Es una función pura, y por eso
+tiene tests igual que el dominio y `state/actions.ts`. La migración se persiste en la primera
+escritura, no al leer.
 
 La v2 pasó `hireDate`/`terminationDate` a la lista de periodos de actividad. En un fijo discontinuo
 los llamamientos se recortan al tramo de relación laboral, como los recortaba `employmentSpanInYear`
@@ -293,21 +291,31 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
 ## El PIN no es seguridad
 
 Evita cambiar de perfil por descuido, nada más. Los datos están en el IndexedDB del navegador y
-cualquiera con acceso al dispositivo puede leerlos. Se guarda el hash y no el número para no
-dejarlo a la vista en las copias de seguridad. No presentarlo como control de acceso.
+cualquiera con acceso al dispositivo puede leerlos. Se guarda el hash y no el número por costumbre,
+no porque proteja de nada. No presentarlo como control de acceso.
 
 **El PIN es opcional.** `isValidPin()` acepta la cadena vacía además de 4-8 dígitos, así que un
 empleado sin PIN entra en Acceso dejando el campo en blanco. Ojo al editar: el campo de PIN en
 blanco del formulario de edición ya significaba «no cambiar el PIN actual», así que para quitarle
 el PIN a un empleado que ya tiene uno hay que teclear un PIN válido y luego, en otra edición,
-volver a dejarlo en blanco no sirve — hace falta pasar por la baja y un alta nueva, o editar el JSON
-exportado a mano.
+volver a dejarlo en blanco no sirve — hace falta pasar por la baja y un alta nueva.
 
-## Los datos no se sincronizan
+## El modo local es una demostración, y por eso es simple
 
-Viven en el navegador de cada dispositivo. Lo que registra el administrador en su ordenador no lo
-ve un empleado desde su móvil. El fichero JSON que se exporta desde Ajustes es la única forma de
-mover los datos. Tenerlo presente antes de prometer flujos multiusuario.
+Viven en el navegador de cada dispositivo y no salen de ahí. Lo que registra el administrador en su
+ordenador no lo ve un empleado desde su móvil, y **no hay forma de mover los datos de un sitio a
+otro**: si se borran los datos de navegación o se cambia de equipo, se empieza de cero. Es
+deliberado — antes había exportar e importar un fichero JSON y se quitó, porque un modo de
+demostración no justifica mantener un camino por el que entran datos de fuera.
+
+Eso quita de un plumazo la validación de esos datos, que era el único fallo capaz de destruir lo
+guardado: `parseBackup()` solo comprobaba la forma del contenedor, aceptaba un empleado vacío, lo
+escribía en IndexedDB y a partir de ahí la aplicación reventaba en cada arranque, sin salida.
+
+**Si aun así los datos quedan dañados, el `ErrorBoundary` ofrece «Empezar de cero»**, que borra
+IndexedDB y recarga. Habla con `indexedDbRepository` directamente porque envuelve al `AppProvider`:
+cuando se pinta, el contexto puede no existir todavía o ser justo lo que está roto. Sin ese botón,
+recargar releía lo mismo y volvía a fallar: la única salida era borrar los datos del sitio a mano.
 
 **Salvo en `/<slug>`, que es la puerta de una empresa conectada a Supabase.** `App.tsx` decide el
 modo mirando el primer tramo de la URL: si coincide con una ruta local (`empleados`, `ajustes`…) o
