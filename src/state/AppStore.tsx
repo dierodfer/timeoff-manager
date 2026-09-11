@@ -106,16 +106,6 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
     sessionStorage.removeItem(SESSION_KEY)
   }, [])
 
-  const replaceDatabase = useCallback(
-    (next: Database) => {
-      commit(next)
-      setStatus('ready')
-      setCurrentUserId(null)
-      sessionStorage.removeItem(SESSION_KEY)
-    },
-    [commit],
-  )
-
   const wipe = useCallback(async () => {
     await indexedDbRepository.clear()
     setDatabase(null)
@@ -150,7 +140,6 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
       signOut,
       commit,
       apply,
-      replaceDatabase,
       wipe,
     }),
     [
@@ -167,7 +156,6 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
       signOut,
       commit,
       apply,
-      replaceDatabase,
       wipe,
     ],
   )

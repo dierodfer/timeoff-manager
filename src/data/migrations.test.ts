@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { testSettings } from '../domain/fixtures'
 import type { Database } from '../domain/types'
-import { parseBackup } from './backup'
 import { migrateStored, type StoredDatabaseV1 } from './migrations'
 
 const TODAY = '2026-06-15'
@@ -111,14 +110,5 @@ describe('migración v1 → v2', () => {
       typeof migrateStored
     >[0]
     expect(migrateStored(v2, TODAY)).toBe(v2.data)
-  })
-})
-
-describe('parseBackup', () => {
-  it('migra una copia de seguridad antigua al importarla', () => {
-    const imported = parseBackup(JSON.stringify(storedV1({ terminationDate: '2026-03-31' })))
-    expect(firstEmployee(imported).activityPeriods).toMatchObject([
-      { start: '2020-01-01', end: '2026-03-31' },
-    ])
   })
 })

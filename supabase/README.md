@@ -209,8 +209,12 @@ no pasa por el correo y no obliga al administrador a intervenir. Merece la pena,
 contraseña dictada por WhatsApp y jamás rotada acaba siendo peor que un PIN.
 
 El `slug` de la empresa (`organizations.slug`, p. ej. `agrorifer`) es lo que le dice a esa función de
-qué empresa listar, ya que sin sesión no hay forma de saberlo. La aplicación lo lleva en
-`VITE_ORG_SLUG`: un despliegue por empresa.
+qué empresa listar, ya que sin sesión no hay forma de saberlo. **Va en la URL, no en una variable de
+entorno**: `/agrorifer` es la puerta de esa empresa, y un mismo despliegue de la aplicación sirve a
+todas las que compartan proyecto de Supabase — `App.tsx` decide por el primer tramo de la URL si es
+modo local o el de una empresa, con `isCompanySlug()` (`src/domain/orgSlug.ts`), que prohíbe como
+nombre de empresa las mismas palabras que ya son rutas locales (`empleados`, `ajustes`…). El mismo
+`check` vive en `organizations.slug` para que no se pueda crear una empresa inalcanzable por error.
 
 ## Configuración en el panel de Supabase
 
@@ -280,8 +284,21 @@ importan con enlaces mágicos u OAuth, y aquí es email + contraseña).
 **La `service_role key` no se usa en ningún sitio del cliente**: se salta RLS entera. Solo vale para
 scripts que ejecutes tú o para una Edge Function.
 
-## Qué queda para el paso siguiente
+## Qué hay ya, y qué queda
 
-- Cliente `supabase-js`, acceso con email y contraseña e implementación de `VacationRepository`
-  contra Supabase.
-- Subir lo que ya tengas en IndexedDB: exportar el JSON desde Ajustes y volcarlo con un script.
+Ya están el cliente `supabase-js` (`src/data/supabaseClient.ts`, `null` si faltan las variables de
+entorno) y la pantalla de acceso por empresa (`src/pages/CompanySignIn.tsx`): entrar en `/<slug>`
+lista los perfiles de esa empresa vía `perfiles_para_acceso()` y entra con
+`signInWithPassword()`. Verificado contra un stub local de PostgREST/Auth, a falta de un proyecto
+real: perfiles correctos, empresa sin perfiles todavía, empresa inexistente, contraseña incorrecta y
+sesión iniciada.
+
+Lo que queda **después de iniciar sesión** es la parte grande: `VacationRepository` contra Supabase.
+No es solo escribir otra implementación de la interfaz — `apply()`/`commit()` (`state/AppStore.tsx`)
+dan por hecho una única base de datos en memoria que se sustituye entera y de golpe en cada
+mutación, y Supabase es ocho tablas relacionadas con escrituras async por fila. Encajar las dos
+cosas es su propio diseño, no una extensión de este. Hasta entonces, tras iniciar sesión en
+`/<slug>` solo se ve una pantalla de «conectado», sin datos.
+
+Sigue pendiente subir lo que ya haya en IndexedDB: exportar el JSON desde Ajustes y volcarlo con un
+script, cuando exista el repositorio al que volcarlo.

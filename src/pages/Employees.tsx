@@ -22,8 +22,8 @@ import {
   workedDaysToDate,
 } from '../domain/accrual'
 import { pendingDaysInYear, terminationSettlement, withBalances } from '../domain/balance'
-import { formatDate, formatDays, pluralDays } from '../domain/format'
-import { addDays, compareIso, todayIso } from '../domain/dates'
+import { formatDate, pluralDays } from '../domain/format'
+import { addDays, todayIso } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import {
   clearAllowance,
@@ -31,17 +31,20 @@ import {
   displayName,
   rehireEmployee,
   setAllowance,
-  sortByName,
   terminateEmployee,
 } from '../state/actions'
 import { useSession } from '../state/appContext'
-import { Avatar } from '../ui/Avatar'
 import { EmployeeForm, type EmployeeFormValues } from '../ui/EmployeeForm'
+import { EmployeeRow } from '../ui/EmployeeRow'
 import { Metric } from '../ui/Metric'
+import {
+  filterAndSortEmployees,
+  type ContractFilter,
+  type SortOrder,
+  type StatusFilter,
+} from '../ui/employeeFilters'
 import { Modal } from '../ui/Modal'
-import { RowMenu } from '../ui/RowMenu'
 import { SelectField } from '../ui/SelectField'
-import { Stepper } from '../ui/Stepper'
 
 type Dialog =
   | { kind: 'form'; employee: Employee | null }
@@ -50,26 +53,25 @@ type Dialog =
   | { kind: 'delete'; employee: Employee }
   | null
 
-const STATUS = { todos: 'Todos', activos: 'En activo', bajas: 'De baja' }
-const CONTRACT = { todos: 'Todos', fijo: 'Fijo', discontinuo: 'Fijo discontinuo' }
-const ORDER = { nombre: 'Nombre (A–Z)', 'nombre-desc': 'Nombre (Z–A)', alta: 'Alta más reciente' }
-
-type StatusFilter = keyof typeof STATUS
-type ContractFilter = keyof typeof CONTRACT
-type SortOrder = keyof typeof ORDER
+const STATUS: Record<StatusFilter, string> = {
+  todos: 'Todos',
+  activos: 'En activo',
+  bajas: 'De baja',
+}
+const CONTRACT: Record<ContractFilter, string> = {
+  todos: 'Todos',
+  fijo: 'Fijo',
+  discontinuo: 'Fijo discontinuo',
+}
+const ORDER: Record<SortOrder, string> = {
+  nombre: 'Nombre (A–Z)',
+  'nombre-desc': 'Nombre (Z–A)',
+  alta: 'Alta más reciente',
+}
 
 function minAltaDate(employee: Employee, today: IsoDate): IsoDate {
   const last = lastEndDate(employee)
   return last ? addDays(last, 1) : today
-}
-
-function periodsSummary(employee: Employee): string {
-  return sortedPeriods(employee)
-    .map(
-      (period) =>
-        `${formatDate(period.start)} – ${period.end ? formatDate(period.end) : 'actualidad'}`,
-    )
-    .join(' · ')
 }
 
 export function Employees() {
@@ -83,25 +85,10 @@ export function Employees() {
   const today = todayIso()
   const [dialogDate, setDialogDate] = useState(today)
 
-  const employees = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    const matching = database.employees.filter((employee) => {
-      if (term && !displayName(employee).toLowerCase().includes(term)) return false
-      if (status === 'activos' && !isActive(employee, today)) return false
-      if (status === 'bajas' && isActive(employee, today)) return false
-      if (contract === 'fijo' && employee.isSeasonal) return false
-      if (contract === 'discontinuo' && !employee.isSeasonal) return false
-      return true
-    })
-
-    if (order === 'alta') {
-      return [...matching].sort((a, b) =>
-        compareIso(sortedPeriods(b).at(-1)?.start ?? '', sortedPeriods(a).at(-1)?.start ?? ''),
-      )
-    }
-    const byName = sortByName(matching)
-    return order === 'nombre-desc' ? byName.reverse() : byName
-  }, [database.employees, search, status, contract, order, today])
+  const employees = useMemo(
+    () => filterAndSortEmployees(database.employees, { search, status, contract, order }, today),
+    [database.employees, search, status, contract, order, today],
+  )
 
   const rows = useMemo(
     () =>
@@ -322,101 +309,23 @@ export function Employees() {
       </div>
 
       <div className="card divide-y divide-[var(--color-hairline)]">
-        {rows.map(({ employee, balance, inYear, last, active, employed, worked }) => (
-          <div key={employee.id} className="flex flex-wrap items-center gap-x-6 gap-y-4 p-4">
-            <div className="flex min-w-60 flex-1 items-start gap-3">
-              <Avatar employee={employee} size="lg" />
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
-                  {displayName(employee)}
-                  {employee.id === currentUser.id && <span className="chip chip-neutral">Tú</span>}
-                  <span className={active ? 'chip chip-aprobada' : 'chip chip-neutral'}>
-                    {active ? 'Activo' : 'De baja'}
-                  </span>
-                </p>
-                <p className="mt-0.5 text-[13px] text-[var(--color-ink-muted)]">
-                  {employee.role === 'admin' ? 'Administrador' : 'Empleado'}
-                  {employee.isSeasonal ? ' · Fijo discontinuo' : ' · Fijo'}
-                  {last ? ` · Alta ${formatDate(last.start)}` : ''}
-                  {last?.end ? ` · Baja ${formatDate(last.end)}` : ''}
-                </p>
-                {employee.activityPeriods.length > 1 && (
-                  <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-                    Periodos de actividad: {periodsSummary(employee)}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {inYear ? (
-              <>
-                <div className="flex flex-none gap-6">
-                  <Metric
-                    layout="value-first"
-                    value={worked}
-                    label={
-                      <>
-                        Días trabajados<span className="block">hasta hoy</span>
-                      </>
-                    }
-                  />
-                  <Metric
-                    layout="value-first"
-                    value={formatDays(balance.estimated)}
-                    label="Estimación"
-                  />
-                  <Metric layout="value-first" value={balance.approved} label="Aprobados" />
-                  <Metric
-                    layout="value-first"
-                    value={balance.pending}
-                    label="Pendientes"
-                    tone={balance.pending > 0 ? 'var(--color-pending)' : undefined}
-                  />
-                </div>
-
-                <div className="flex flex-col items-center gap-1">
-                  <Stepper
-                    label={displayName(employee)}
-                    value={balance.assigned}
-                    onChange={(next) => apply((db) => setAllowance(db, employee.id, year, next))}
-                  />
-                  {balance.isOverridden && (
-                    <button
-                      type="button"
-                      className="btn btn-quiet btn-sm"
-                      title={`Volver a la estimación (${formatDays(balance.estimated)} días)`}
-                      onClick={() => {
-                        commit(clearAllowance(database, employee.id, year))
-                        notify('Días restablecidos a la estimación.')
-                      }}
-                    >
-                      Restablecer
-                    </button>
-                  )}
-                </div>
-              </>
-            ) : (
-              <span className="chip chip-neutral">Sin actividad en {year}</span>
-            )}
-
-            <RowMenu
-              label={`Acciones de ${displayName(employee)}`}
-              items={[
-                { label: 'Editar', onSelect: () => setDialog({ kind: 'form', employee }) },
-                {
-                  label: employed ? 'Dar de baja' : 'Dar de alta',
-                  onSelect: () => openDialog(employed ? 'baja' : 'alta', employee),
-                },
-                {
-                  label: 'Eliminar',
-                  danger: true,
-                  disabled: employed,
-                  disabledReason: 'Da de baja al empleado antes de eliminarlo',
-                  onSelect: () => setDialog({ kind: 'delete', employee }),
-                },
-              ]}
-            />
-          </div>
+        {rows.map((row) => (
+          <EmployeeRow
+            key={row.employee.id}
+            row={row}
+            year={year}
+            isCurrentUser={row.employee.id === currentUser.id}
+            onEdit={() => setDialog({ kind: 'form', employee: row.employee })}
+            onToggleEmployment={() => openDialog(row.employed ? 'baja' : 'alta', row.employee)}
+            onDelete={() => setDialog({ kind: 'delete', employee: row.employee })}
+            onAssignedChange={(next) =>
+              apply((db) => setAllowance(db, row.employee.id, year, next))
+            }
+            onResetAssigned={() => {
+              commit(clearAllowance(database, row.employee.id, year))
+              notify('Días restablecidos a la estimación.')
+            }}
+          />
         ))}
 
         {rows.length === 0 && (

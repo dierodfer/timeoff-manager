@@ -20,7 +20,7 @@ local, también falla el despliegue.
 | Carpeta       | Qué hace                                             | Reglas                                                |
 | ------------- | ---------------------------------------------------- | ----------------------------------------------------- |
 | `src/domain/` | Fechas, días laborables, estimación, saldo, festivos | Código puro. Sin React ni almacenamiento              |
-| `src/data/`   | IndexedDB, copias de seguridad, PIN, datos iniciales | Nadie más habla con el almacenamiento                 |
+| `src/data/`   | IndexedDB, PIN, datos iniciales                      | Nadie más habla con el almacenamiento                 |
 | `src/state/`  | Operaciones de negocio y estado de la aplicación     | `actions.ts` son funciones puras `Database → Outcome` |
 | `src/ui/`     | Componentes: calendarios, rejilla anual, formularios |                                                       |
 | `src/pages/`  | Pantallas                                            |                                                       |
@@ -30,14 +30,12 @@ interfaz de usuario nunca toca IndexedDB. Cambiar a un almacenamiento compartido
 es escribir otra implementación de esa interfaz, sin tocar la interfaz de usuario.
 
 **Toda la base de datos se guarda como un único documento JSON.** El volumen es pequeño —una
-plantilla y sus días— así que no compensa coordinar escrituras entre colecciones, y la copia de
-seguridad sale gratis.
+plantilla y sus días— así que no compensa coordinar escrituras entre colecciones.
 
-**`src/data/migrations.ts` es el único sitio donde se migran formatos antiguos.** Lo usan los dos
-puntos por los que entran datos de fuera: `indexedDbRepository.load()` y el `parseBackup()` de
-`backup.ts`, que antes aceptaba una copia antigua sin migrarla. Es una función pura, y por eso tiene
-tests igual que el dominio y `state/actions.ts`. La migración se persiste en la primera escritura, no
-al leer.
+**`src/data/migrations.ts` es el único sitio donde se migran formatos antiguos**, y lo usa el único
+punto por el que entran datos de fuera: `indexedDbRepository.load()`. Es una función pura, y por eso
+tiene tests igual que el dominio y `state/actions.ts`. La migración se persiste en la primera
+escritura, no al leer.
 
 La v2 pasó `hireDate`/`terminationDate` a la lista de periodos de actividad. En un fijo discontinuo
 los llamamientos se recortan al tramo de relación laboral, como los recortaba `employmentSpanInYear`
@@ -293,21 +291,44 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
 ## El PIN no es seguridad
 
 Evita cambiar de perfil por descuido, nada más. Los datos están en el IndexedDB del navegador y
-cualquiera con acceso al dispositivo puede leerlos. Se guarda el hash y no el número para no
-dejarlo a la vista en las copias de seguridad. No presentarlo como control de acceso.
+cualquiera con acceso al dispositivo puede leerlos. Se guarda el hash y no el número por costumbre,
+no porque proteja de nada. No presentarlo como control de acceso.
 
 **El PIN es opcional.** `isValidPin()` acepta la cadena vacía además de 4-8 dígitos, así que un
 empleado sin PIN entra en Acceso dejando el campo en blanco. Ojo al editar: el campo de PIN en
 blanco del formulario de edición ya significaba «no cambiar el PIN actual», así que para quitarle
 el PIN a un empleado que ya tiene uno hay que teclear un PIN válido y luego, en otra edición,
-volver a dejarlo en blanco no sirve — hace falta pasar por la baja y un alta nueva, o editar el JSON
-exportado a mano.
+volver a dejarlo en blanco no sirve — hace falta pasar por la baja y un alta nueva.
 
-## Los datos no se sincronizan
+## El modo local es una demostración, y por eso es simple
 
-Viven en el navegador de cada dispositivo. Lo que registra el administrador en su ordenador no lo
-ve un empleado desde su móvil. El fichero JSON que se exporta desde Ajustes es la única forma de
-mover los datos. Tenerlo presente antes de prometer flujos multiusuario.
+Viven en el navegador de cada dispositivo y no salen de ahí. Lo que registra el administrador en su
+ordenador no lo ve un empleado desde su móvil, y **no hay forma de mover los datos de un sitio a
+otro**: si se borran los datos de navegación o se cambia de equipo, se empieza de cero. Es
+deliberado — antes había exportar e importar un fichero JSON y se quitó, porque un modo de
+demostración no justifica mantener un camino por el que entran datos de fuera.
+
+Eso quita de un plumazo la validación de esos datos, que era el único fallo capaz de destruir lo
+guardado: `parseBackup()` solo comprobaba la forma del contenedor, aceptaba un empleado vacío, lo
+escribía en IndexedDB y a partir de ahí la aplicación reventaba en cada arranque, sin salida.
+
+**Si aun así los datos quedan dañados, el `ErrorBoundary` ofrece «Empezar de cero»**, que borra
+IndexedDB y recarga. Habla con `indexedDbRepository` directamente porque envuelve al `AppProvider`:
+cuando se pinta, el contexto puede no existir todavía o ser justo lo que está roto. Sin ese botón,
+recargar releía lo mismo y volvía a fallar: la única salida era borrar los datos del sitio a mano.
+
+**Salvo en `/<slug>`, que es la puerta de una empresa conectada a Supabase.** `App.tsx` decide el
+modo mirando el primer tramo de la URL: si coincide con una ruta local (`empleados`, `ajustes`…) o
+está vacío, es el modo de siempre; si no, `isCompanySlug()` (`src/domain/orgSlug.ts`) lo trata como
+el slug de una empresa y monta `CompanySignIn`, que entra por Supabase (`perfiles_para_acceso()` +
+`signInWithPassword()`). Las mismas palabras reservadas viven también en el `check` de
+`organizations.slug` en `supabase/schema.sql`, para que no se pueda crear una empresa cuyo slug
+quede detrás de una ruta local y sea inalcanzable. Los detalles de ese modo —qué se ha construido y
+qué falta— están en `supabase/README.md`, no aquí: este fichero documenta la aplicación local.
+
+**La etiqueta «Modo local» (`ui/LocalModeBadge.tsx`) es la señal de en qué modo se está.** Sale en
+Acceso, en la primera configuración y en la cabecera; hoy sale siempre, porque hasta que exista
+`VacationRepository` contra Supabase el modo local es el único que hace algo más que iniciar sesión.
 
 ## Diseño
 
@@ -317,7 +338,7 @@ Tokens en `src/index.css`: un único `@theme` con toda la paleta.
 declara `color-scheme: light` y la paleta vive en un único `@theme`. Jerarquía por tipografía y espacio en vez de por bordes, radios generosos y un
 único color de acento. Los componentes reutilizables (`.card`, `.btn`, `.field`, `.segmented`,
 `.chip`, `.day`, `.grid-day`, `.avatar`, `.icon-btn`, `.badge-icon`, `.row-menu`, `.stat-card`,
-`.filter-tab`) están en `@layer components`; preferirlos a repetir utilidades en el JSX y no pintar
+`.filter-tab`, `.sidebar-link`) están en `@layer components`; preferirlos a repetir utilidades en el JSX y no pintar
 colores con `style` inline.
 
 **`.filter-tab` es distinto de `.segmented`, a propósito.** Los dos son controles de filtro con
@@ -327,15 +348,16 @@ y sombra, estilo iOS; `.filter-tab` (pestañas de Solicitudes, con contador) la 
 son intercambiables: usar uno u otro según si el control vive dentro de una tarjeta compacta
 (`.segmented`) o es la navegación principal de una vista (`.filter-tab`).
 
-**Los iconos son de `lucide-react` y la barra lateral de `react-pro-sidebar`.** Nada de SVG
-dibujados a mano: `lucide-react` se importa por nombre y solo entra en el bundle lo que se usa.
-`AppShell` monta el `Sidebar` con `breakPoint="lg"`, así que en móvil se convierte solo en un cajón
-con fondo oscurecido y el botón de menú de la cabecera lo abre. Sus estilos propios se reconducen a
-los tokens con `menuItemStyles` (izado a `MENU_ITEM_STYLES`, que no depende de props). **No es
-porque sus clases sean inestables** —`react-pro-sidebar` exporta `sidebarClasses`/`menuClasses` con
-nombres fijos (`ps-menu-button`, `ps-active`…)—, sino porque inyecta sus estilos de emotion **sin
-capa**, y el CSS sin capa gana siempre al que está dentro de `@layer components`. Para moverlo a CSS
-haría falta escribir esas reglas fuera de la capa.
+**Los iconos son de `lucide-react`.** Nada de SVG dibujados a mano: se importa por nombre y solo
+entra en el bundle lo que se usa.
+
+**La barra lateral (`ui/AppSidebar.tsx`) es CSS propio, no una librería.** Antes era
+`react-pro-sidebar`: 204 KB de fuente más el runtime de emotion, para cuatro enlaces estáticos.
+Fijo por encima de `lg` (`lg:static lg:translate-x-0`) y cajón deslizante por debajo
+(`fixed … -translate-x-full`, con `translate-x-0` cuando `toggled`), con un botón a pantalla
+completa de fondo oscurecido para cerrarlo — el botón de menú de la cabecera lo abre. El enlace
+activo lo pinta `.sidebar-link[aria-current='page']`: `NavLink` pone ese atributo solo, no hace
+falta calcularlo a mano comparando `pathname`.
 
 **`Avatar` (`ui/Avatar.tsx`) pinta las iniciales de un empleado** y elige uno de cinco tonos a
 partir de su `id`, para que el color sea siempre el mismo persona a persona. Es lo único que dibuja
