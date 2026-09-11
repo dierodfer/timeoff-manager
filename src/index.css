@@ -290,6 +290,34 @@
     color: var(--color-accent);
   }
 
+  /* Enlace de la barra lateral --------------------------------------------- */
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 42px;
+    border-radius: 10px;
+    padding-inline: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-ink-soft);
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .sidebar-link:hover {
+    background: var(--color-surface-sunken);
+    color: var(--color-ink);
+  }
+
+  /* NavLink pone aria-current="page" solo en el enlace activo. */
+  .sidebar-link[aria-current='page'] {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
   /* Etiquetas de estado -------------------------------------------------- */
   .chip {
     display: inline-flex;

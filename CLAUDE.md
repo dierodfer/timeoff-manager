@@ -338,7 +338,7 @@ Tokens en `src/index.css`: un único `@theme` con toda la paleta.
 declara `color-scheme: light` y la paleta vive en un único `@theme`. Jerarquía por tipografía y espacio en vez de por bordes, radios generosos y un
 único color de acento. Los componentes reutilizables (`.card`, `.btn`, `.field`, `.segmented`,
 `.chip`, `.day`, `.grid-day`, `.avatar`, `.icon-btn`, `.badge-icon`, `.row-menu`, `.stat-card`,
-`.filter-tab`) están en `@layer components`; preferirlos a repetir utilidades en el JSX y no pintar
+`.filter-tab`, `.sidebar-link`) están en `@layer components`; preferirlos a repetir utilidades en el JSX y no pintar
 colores con `style` inline.
 
 **`.filter-tab` es distinto de `.segmented`, a propósito.** Los dos son controles de filtro con
@@ -348,15 +348,16 @@ y sombra, estilo iOS; `.filter-tab` (pestañas de Solicitudes, con contador) la 
 son intercambiables: usar uno u otro según si el control vive dentro de una tarjeta compacta
 (`.segmented`) o es la navegación principal de una vista (`.filter-tab`).
 
-**Los iconos son de `lucide-react` y la barra lateral de `react-pro-sidebar`.** Nada de SVG
-dibujados a mano: `lucide-react` se importa por nombre y solo entra en el bundle lo que se usa.
-`AppShell` monta el `Sidebar` con `breakPoint="lg"`, así que en móvil se convierte solo en un cajón
-con fondo oscurecido y el botón de menú de la cabecera lo abre. Sus estilos propios se reconducen a
-los tokens con `menuItemStyles` (izado a `MENU_ITEM_STYLES`, que no depende de props). **No es
-porque sus clases sean inestables** —`react-pro-sidebar` exporta `sidebarClasses`/`menuClasses` con
-nombres fijos (`ps-menu-button`, `ps-active`…)—, sino porque inyecta sus estilos de emotion **sin
-capa**, y el CSS sin capa gana siempre al que está dentro de `@layer components`. Para moverlo a CSS
-haría falta escribir esas reglas fuera de la capa.
+**Los iconos son de `lucide-react`.** Nada de SVG dibujados a mano: se importa por nombre y solo
+entra en el bundle lo que se usa.
+
+**La barra lateral (`ui/AppSidebar.tsx`) es CSS propio, no una librería.** Antes era
+`react-pro-sidebar`: 204 KB de fuente más el runtime de emotion, para cuatro enlaces estáticos.
+Fijo por encima de `lg` (`lg:static lg:translate-x-0`) y cajón deslizante por debajo
+(`fixed … -translate-x-full`, con `translate-x-0` cuando `toggled`), con un botón a pantalla
+completa de fondo oscurecido para cerrarlo — el botón de menú de la cabecera lo abre. El enlace
+activo lo pinta `.sidebar-link[aria-current='page']`: `NavLink` pone ese atributo solo, no hace
+falta calcularlo a mano comparando `pathname`.
 
 **`Avatar` (`ui/Avatar.tsx`) pinta las iniciales de un empleado** y elige uno de cinco tonos a
 partir de su `id`, para que el color sea siempre el mismo persona a persona. Es lo único que dibuja

@@ -9,17 +9,13 @@ import {
   Sprout,
   Users,
 } from 'lucide-react'
-import { lazy, Suspense, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { NavLink, Outlet } from 'react-router-dom'
 import { pendingDaysInYear } from '../domain/balance'
 import { useSession } from '../state/appContext'
-import type { NavItem } from './AppSidebar'
+import { AppSidebar, type NavItem } from './AppSidebar'
 import { LocalModeBadge } from './LocalModeBadge'
 import { UserMenu } from './UserMenu'
-
-// Perezosa: se lleva con ella react-pro-sidebar y su emotion, que son de lo más pesado
-// del bundle y solo hacen falta si quien entra es administrador.
-const AppSidebar = lazy(() => import('./AppSidebar').then((m) => ({ default: m.AppSidebar })))
 
 const LINKS: (NavItem & { adminOnly?: boolean })[] = [
   { to: '/', label: 'Mi calendario', icon: CalendarDays },
@@ -31,7 +27,6 @@ const LINKS: (NavItem & { adminOnly?: boolean })[] = [
 export function AppShell() {
   const { database, currentUser, year, setYear } = useSession()
   const [toggled, setToggled] = useState(false)
-  const { pathname } = useLocation()
   const isAdmin = currentUser.role === 'admin'
   const links = LINKS.filter((link) => isAdmin || !link.adminOnly)
   const pendingCount = pendingDaysInYear(database.requests, year)
@@ -39,15 +34,12 @@ export function AppShell() {
   return (
     <div className="flex min-h-dvh">
       {isAdmin && (
-        <Suspense fallback={null}>
-          <AppSidebar
-            organizationName={database.settings.organizationName}
-            links={links}
-            pathname={pathname}
-            toggled={toggled}
-            onClose={() => setToggled(false)}
-          />
-        </Suspense>
+        <AppSidebar
+          organizationName={database.settings.organizationName}
+          links={links}
+          toggled={toggled}
+          onClose={() => setToggled(false)}
+        />
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">

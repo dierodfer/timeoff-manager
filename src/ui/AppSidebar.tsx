@@ -1,11 +1,6 @@
 import { Sprout, type LucideProps } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Menu, MenuItem, Sidebar } from 'react-pro-sidebar'
-
-// En un fichero propio para que react-pro-sidebar (y el emotion que arrastra) solo se
-// descargue cuando hay un administrador: AppShell lo carga de forma perezosa, y un
-// empleado normal nunca llega a pedirlo porque no ve barra lateral.
 
 export interface NavItem {
   to: string
@@ -13,53 +8,33 @@ export interface NavItem {
   icon: ComponentType<LucideProps>
 }
 
-// Izado fuera del componente: no depende de props, y react-pro-sidebar reconduce así sus
-// estilos de emotion a los tokens. No vale moverlo a CSS: los inyecta sin capa, y el CSS
-// sin capa gana siempre al que está dentro de @layer components.
-const MENU_ITEM_STYLES = {
-  button: ({ active }: { active?: boolean }) => ({
-    height: '42px',
-    borderRadius: '10px',
-    paddingLeft: '12px',
-    paddingRight: '12px',
-    fontSize: '14px',
-    fontWeight: active ? 600 : 500,
-    color: active ? 'var(--color-accent)' : 'var(--color-ink-soft)',
-    backgroundColor: active ? 'var(--color-accent-soft)' : 'transparent',
-    '&:hover': {
-      backgroundColor: active ? 'var(--color-accent-soft)' : 'var(--color-surface-sunken)',
-      color: active ? 'var(--color-accent)' : 'var(--color-ink)',
-    },
-  }),
-  icon: { marginRight: '10px', width: 'auto', minWidth: 'auto' },
-  label: { overflow: 'visible' },
-}
-
 interface AppSidebarProps {
   readonly organizationName: string
   readonly links: NavItem[]
-  readonly pathname: string
   readonly toggled: boolean
   readonly onClose: () => void
 }
 
-export function AppSidebar({
-  organizationName,
-  links,
-  pathname,
-  toggled,
-  onClose,
-}: AppSidebarProps) {
+export function AppSidebar({ organizationName, links, toggled, onClose }: AppSidebarProps) {
   return (
-    <Sidebar
-      breakPoint="lg"
-      toggled={toggled}
-      onBackdropClick={onClose}
-      width="264px"
-      backgroundColor="var(--color-surface)"
-      rootStyles={{ borderColor: 'var(--color-hairline)' }}
-    >
-      <div className="flex min-h-dvh flex-col">
+    <>
+      {/* Fondo oscurecido del cajón en móvil; en escritorio la barra es fija y esto no se monta.
+          Empieza donde acaba la barra (no inset-0): si se solapara con ella, quedaría debajo en
+          el z-index y sus primeros 264px —justo el centro de un móvil— no recibirían el clic. */}
+      {toggled && (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          className="fixed inset-y-0 right-0 left-[264px] z-30 bg-black/40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <nav
+        className={`hairline fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col border-r bg-[var(--color-surface)] transition-transform lg:static lg:translate-x-0 ${
+          toggled ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <p className="flex items-center gap-2.5 px-5 py-5 text-[17px] font-semibold">
           <span className="badge-icon badge-icon-sm">
             <Sprout className="size-5" />
@@ -67,20 +42,21 @@ export function AppSidebar({
           <span className="truncate">{organizationName}</span>
         </p>
 
-        <Menu className="px-2" menuItemStyles={MENU_ITEM_STYLES}>
+        <div className="flex flex-col gap-1 px-2">
           {links.map((link) => (
-            <MenuItem
+            <NavLink
               key={link.to}
-              active={link.to === '/' ? pathname === '/' : pathname.startsWith(link.to)}
-              icon={<link.icon className="size-[18px]" />}
-              component={<NavLink to={link.to} end={link.to === '/'} />}
+              to={link.to}
+              end={link.to === '/'}
               onClick={onClose}
+              className="sidebar-link"
             >
+              <link.icon className="size-[18px]" />
               {link.label}
-            </MenuItem>
+            </NavLink>
           ))}
-        </Menu>
-      </div>
-    </Sidebar>
+        </div>
+      </nav>
+    </>
   )
 }
