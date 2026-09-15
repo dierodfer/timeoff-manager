@@ -399,10 +399,18 @@ create policy vacation_request_days_write on public.vacation_request_days
 create policy request_comments_select on public.request_comments
   for select to authenticated using (public.can_read_request(request_id));
 
+-- Un administrador puede insertar un comentario firmado por otro empleado de su empresa,
+-- no solo por sí mismo: resolveRequestDay()/addRequestDayComment() separan un día en una
+-- solicitud nueva copiando el hilo entero (con ids nuevos, porque el mismo id no puede
+-- vivir en dos solicitudes), y esa copia la ejecuta quien resuelve, no el autor original.
 create policy request_comments_insert on public.request_comments
   for insert to authenticated
   with check (
-    author_id = public.current_employee_id() and public.can_read_request(request_id)
+    public.can_read_request(request_id)
+    and (
+      author_id = public.current_employee_id()
+      or (public.is_admin() and public.employee_in_my_org(author_id))
+    )
   );
 
 -- -----------------------------------------------------------------------------

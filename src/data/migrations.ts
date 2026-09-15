@@ -23,7 +23,7 @@ function employeeToV2(employee: EmployeeV1, today: IsoDate): Employee {
   const end = terminationDate ?? null
 
   if (!employee.isSeasonal || activityPeriods.length === 0) {
-    return { ...rest, activityPeriods: [{ id: newId('per'), start, end }] }
+    return { ...rest, activityPeriods: [{ id: newId(), start, end }] }
   }
 
   const periods = activityPeriods

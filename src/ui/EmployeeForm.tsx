@@ -63,7 +63,7 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
   const addPeriod = () => {
     const last = periods.at(-1)
     const start = last?.end ? addDays(last.end, 1) : today
-    patch({ activityPeriods: [...values.activityPeriods, { id: newId('per'), start, end: null }] })
+    patch({ activityPeriods: [...values.activityPeriods, { id: newId(), start, end: null }] })
   }
 
   const updatePeriod = (id: string, changes: Partial<ActivityPeriod>) =>

@@ -15,7 +15,7 @@ export interface FirstRunInput {
 }
 
 export function initialActivityPeriods(start: IsoDate): ActivityPeriod[] {
-  return [{ id: newId('per'), start, end: null }]
+  return [{ id: newId(), start, end: null }]
 }
 
 export function seedHolidays(year: number): Holiday[] {
@@ -29,7 +29,7 @@ export async function createEmployee(
   const pinSalt = randomSalt()
   return {
     ...rest,
-    id: newId('emp'),
+    id: newId(),
     pinSalt,
     pinHash: await hashPin(pin, pinSalt),
     createdAt: new Date().toISOString(),

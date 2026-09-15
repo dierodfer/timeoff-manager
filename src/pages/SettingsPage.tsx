@@ -76,7 +76,7 @@ function AddHolidayForm({
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    onAdd({ id: newId('hol'), date, name: name.trim(), scope: 'algarrobo' })
+    onAdd({ id: newId(), date, name: name.trim(), scope: 'algarrobo' })
     setName('')
   }
 
