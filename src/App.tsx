@@ -6,20 +6,14 @@ import { AppProvider } from './state/AppStore'
 import { useApp } from './state/appContext'
 import { Toasts } from './ui/Toasts'
 
-// Perezosas: la primera configuración y la puerta de una empresa conectada a Supabase. Quien
-// entra en modo local no descarga el cliente de Supabase, que no puede abrir; quien entra por
-// /<slug> no descarga el formulario de primera configuración, que no va a usar.
+// Perezosas: quien entra en local no descarga el cliente de Supabase, y viceversa.
 const CompanyGate = lazy(() =>
   import('./pages/CompanyGate').then((m) => ({ default: m.CompanyGate })),
 )
 const FirstRun = lazy(() => import('./pages/FirstRun').then((m) => ({ default: m.FirstRun })))
 
 interface AppProps {
-  /**
-   * El slug de empresa, ya decidido por main.tsx antes de montar nada (isCompanySlug() sobre el
-   * hash crudo): `null` es modo local. Es la misma información que fijó el `basename` del
-   * `HashRouter`, así que aquí no hace falta volver a mirar la URL.
-   */
+  /** Ya decidido por main.tsx antes de montar nada; `null` es modo local. */
   readonly companySlug: string | null
 }
 

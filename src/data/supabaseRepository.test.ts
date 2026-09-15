@@ -6,11 +6,8 @@ import { createSupabaseRepository } from './supabaseRepository'
 type Row = Record<string, unknown>
 type Tables = Record<string, Row[]>
 
-/**
- * Cliente Supabase mínimo, en memoria: cubre exactamente la parte de la API fluida que usa
- * supabaseRepository.ts (select/returns, update/eq, insert, upsert, delete/eq/in), para probar
- * el reparto de escrituras sin un proyecto real.
- */
+// Cliente Supabase mínimo, en memoria: cubre la API fluida que usa supabaseRepository.ts, para
+// probar el reparto de escrituras sin un proyecto real.
 function makeFakeSupabase(seed: Tables) {
   const tables: Tables = structuredClone(seed)
 

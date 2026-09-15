@@ -44,16 +44,9 @@ export interface AppContextValue {
   /** Síncrona a propósito: esperar al disco dejaba la selección anterior a la vista. */
   apply: (mutation: (database: Database) => Outcome) => boolean
   wipe: () => Promise<void>
-  /**
-   * Da de alta un empleado con el secreto de acceso inicial (PIN en local, contraseña en
-   * empresa). Un solo método para las dos pantallas: quien llama no sabe ni le importa contra
-   * qué backend habla.
-   */
+  /** Da de alta con el secreto inicial (PIN en local, contraseña en empresa). */
   createEmployee: (fields: EmployeeFields, secret: string) => Promise<boolean>
-  /**
-   * Actualiza los datos de un empleado existente y, si `secret` no está vacío, también su
-   * acceso. Vacío significa «no cambiarlo», en los dos modos.
-   */
+  /** `secret` vacío significa «no cambiar el acceso», en los dos modos. */
   updateEmployee: (employeeId: string, fields: EmployeeFields, secret: string) => Promise<boolean>
 }
 

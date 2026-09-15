@@ -35,10 +35,7 @@ interface AppProviderProps {
   /** El repositorio decide contra qué habla `commit()`: IndexedDB en local, Supabase en empresa. */
   readonly repository: VacationRepository
   readonly mode: Mode
-  /**
-   * Solo en modo empresa: hace falta para la sesión de Auth (cerrarla, saber quién ha entrado)
-   * y para las Edge Functions de alta y cambio de contraseña.
-   */
+  /** Solo en modo empresa: para la sesión de Auth y las Edge Functions de alta/contraseña. */
   readonly supabase?: SupabaseClient
 }
 
@@ -53,9 +50,6 @@ export function AppProvider({ children, repository, mode, supabase }: AppProvide
   useEffect(() => {
     let cancelled = false
 
-    // En modo empresa, quién soy no sale de database.employees: un empleado normal solo ve su
-    // propia fila por RLS, pero un administrador ve las de toda la empresa, así que hace falta
-    // resolverlo aparte (resolveCurrentEmployeeId) en vez de asumir la primera fila.
     const identify = mode === 'empresa' && supabase ? resolveCurrentEmployeeId(supabase) : null
 
     Promise.all([repository.load(), identify])
@@ -83,8 +77,7 @@ export function AppProvider({ children, repository, mode, supabase }: AppProvide
     return () => {
       cancelled = true
     }
-    // El repositorio y el modo no cambian en caliente: cada uno vive en su propio árbol
-    // (CompanyGate desmonta este proveedor entero al cerrar sesión), así que un solo arranque.
+    // El repositorio y el modo no cambian en caliente: un solo arranque.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

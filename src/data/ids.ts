@@ -1,6 +1,4 @@
-// UUID v4 a mano con crypto.getRandomValues(), no crypto.randomUUID(): este último exige
-// contexto seguro y el proyecto ya evita esa dependencia (ver randomSalt() en pin.ts). Las
-// columnas de Supabase son `uuid`, así que el formato deja de ser un prefijo propio.
+// crypto.randomUUID() exige contexto seguro; getRandomValues() no (ver randomSalt() en pin.ts).
 export function newId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16))
   bytes[6] = (bytes[6] & 0x0f) | 0x40

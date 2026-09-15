@@ -1,7 +1,5 @@
-// Cambia la contraseña de un empleado ya existente. Solo el administrador: el propio empleado
-// cambia la suya con supabase.auth.updateUser({ password }), sin pasar por aquí — esta función
-// solo hace falta porque cambiar la contraseña de OTRO exige la Admin API, y por tanto la
-// service_role key, que nunca puede viajar al navegador (el bundle de GitHub Pages es público).
+// Cambia la contraseña de OTRO empleado: solo el administrador, vía Admin API. El propio
+// empleado cambia la suya con supabase.auth.updateUser({ password }), sin pasar por aquí.
 //
 // Desplegar con:  supabase functions deploy cambiar-password
 import { createClient } from '@supabase/supabase-js'
@@ -35,15 +33,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return responde({ error: 'Falta la sesión.' }, 401)
 
-  // Con la clave de servicio, pero preguntando por el dueño de ESE token: así
-  // sabemos quién llama sin fiarnos de nada que venga en el cuerpo.
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
 
   const { data: quienLlama, error: errorToken } = await admin.auth.getUser(token)
   if (errorToken || !quienLlama.user) return responde({ error: 'Sesión no válida.' }, 401)
 
-  // El rol se lee de la base de datos, nunca del token: un JWT no dice si eres
-  // administrador de esta aplicación.
+  // El rol se lee de la base de datos, nunca del token: un JWT no dice si eres administrador.
   const { data: solicitante } = await admin
     .from('employees')
     .select('id, org_id, role')
@@ -67,8 +62,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return responde({ error: 'La contraseña debe tener entre 8 y 72 caracteres.' }, 400)
   }
 
-  // El objetivo tiene que ser de la misma empresa: sin esto, un administrador podría cambiar
-  // la contraseña de cualquier empleado de cualquier organización con solo saber su id.
+  // El objetivo tiene que ser de la misma empresa: sin esto, cualquier id valdría.
   const { data: objetivo } = await admin
     .from('employees')
     .select('user_id, org_id')

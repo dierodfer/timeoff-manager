@@ -1,9 +1,5 @@
-// Alta de empleados: crea el usuario de Supabase Auth y su ficha, de una vez.
-//
-// Existe porque crear un usuario exige la Admin API, y la Admin API exige la
-// service_role key, que se salta RLS entera y por tanto NUNCA puede viajar al
-// navegador (el bundle de GitHub Pages es público). Aquí sí: esto corre en el
-// servidor de Supabase y la clave es una variable de entorno de la función.
+// Alta de empleados: crea el usuario de Auth y su ficha. Necesita la service_role key, que
+// nunca puede viajar al navegador, así que corre aquí. Ver CLAUDE.md, «El modo empresa».
 //
 // Desplegar con:  supabase functions deploy crear-empleado
 import { createClient } from '@supabase/supabase-js'
@@ -25,9 +21,6 @@ interface Alta {
   password: string
   role?: 'admin' | 'employee'
   isSeasonal?: boolean
-  // El formulario de empleado siempre manda al menos uno (el mismo invariante que
-  // Employee.activityPeriods en el cliente): un fijo, uno abierto hoy; un fijo discontinuo,
-  // sus llamamientos ya conocidos. Si no llega ninguno, un único periodo abierto hoy.
   activityPeriods?: Periodo[]
 }
 
@@ -44,8 +37,7 @@ type Autorizacion =
   | { ok: true; solicitante: { id: string; org_id: string; role: string } }
   | { ok: false; error: string; status: number }
 
-// El rol se lee de la base de datos, nunca del token: un JWT no dice si eres administrador de
-// esta aplicación.
+// El rol se lee de la base de datos, nunca del token: un JWT no dice si eres administrador.
 async function autorizar(admin: AdminClient, token: string): Promise<Autorizacion> {
   const { data: quienLlama, error: errorToken } = await admin.auth.getUser(token)
   if (errorToken || !quienLlama.user) return { ok: false, error: 'Sesión no válida.', status: 401 }
@@ -63,9 +55,7 @@ async function autorizar(admin: AdminClient, token: string): Promise<Autorizacio
   return { ok: true, solicitante }
 }
 
-// Email interno: nadie lo teclea ni recibe correo en él, solo identifica al usuario ante
-// Supabase Auth. Se deriva del nombre y se desambigua con la hora, para que dos «Luis Peón» no
-// choquen.
+// Email interno: nadie lo teclea ni recibe correo en él. Se desambigua con la hora.
 function derivarEmail(firstName: string, lastName: string, slug: string): string {
   const base = `${firstName} ${lastName}`
     .normalize('NFD')
@@ -87,8 +77,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return responde({ error: 'Falta la sesión.' }, 401)
 
-  // Con la clave de servicio, pero preguntando por el dueño de ESE token: así
-  // sabemos quién llama sin fiarnos de nada que venga en el cuerpo.
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
 
   const autorizacion = await autorizar(admin, token)
@@ -106,12 +94,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const lastName = alta.lastName?.trim() ?? ''
   if (!firstName) return responde({ error: 'Falta el nombre.' }, 400)
 
-  // Contraseña libre, no un PIN numérico: la lista de perfiles es pública, así
-  // que el único secreto es este. Ocho caracteres cualesquiera ya son órdenes de
-  // magnitud más que las 10⁶ combinaciones de un PIN de 6 dígitos. El mínimo de
-  // Supabase Auth es 6 (defaultMinPasswordLength en su código, sube en silencio
-  // cualquier valor menor); aquí se pide 8. El tope de 72 es de bcrypt, que
-  // ignora lo que pase de ahí.
+  // Mínimo real de Supabase Auth: 6 (sube en silencio cualquier valor menor); aquí se pide 8.
+  // El tope de 72 es de bcrypt, en bytes UTF-8.
   const password = alta.password ?? ''
   if (password.length < 8 || new TextEncoder().encode(password).length > 72) {
     return responde({ error: 'La contraseña debe tener entre 8 y 72 caracteres.' }, 400)
@@ -150,8 +134,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .select('id')
     .single()
 
-  // Si la ficha falla, el usuario de auth se queda huérfano y bloquearía el
-  // email: se deshace antes de responder.
+  // Si la ficha falla, el usuario de auth se queda huérfano y bloquearía el email.
   if (errorFicha || !ficha) {
     await admin.auth.admin.deleteUser(creado.user.id)
     return responde({ error: errorFicha?.message ?? 'No se pudo crear la ficha.' }, 400)
@@ -162,10 +145,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ? alta.activityPeriods
       : [{ start: new Date().toISOString().slice(0, 10), end: null }]
 
-  // Un solo insert con todas las filas: es una única sentencia, así que si el
-  // constraint de no-solape o el de «como mucho un periodo abierto» rechaza
-  // cualquiera de ellas, no se llega a escribir ninguna — no hay que deshacer
-  // periodos a medias.
+  // Un solo insert con todas las filas: si el constraint rechaza cualquiera, no escribe ninguna.
   const { error: errorPeriodo } = await admin.from('activity_periods').insert(
     periodos.map((periodo) => ({
       employee_id: ficha.id,

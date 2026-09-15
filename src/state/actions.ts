@@ -196,9 +196,8 @@ export function resolveRequestDay(
   const remainingDays = request.days.filter((item) => item !== day)
   const isSplit = remainingDays.length > 0
 
-  // Al separar el día en una solicitud nueva, el hilo de comentarios se copia entero: cada
-  // comentario necesita un id propio, porque el mismo id no puede vivir en dos solicitudes a la
-  // vez (request_comments.id es la clave primaria en Supabase).
+  // Ids nuevos: el mismo id no puede vivir en dos solicitudes (request_comments.id es clave
+  // primaria en Supabase).
   const resolvedComments = isSplit
     ? request.comments.map((item) => ({ ...item, id: newId() }))
     : [...request.comments]
@@ -242,11 +241,7 @@ export interface RequestDaySelection {
   day: IsoDate
 }
 
-/**
- * Resuelve varios días sueltos de una vez (selección en la bandeja de Solicitudes), como una
- * única transformación: nunca llamar a resolveRequestDay() en un bucle de apply() separados, que
- * cada uno vería la base de datos previa a los demás y se pisarían entre sí.
- */
+/** Resuelve varios días sueltos como una única transformación: ver CLAUDE.md, «Trampas conocidas». */
 export function resolveRequestDays(
   database: Database,
   selections: RequestDaySelection[],
@@ -340,11 +335,7 @@ export function removeRequestDay(
   }
 }
 
-/**
- * Cancela un tramo de días consecutivos (o uno suelto) de una solicitud de una vez, como una única
- * transformación — el mismo motivo que resolveRequestDays(): nunca varios apply() seguidos. Si el
- * tramo es la solicitud entera, la elimina; si no, deja el resto intacto con el mismo id.
- */
+/** Cancela un tramo de días de una vez, como resolveRequestDays(): ver CLAUDE.md, «Trampas conocidas». */
 export function removeRequestDays(
   database: Database,
   requestId: string,
@@ -381,9 +372,8 @@ export function addRequestDayComment(
   const comment = makeComment(database, authorId, text.trim())
   const remainingDays = request.days.filter((item) => item !== day)
 
-  // Separa el día en su propia solicitud, como resolveRequestDay/removeRequestDay: si el
-  // comentario se colgara del request original, sus otros días —pintados como filas propias
-  // en la bandeja— mostrarían el mismo comentario sin que nadie lo haya escrito para ellos.
+  // Separa el día en su propia solicitud, como resolveRequestDay(): ver CLAUDE.md,
+  // «Invariantes de los datos».
   if (remainingDays.length === 0) {
     return {
       ok: true,
@@ -396,8 +386,7 @@ export function addRequestDayComment(
     }
   }
 
-  // El hilo copiado necesita ids propios: el mismo id no puede vivir en dos solicitudes a la
-  // vez (request_comments.id es la clave primaria en Supabase). Ver resolveRequestDay().
+  // Ids nuevos: ver resolveRequestDay().
   const commentedDay: VacationRequest = {
     ...request,
     id: newId(),

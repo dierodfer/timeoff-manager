@@ -5,9 +5,7 @@ import { MyRequests } from './pages/MyRequests'
 import { useApp } from './state/appContext'
 import { AppShell } from './ui/AppShell'
 
-// Perezosas: las cinco pantallas de administrador. Un empleado normal solo usa Mi calendario y
-// Mis solicitudes, y sin esto se descargaba también react-datepicker (Empleados) y
-// react-day-picker (Asignación masiva), que no puede abrir.
+// Perezosas: un empleado normal no descarga react-datepicker ni react-day-picker, que no puede abrir.
 const BulkAssign = lazy(() => import('./pages/BulkAssign').then((m) => ({ default: m.BulkAssign })))
 const Employees = lazy(() => import('./pages/Employees').then((m) => ({ default: m.Employees })))
 const Planning = lazy(() => import('./pages/Planning').then((m) => ({ default: m.Planning })))
@@ -16,11 +14,7 @@ const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 )
 
-/**
- * Las rutas de quien ya tiene datos cargados y sesión iniciada: iguales en modo local y en modo
- * empresa, montadas bajo el `basename` que ya resolvió `main.tsx` (raíz en local, `/<slug>` en
- * empresa), así que ningún `to`/`path` de aquí sabe en qué modo está.
- */
+/** Las rutas de quien ya tiene sesión: iguales en modo local y en modo empresa. */
 export function AuthenticatedRoutes() {
   return (
     <Routes>
@@ -73,9 +67,8 @@ export function AuthenticatedRoutes() {
   )
 }
 
-// El Suspense va aquí, dentro de AppShell, y no envolviendo a <Routes>: así la cabecera y la
-// barra lateral se quedan a la vista mientras llega el trozo de la pantalla, en vez de
-// parpadear la página entera. Todas las rutas perezosas son justo las de administrador.
+// El Suspense va aquí, no envolviendo a <Routes>: así la cabecera y la barra se quedan a la
+// vista mientras llega el trozo, en vez de parpadear la página entera.
 function AdminOnly({ children }: { readonly children: ReactNode }) {
   const { currentUser } = useApp()
   if (currentUser?.role !== 'admin') return <Navigate to="/" replace />

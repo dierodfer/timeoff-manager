@@ -8,9 +8,8 @@ import type {
   VacationRequest,
 } from '../domain/types'
 
-// Formas literales de cada fila tal como las devuelve PostgREST (snake_case). Solo los campos
-// que el cliente necesita leer o escribir — `supabase/schema.sql` es la fuente de verdad del
-// esquema completo.
+// Filas tal como las devuelve PostgREST (snake_case). `supabase/schema.sql` es la fuente de
+// verdad del esquema completo.
 
 export interface OrganizationRow {
   id: string
@@ -90,8 +89,7 @@ export function settingsToRow(settings: Settings) {
   }
 }
 
-// pinHash/pinSalt no existen en Supabase: la identidad la lleva Auth. Se rellenan vacíos para
-// que Employee siga cumpliendo el mismo tipo que en modo local; nada los lee en modo empresa.
+// pinHash/pinSalt no existen en Supabase (la identidad la lleva Auth); vacíos, nada los lee aquí.
 export function employeeFromRow(row: EmployeeRow, activityPeriods: ActivityPeriodRow[]): Employee {
   return {
     id: row.id,

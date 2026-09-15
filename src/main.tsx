@@ -6,10 +6,8 @@ import { isCompanySlug } from './domain/orgSlug'
 import { ErrorBoundary } from './ui/ErrorBoundary'
 import './index.css'
 
-// El slug de empresa decide el basename del router antes de montar nada: así todas las rutas y
-// NavLink de siempre ("/empleados", "/ajustes"…) siguen resolviendo igual, ahora relativas a
-// /<slug>. Se lee el hash a mano, sin pasar por ningún hook de router: HashRouter no reescribe
-// rutas (GitHub Pages no sirve /<slug>/empleados como fichero), así que un refresco daría 404.
+// El slug decide el basename del router antes de montar nada: se lee el hash a mano, sin pasar
+// por ningún hook de router (HashRouter no reescribe rutas: un refresco daría 404).
 function readCompanySlug(): string | null {
   const hash = window.location.hash.slice(1)
   const firstSegment = hash.split('/')[1] ?? ''

@@ -1,11 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-/**
- * Averigua qué fila de `employees` es la de quien ha iniciado sesión. No se puede leer de
- * `database.employees` sin más: un empleado normal solo ve su propia fila (RLS), pero un
- * administrador ve las de toda la empresa, así que hace falta una consulta propia filtrada
- * por `user_id` para distinguir «yo» del resto.
- */
+// Un administrador ve todas las filas de employees por RLS, no solo la suya: no se puede
+// asumir cuál es "yo" sin filtrar por user_id aparte.
 export async function resolveCurrentEmployeeId(client: SupabaseClient): Promise<string | null> {
   const { data: userData, error: userError } = await client.auth.getUser()
   if (userError || !userData.user) return null

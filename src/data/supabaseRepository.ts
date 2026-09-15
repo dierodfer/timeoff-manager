@@ -225,8 +225,7 @@ async function writeComments(
   if (error) throw error
 }
 
-// Al final: sus cascadas no deben llevarse por delante filas que los pasos de arriba acaban de
-// escribir en la misma operación.
+// Al final: sus cascadas no deben llevarse filas que los pasos de arriba acaban de escribir.
 async function deleteRequestsAndEmployees(
   client: SupabaseClient,
   requests: DatabaseDiff['requests'],
@@ -259,20 +258,12 @@ async function applyDiff(
   await deleteRequestsAndEmployees(client, diff.requests, diff.employees)
 }
 
-/**
- * `VacationRepository` contra Supabase: cada `load()` trae la empresa entera (RLS decide qué
- * filas ve cada rol, no filtros aquí) y cada `save()` diferencia contra la última instantánea
- * conocida con `diffDatabase()`, escribiendo solo lo que cambió. Es la implementación de la
- * arquitectura «instantánea + diff»: `state/actions.ts` sigue viendo un único `Database` en
- * memoria, igual que en modo local.
- */
+/** `VacationRepository` contra Supabase. Ver CLAUDE.md, «El modo empresa». */
 export function createSupabaseRepository(client: SupabaseClient): VacationRepository {
   let orgId: string | null = null
   let lastKnown: Database | null = null
-  // Cadena de escrituras: dos save() seguidos no pueden solapar sus diffs sobre la misma base.
-  // Sigue viva pase lo que pase (el .catch() la traga) para que un fallo no bloquee la
-  // siguiente escritura; el rechazo real lo ve igualmente quien llamó a esa escritura en
-  // concreto, vía `run`.
+  // Cadena de escrituras: dos save() seguidos no pueden solapar sus diffs. El .catch() la
+  // mantiene viva tras un fallo; quien llamó sigue viendo el rechazo vía `run`.
   let queue: Promise<unknown> = Promise.resolve()
 
   return {

@@ -38,10 +38,8 @@ interface CompanyGateProps {
   readonly slug: string
 }
 
-// El estado de carga no se resetea a mano dentro del efecto (setState síncrono ahí es justo la
-// trampa que ya documenta CLAUDE.md para MobileMonth): en vez de eso, la pantalla se remonta con
-// key={slug}:{reloadToken}, así que «cargando» vuelve a ser el estado inicial de un useState
-// nuevo, tanto al cambiar de empresa como al pulsar «Reintentar».
+// Se remonta con key={slug}:{reloadToken} (la misma trampa de MobileMonth en CLAUDE.md) en vez
+// de resetear el estado a mano dentro del efecto.
 export function CompanyGate({ slug }: CompanyGateProps) {
   const [reloadToken, setReloadToken] = useState(0)
   return (
@@ -69,9 +67,7 @@ function CompanyGateScreen({ slug, onRetry }: CompanyGateScreenProps) {
   const [passwordError, setPasswordError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  // La sesión de Supabase Auth es la fuente de verdad de «ha entrado», no un estado propio: así
-  // sobrevive a un recargo de página (getSession() la recupera) y a un cierre de sesión desde
-  // otra pestaña (onAuthStateChange la refleja aquí sin que nadie llame a nada).
+  // La sesión de Supabase Auth es la fuente de verdad de «ha entrado», no un estado propio.
   const [session, setSession] = useState<Session | null>(null)
   const [sessionChecked, setSessionChecked] = useState(false)
 
@@ -295,10 +291,7 @@ interface CompanyWorkspaceProps {
   readonly client: SupabaseClient
 }
 
-// Un nivel propio para que el repositorio se cree una sola vez por sesión (useMemo, no en cada
-// render de CompanyGateScreen) y AppProvider pueda montarse debajo con él ya estable: si el
-// repositorio cambiara de identidad entre renders, commit() acabaría escribiendo contra una
-// instancia nueva que nunca ha llegado a cargar nada.
+// createSupabaseRepository() se memoiza: ver CLAUDE.md, «Trampas conocidas».
 function CompanyWorkspace({ client }: CompanyWorkspaceProps) {
   const repository = useMemo(() => createSupabaseRepository(client), [client])
   return (

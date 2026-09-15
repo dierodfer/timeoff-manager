@@ -12,15 +12,12 @@ export interface CrearEmpleadoInput {
 
 export type FunctionResult = { ok: true } | { ok: false; message: string }
 
-/**
- * `functions.invoke()` adjunta el token de quien tiene sesión iniciada él solo: la Edge
- * Function lee el rol de la base de datos a partir de ese token, nunca de lo que viaje en el
- * cuerpo. Ver `supabase/functions/crear-empleado/index.ts`.
- */
 interface ErrorBody {
   error?: string
 }
 
+// functions.invoke() adjunta el token de quien tiene sesión iniciada solo; la Edge Function lee
+// el rol de ese token, nunca del cuerpo.
 async function invoke(client: SupabaseClient, name: string, body: object): Promise<FunctionResult> {
   const response = await client.functions.invoke(name, { body: body as Record<string, unknown> })
   const error = response.error as { message: string } | null

@@ -27,9 +27,8 @@ export function Modal({
   wide,
 }: ModalProps) {
   useEffect(() => {
-    // defaultPrevented: un popover propio dentro del modal (p. ej. el calendario de
-    // react-datepicker) también cierra con Escape y hace preventDefault() al suyo; sin este
-    // chequeo, ese mismo Escape burbujea hasta aquí y cierra el modal entero por detrás.
+    // defaultPrevented: un popover propio (p. ej. react-datepicker) también cierra con Escape
+    // y hace preventDefault() al suyo; sin este chequeo, ese Escape cerraría el modal también.
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !event.defaultPrevented) onClose()
     }
