@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import type { IsoDate, RequestStatus } from '../domain/types'
 import {
   addRequestDayComment,
@@ -44,6 +45,7 @@ type Dialog =
 
 export function Requests() {
   const { database, currentUser, year, apply, notify } = useSession()
+  const [params] = useSearchParams()
   const [filter, setFilter] = useState<RequestFilter>('pendiente')
   const [dialog, setDialog] = useState<Dialog>(null)
   const [comment, setComment] = useState('')
@@ -51,15 +53,18 @@ export function Requests() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [openThreads, setOpenThreads] = useState<Set<string>>(new Set())
 
+  const scopedEmployeeId = params.get('empleado')
+  const scopedEmployee = database.employees.find((employee) => employee.id === scopedEmployeeId)
+
   const tabCounts = useMemo(
     () => countDaysByStatus(database.requests, year),
     [database.requests, year],
   )
 
-  const groups = useMemo(
-    () => groupRequestsByEmployee(database.requests, database.employees, year, filter),
-    [database.requests, database.employees, year, filter],
-  )
+  const groups = useMemo(() => {
+    const all = groupRequestsByEmployee(database.requests, database.employees, year, filter)
+    return scopedEmployeeId ? all.filter((group) => group.employee.id === scopedEmployeeId) : all
+  }, [database.requests, database.employees, year, filter, scopedEmployeeId])
 
   const changeFilter = (value: RequestFilter) => {
     setFilter(value)
@@ -173,6 +178,18 @@ export function Requests() {
           Revisa y gestiona las solicitudes de tu equipo, agrupadas por persona.
         </p>
       </div>
+
+      {scopedEmployee && (
+        <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--color-ink-muted)]">
+          Mostrando solo a{' '}
+          <span className="font-semibold text-[var(--color-ink)]">
+            {displayName(scopedEmployee)}
+          </span>
+          <Link to="/solicitudes" className="text-[var(--color-accent)] hover:underline">
+            Ver todos
+          </Link>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1">
         {FILTERS.map((item) => (

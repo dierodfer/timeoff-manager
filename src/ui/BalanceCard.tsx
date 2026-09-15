@@ -26,7 +26,7 @@ export function BalanceCard({ balance, onRequest, requestDisabled, requestsTo }:
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Metric label="Totales" value={truncateDays(balance.assigned)} />
         <Metric label="Aprobados" value={balance.approved} tone="var(--color-approved)" />
-        <Metric label="Pendientes" value={balance.pending} tone="var(--color-pending)" />
+        <Metric label="Solicitados" value={balance.pending} tone="var(--color-pending)" />
         <Metric
           label="Disponibles"
           value={truncateDays(balance.available)}

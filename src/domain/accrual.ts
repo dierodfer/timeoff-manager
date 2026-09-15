@@ -1,5 +1,16 @@
-import { compareIso, overlapDays, toIso, todayIso, toUtcDate, yearEnd, yearStart } from './dates'
-import type { ActivityPeriod, Allowance, Employee, IsoDate, Settings } from './types'
+import {
+  compareIso,
+  expandRange,
+  overlapDays,
+  toIso,
+  todayIso,
+  toUtcDate,
+  weekday,
+  yearEnd,
+  yearStart,
+} from './dates'
+import type { ActivityPeriod, Allowance, Employee, Holiday, IsoDate, Settings } from './types'
+import { holidayOn, workingDaysInRange, type WorkCalendar } from './workdays'
 
 export const ACCRUAL_PER_WORKED_DAY = 0.0737
 
@@ -111,10 +122,78 @@ export function workedDaysInYear(employee: Employee, year: number, workweek: num
   return workedDaysToDate(employee, year, workweek, yearEnd(year))
 }
 
-export function estimateAnnualDays(employee: Employee, year: number, settings: Settings): number {
+export interface WorkedRange {
+  start: IsoDate
+  end: IsoDate
+  days: number
+}
+
+export interface WorkedDaysBreakdown {
+  total: number
+  ranges: WorkedRange[]
+  holidays: Holiday[]
+}
+
+/** Como workedDaysToDate(), pero descontando festivos: es lo que enseña la lista de Empleados,
+ * no lo que alimenta la estimación (ver CLAUDE.md, «Días trabajados que pinta Empleados»). */
+export function workedDaysBreakdown(
+  employee: Employee,
+  year: number,
+  calendar: WorkCalendar,
+  until: IsoDate = todayIso(),
+): WorkedDaysBreakdown {
+  const ranges: WorkedRange[] = []
+  const holidaysByDate = new Map<IsoDate, Holiday>()
+
+  for (const interval of activityIntervalsInYear(employee, year)) {
+    const end = interval.end < until ? interval.end : until
+    if (interval.start > end) continue
+
+    ranges.push({
+      start: interval.start,
+      end,
+      days: workingDaysInRange(calendar, interval.start, end).length,
+    })
+
+    for (const date of expandRange(interval.start, end)) {
+      if (!calendar.workweek.has(weekday(date))) continue
+      const holiday = holidayOn(calendar, date)
+      if (holiday) holidaysByDate.set(date, holiday)
+    }
+  }
+
+  return {
+    total: ranges.reduce((sum, range) => sum + range.days, 0),
+    ranges,
+    holidays: [...holidaysByDate.values()].sort((a, b) => compareIso(a.date, b.date)),
+  }
+}
+
+export interface EstimateBreakdown {
+  worked: number
+  raw: number
+  cap: number
+  isCapped: boolean
+}
+
+export function estimateAnnualDaysBreakdown(
+  employee: Employee,
+  year: number,
+  settings: Settings,
+): EstimateBreakdown {
   const worked = workedDaysInYear(employee, year, settings.workweek)
-  if (worked <= 0) return 0
-  return Math.min(worked * ACCRUAL_PER_WORKED_DAY, settings.defaultAnnualDays)
+  const raw = worked > 0 ? worked * ACCRUAL_PER_WORKED_DAY : 0
+  return {
+    worked,
+    raw,
+    cap: settings.defaultAnnualDays,
+    isCapped: raw > settings.defaultAnnualDays,
+  }
+}
+
+export function estimateAnnualDays(employee: Employee, year: number, settings: Settings): number {
+  const { raw, cap, isCapped } = estimateAnnualDaysBreakdown(employee, year, settings)
+  return isCapped ? cap : raw
 }
 
 export function findAllowance(

@@ -1,13 +1,23 @@
+import { Save } from 'lucide-react'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { newId } from '../data/ids'
 import { yearOf, yearStart } from '../domain/dates'
 import { formatDate } from '../domain/format'
 import { hasPreloadedHolidays, preloadedHolidays, SCOPE_LABELS } from '../domain/holidays.es'
-import type { Holiday } from '../domain/types'
+import type { Holiday, Settings } from '../domain/types'
 import { WEEKDAY_NAMES } from '../domain/workdays'
 import { useSession } from '../state/appContext'
 import { Modal } from '../ui/Modal'
 import { Stepper } from '../ui/Stepper'
+
+function settingsEqual(a: Settings, b: Settings): boolean {
+  return (
+    a.organizationName === b.organizationName &&
+    a.defaultAnnualDays === b.defaultAnnualDays &&
+    a.workweek.length === b.workweek.length &&
+    a.workweek.every((day, index) => day === b.workweek[index])
+  )
+}
 
 function Section({
   title,
@@ -121,6 +131,8 @@ function AddHolidayForm({
 export function SettingsPage() {
   const { database, year, commit, notify, wipe, mode } = useSession()
   const [confirmWipe, setConfirmWipe] = useState(false)
+  const [draft, setDraft] = useState(database.settings)
+  const dirty = !settingsEqual(draft, database.settings)
 
   const holidays = useMemo(
     () =>
@@ -130,16 +142,23 @@ export function SettingsPage() {
     [database.holidays, year],
   )
 
-  const updateSettings = (changes: Partial<typeof database.settings>) => {
-    commit({ ...database, settings: { ...database.settings, ...changes } })
+  const patchDraft = (changes: Partial<Settings>) => {
+    setDraft((current) => ({ ...current, ...changes }))
+  }
+
+  const saveSettings = () => {
+    const trimmed = { ...draft, organizationName: draft.organizationName.trim() }
+    commit({ ...database, settings: trimmed })
+    setDraft(trimmed)
+    notify('Ajustes guardados.')
   }
 
   const toggleWorkday = (day: number) => {
-    const workweek = database.settings.workweek.includes(day)
-      ? database.settings.workweek.filter((item) => item !== day)
-      : [...database.settings.workweek, day].sort((a, b) => a - b)
+    const workweek = draft.workweek.includes(day)
+      ? draft.workweek.filter((item) => item !== day)
+      : [...draft.workweek, day].sort((a, b) => a - b)
     if (workweek.length === 0) return notify('Tiene que quedar al menos un día laborable.', 'error')
-    updateSettings({ workweek })
+    patchDraft({ workweek })
   }
 
   const addHoliday = (holiday: Holiday) => {
@@ -194,14 +213,27 @@ export function SettingsPage() {
         </p>
       </div>
 
-      <Section title="General">
+      <Section
+        title="General"
+        action={
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            disabled={!dirty}
+            onClick={saveSettings}
+          >
+            <Save className="size-4" />
+            Guardar cambios
+          </button>
+        }
+      >
         <Row
           label="Nombre de la empresa"
           control={
             <input
               className="field w-full sm:w-64"
-              defaultValue={database.settings.organizationName}
-              onBlur={(event) => updateSettings({ organizationName: event.target.value.trim() })}
+              value={draft.organizationName}
+              onChange={(event) => patchDraft({ organizationName: event.target.value })}
             />
           }
         />
@@ -212,10 +244,10 @@ export function SettingsPage() {
           control={
             <Stepper
               label="tope anual"
-              value={database.settings.defaultAnnualDays}
+              value={draft.defaultAnnualDays}
               min={1}
               max={366}
-              onChange={(value) => updateSettings({ defaultAnnualDays: value })}
+              onChange={(value) => patchDraft({ defaultAnnualDays: value })}
             />
           }
         />
@@ -227,7 +259,7 @@ export function SettingsPage() {
           control={
             <div className="flex flex-wrap gap-2">
               {[1, 2, 3, 4, 5, 6, 0].map((day) => {
-                const active = database.settings.workweek.includes(day)
+                const active = draft.workweek.includes(day)
                 return (
                   <button
                     key={day}

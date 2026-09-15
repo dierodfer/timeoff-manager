@@ -142,10 +142,19 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
 - **Solo puede haber un periodo en curso, y es el último.** Lo comprueban `terminateEmployee()` y
   `rehireEmployee()` en `state/actions.ts`, que devuelven `Outcome` como el resto del fichero, y
   también el `submit()` del formulario.
-- **Los días trabajados que pinta la lista de Empleados sólo llegan hasta hoy**
-  (`workedDaysToDate()`), porque contar de antemano lo que aún no se ha trabajado no informa de
-  nada. Es un dato de pantalla y nada más: el devengo sigue usando `workedDaysInYear()`, que
-  proyecta el periodo en curso hasta el 31 de diciembre, así que la estimación no cambia.
+- **Los días trabajados que pinta la lista de Empleados sólo llegan hasta hoy y descuentan
+  festivos** (`workedDaysBreakdown()`, en `domain/accrual.ts`), a diferencia de `workedDaysInYear()`,
+  que alimenta la estimación y que **no** descuenta festivos (ver la regla de Estimación, arriba). Son
+  dos cálculos a propósito distintos: uno es un dato de pantalla, el otro es dinero. Al contar día a
+  día si cada uno es laborable y no festivo, nunca puede dar negativo (un 1 de enero festivo cuenta
+  0, no −1). El desglose por tramos y la lista de festivos descontados salen del mismo cálculo y se
+  ven en un popover al pulsar la cifra (`ui/MetricInfo.tsx`); la de Estimación abre otro con la
+  cuenta (`0,0737 × días trabajados = ...`, y el tope si aplica).
+- **«Aprobados» y «Pendientes» de una fila de Empleados enlazan a la persona**: «Ver calendario»
+  abre `/?empleado=<id>` (Mi calendario, viendo a esa persona) y «Ver solicitudes» abre
+  `/solicitudes?empleado=<id>`, que acota la bandeja de Solicitudes a esa única tarjeta con un
+  aviso y un enlace «Ver todos» para quitar el filtro — el mismo patrón de `?empleado=` que ya
+  usaban Mi calendario y Mis solicitudes para que un administrador mire a otra persona.
 - **La lista de Empleados los muestra todos y se acota con filtros**: búsqueda por nombre, Estado
   (Todos / En activo / De baja, sobre `isActive()`), Tipo de contrato y orden. Cada fila lleva el
   chip «Activo» o «De baja», así que ya no hace falta esconder a nadie por defecto. Un fijo
@@ -246,6 +255,11 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
 - **El formulario de festivos de Ajustes se remonta con `key={year}`.** Sin eso la fecha propuesta
   se queda en el año en que se montó y añadir un festivo desde otro año lo mete en el año
   equivocado, donde no se ve.
+- **La sección General de Ajustes (nombre, tope anual, jornada) no guarda al vuelo.** A diferencia
+  de Festivos, cuyas acciones ya son un `commit()` cada una, esos tres campos viven en un `draft`
+  local hasta que se pulsa «Guardar cambios» — el botón se deshabilita cuando `draft` coincide con
+  `database.settings` (`settingsEqual()`). Si se vuelve a un `onBlur`/`onChange` que haga `commit()`
+  directo, el botón deja de reflejar si hay algo sin guardar.
 - **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva:
   al abrir la aplicación por IP en la red local no está disponible.
 - **`crypto.randomUUID()` también exige contexto seguro**, así que los identificadores (`ids.ts`) y
@@ -444,8 +458,10 @@ iniciales: Acceso, la barra lateral y la lista de Empleados lo comparten.
 Editar, Dar de alta/baja y Eliminar en línea, la fila no cabía junto a las cifras y el contador.
 
 **Piezas compartidas que evitan copiar y pegar:** `ui/useDismiss.ts` (cerrar un popover al pulsar
-fuera o con Escape; lo usan `RowMenu`, `UserMenu` y `YearCalendar`), `ui/Metric.tsx` (la pareja cifra/etiqueta de
-`BalanceCard` y de la lista de Empleados), `ui/SelectField.tsx` (etiqueta + `select` de una lista de
+fuera o con Escape; lo usan `RowMenu`, `UserMenu`, `YearCalendar` y `MetricInfo`), `ui/Metric.tsx`
+(la pareja cifra/etiqueta de `BalanceCard` y de la lista de Empleados), `ui/MetricInfo.tsx` (un
+`Metric` que al pulsarlo despliega un popover con el detalle del cálculo, para «Días trabajados» y
+«Estimación» de Empleados), `ui/SelectField.tsx` (etiqueta + `select` de una lista de
 opciones) y el prop `confirm` de `Modal` (con `disabled` opcional, para el botón que exige rellenar
 algo antes, como el de «Añadir comentario»), que pinta el pie Cancelar + acción en vez de repetir
 los dos botones en cada diálogo. `footer` sigue existiendo para un pie que no sea ese par.
@@ -489,11 +505,6 @@ calendario: no hay vista previa de solicitudes en la propia página, solo el bot
 (qué días se pueden seleccionar y qué pasa con una solicitud pendiente), no una lista exhaustiva de
 todo lo que hace la pantalla: el límite de saldo y el bloqueo de un día ya solicitado ya se ven al
 intentar marcarlos, así que no hace falta explicarlos también aquí.
-
-**El botón «Hoy» de Mi calendario vuelve al año en curso** (`setYear` al año de `todayIso()`) y se
-deshabilita cuando ya se está en él. Es un atajo sobre el año, que es una selección global de toda
-la aplicación (cabecera de `AppShell`); la propia rejilla de meses ya muestra el año entero de una
-vez, así que no hace falta desplazarse dentro de la página como en la rejilla de Planificación.
 
 **La selección de días de Mi calendario no lleva barra flotante.** El resumen («N días: rango») y el
 botón «Limpiar» viven dentro de la propia tarjeta del calendario, encima de la rejilla de meses;

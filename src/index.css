@@ -733,6 +733,24 @@
     background: var(--color-rejected-soft);
   }
 
+  /* Detalle de cálculo de una métrica (Empleados: días trabajados, estimación) ------------- */
+  .metric-tip {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 20;
+    width: max-content;
+    max-width: 17rem;
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-control);
+    background: var(--color-surface-raised);
+    padding: 0.625rem 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--color-ink-soft);
+    box-shadow: var(--shadow-raised);
+  }
+
   /* Tarjeta de resumen ---------------------------------------------------- */
   .stat-card {
     display: flex;

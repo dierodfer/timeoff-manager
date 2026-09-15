@@ -16,10 +16,8 @@ import type { DayMark } from '../ui/MonthCalendar'
 import { useDaySelection, type SelectionLimit } from '../ui/useDaySelection'
 import { YearCalendar } from '../ui/YearCalendar'
 
-const TODAY_YEAR = Number(todayIso().slice(0, 4))
-
 export function MyCalendar() {
-  const { database, currentUser, year, setYear, calendar, apply, notify } = useSession()
+  const { database, currentUser, year, calendar, apply, notify } = useSession()
   const isAdmin = currentUser.role === 'admin'
 
   const viewableEmployees = useMemo(
@@ -135,36 +133,26 @@ export function MyCalendar() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-3">
-          {isAdmin && (
-            <div>
-              <label className="label" htmlFor="viewed-employee">
-                Ver calendario de
-              </label>
-              <select
-                id="viewed-employee"
-                className="field"
-                value={viewedEmployee.id}
-                onChange={(event) => switchTo(event.target.value)}
-              >
-                {viewableEmployees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {displayName(employee)}
-                    {employee.id === currentUser.id ? ' (tú)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            disabled={year === TODAY_YEAR}
-            onClick={() => setYear(TODAY_YEAR)}
-          >
-            Hoy
-          </button>
-        </div>
+        {isAdmin && (
+          <div>
+            <label className="label" htmlFor="viewed-employee">
+              Ver calendario de
+            </label>
+            <select
+              id="viewed-employee"
+              className="field"
+              value={viewedEmployee.id}
+              onChange={(event) => switchTo(event.target.value)}
+            >
+              {viewableEmployees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {displayName(employee)}
+                  {employee.id === currentUser.id ? ' (tú)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
