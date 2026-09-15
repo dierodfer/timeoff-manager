@@ -39,7 +39,7 @@ export function sortByName(employees: Employee[]): Employee[] {
 function makeComment(database: Database, authorId: string, text: string): RequestComment {
   const author = findEmployee(database, authorId)
   return {
-    id: newId('cmt'),
+    id: newId(),
     authorId,
     authorName: author ? displayName(author) : 'Desconocido',
     text,
@@ -76,7 +76,7 @@ export function createVacation(database: Database, input: CreateVacationInput): 
 
     const now = new Date().toISOString()
     const request: VacationRequest = {
-      id: newId('req'),
+      id: newId(),
       employeeId: employee.id,
       year,
       days: check.days,
@@ -111,7 +111,7 @@ export interface BulkAssignResult {
 }
 
 export function bulkAssign(database: Database, input: BulkAssignInput): BulkAssignResult {
-  const batchId = newId('batch')
+  const batchId = newId()
   const result: BulkAssignResult = { database, assigned: [], skipped: [] }
 
   for (const employeeId of input.employeeIds) {
@@ -192,22 +192,28 @@ export function resolveRequestDay(
   }
 
   const now = new Date().toISOString()
-  const comments = comment?.trim()
-    ? [...request.comments, makeComment(database, adminId, comment.trim())]
-    : request.comments
+  const newComment = comment?.trim() ? makeComment(database, adminId, comment.trim()) : null
   const remainingDays = request.days.filter((item) => item !== day)
+  const isSplit = remainingDays.length > 0
+
+  // Ids nuevos: el mismo id no puede vivir en dos solicitudes (request_comments.id es clave
+  // primaria en Supabase).
+  const resolvedComments = isSplit
+    ? request.comments.map((item) => ({ ...item, id: newId() }))
+    : [...request.comments]
+  if (newComment) resolvedComments.push(newComment)
 
   const resolvedDay: VacationRequest = {
     ...request,
-    id: remainingDays.length === 0 ? request.id : newId('req'),
+    id: isSplit ? newId() : request.id,
     days: [day],
     status,
     resolvedBy: adminId,
     resolvedAt: now,
-    comments,
+    comments: resolvedComments,
   }
 
-  if (remainingDays.length === 0) {
+  if (!isSplit) {
     return {
       ok: true,
       database: {
@@ -235,11 +241,7 @@ export interface RequestDaySelection {
   day: IsoDate
 }
 
-/**
- * Resuelve varios días sueltos de una vez (selección en la bandeja de Solicitudes), como una
- * única transformación: nunca llamar a resolveRequestDay() en un bucle de apply() separados, que
- * cada uno vería la base de datos previa a los demás y se pisarían entre sí.
- */
+/** Resuelve varios días sueltos como una única transformación: ver CLAUDE.md, «Trampas conocidas». */
 export function resolveRequestDays(
   database: Database,
   selections: RequestDaySelection[],
@@ -333,11 +335,7 @@ export function removeRequestDay(
   }
 }
 
-/**
- * Cancela un tramo de días consecutivos (o uno suelto) de una solicitud de una vez, como una única
- * transformación — el mismo motivo que resolveRequestDays(): nunca varios apply() seguidos. Si el
- * tramo es la solicitud entera, la elimina; si no, deja el resto intacto con el mismo id.
- */
+/** Cancela un tramo de días de una vez, como resolveRequestDays(): ver CLAUDE.md, «Trampas conocidas». */
 export function removeRequestDays(
   database: Database,
   requestId: string,
@@ -374,9 +372,8 @@ export function addRequestDayComment(
   const comment = makeComment(database, authorId, text.trim())
   const remainingDays = request.days.filter((item) => item !== day)
 
-  // Separa el día en su propia solicitud, como resolveRequestDay/removeRequestDay: si el
-  // comentario se colgara del request original, sus otros días —pintados como filas propias
-  // en la bandeja— mostrarían el mismo comentario sin que nadie lo haya escrito para ellos.
+  // Separa el día en su propia solicitud, como resolveRequestDay(): ver CLAUDE.md,
+  // «Invariantes de los datos».
   if (remainingDays.length === 0) {
     return {
       ok: true,
@@ -389,11 +386,12 @@ export function addRequestDayComment(
     }
   }
 
+  // Ids nuevos: ver resolveRequestDay().
   const commentedDay: VacationRequest = {
     ...request,
-    id: newId('req'),
+    id: newId(),
     days: [day],
-    comments: [...request.comments, comment],
+    comments: [...request.comments.map((item) => ({ ...item, id: newId() })), comment],
   }
 
   return {
@@ -528,7 +526,7 @@ export function rehireEmployee(
     ok: true,
     database: replaceEmployee(database, {
       ...employee,
-      activityPeriods: [...employee.activityPeriods, { id: newId('per'), start: date, end: null }],
+      activityPeriods: [...employee.activityPeriods, { id: newId(), start: date, end: null }],
     }),
   }
 }

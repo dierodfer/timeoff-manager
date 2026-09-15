@@ -49,13 +49,7 @@ export function countDaysByStatus(
   return counts
 }
 
-/**
- * Una tarjeta por empleado, con una fila por día.
- *
- * Los totales de la cabecera (`requestCount`, `totalDays`) cuentan **todo el año**, sean del
- * estado que sean, mientras que `rows` solo trae lo que deja pasar el filtro: la cabecera
- * dice cuánto hay en total y la tabla de debajo, lo que se está mirando.
- */
+/** Una tarjeta por empleado. `requestCount`/`totalDays` cuentan todo el año; `rows`, solo el filtro. */
 export function groupRequestsByEmployee(
   requests: VacationRequest[],
   employees: Employee[],

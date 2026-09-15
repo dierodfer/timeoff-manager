@@ -1,41 +1,27 @@
 -- =============================================================================
 -- Gestor de vacaciones — esquema de Supabase
 -- =============================================================================
--- Pegar entero en el SQL Editor de Supabase. Se puede volver a ejecutar sin que
--- falle, pero no migra: si una tabla ya existe, se deja como está.
+-- Pegar entero en el SQL Editor de Supabase. Se puede reejecutar sin fallar,
+-- pero no migra: si una tabla ya existe, se deja como está. Diagrama y pasos
+-- del panel en supabase/README.md.
 --
--- Multiempresa: cada empleado pertenece a una empresa y las políticas RLS aíslan
--- por empresa. La aplicación se despliega en GitHub Pages, así que la anon key
--- es pública: RLS es la única barrera real. Lo que no esté en una política se
--- puede saltar llamando a la API REST con un curl.
+-- RLS es la única barrera real: GitHub Pages hace pública la anon key.
 --
--- El diagrama del modelo y los pasos del panel están en supabase/README.md.
---
--- Si ya ejecutaste una versión anterior con `vacation_requests.org_id`: como el
--- fichero no migra, hay que quitarla a mano antes de reejecutar este, o las
--- políticas de más abajo (que ya no la usan) convivirían con una columna
--- `not null` sin ningún `insert`/`update` que la rellene.
---   alter table public.vacation_requests drop column org_id;
+-- Si ya ejecutaste una versión con `vacation_requests.org_id`, quítala a mano
+-- antes de reejecutar:  alter table public.vacation_requests drop column org_id;
 -- =============================================================================
 
--- Para el EXCLUDE de activity_periods: mezcla = sobre uuid con && sobre un rango
--- de fechas en el mismo índice.
-create extension if not exists btree_gist;
+create extension if not exists btree_gist; -- para el EXCLUDE de activity_periods
 
 -- -----------------------------------------------------------------------------
 -- 1. Tablas
 -- -----------------------------------------------------------------------------
--- Los estados van como text + check en vez de enum: cada uno se usa en una sola
--- columna, y así añadir un valor es cambiar el check y no un `alter type`. El
--- cliente los ve como cadenas igual, así que STATUS_LABEL y SCOPE_LABELS valen.
+-- Los estados van como text + check en vez de enum: añadir un valor es tocar
+-- el check, no un `alter type`.
 
--- Settings del modelo actual: nombre, base anual y jornada semanal.
 create table if not exists public.organizations (
   id uuid primary key default gen_random_uuid(),
-  -- Identifica a la empresa en la URL (/<slug>), que es lo único que dice qué
-  -- empresa mostrar antes de que exista sesión. Los valores del check son las
-  -- rutas del modo local (App.tsx): un slug igual a una de ellas sería
-  -- inalcanzable, porque el primer tramo de la URL ya cae en modo local.
+  -- Los valores del check son las rutas del modo local (App.tsx): inalcanzables como slug.
   slug text not null unique
     check (slug ~ '^[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$')
     check (slug not in
@@ -48,8 +34,8 @@ create table if not exists public.organizations (
   created_at timestamptz not null default now()
 );
 
--- user_id queda a null hasta que existe el usuario de auth: el trigger de abajo
--- los empareja por email en cuanto el administrador lo crea.
+-- user_id queda a null hasta que exista el usuario de auth: el trigger de la sección 2
+-- los empareja por email.
 create table if not exists public.employees (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
@@ -65,15 +51,14 @@ create table if not exists public.employees (
 create unique index if not exists employees_org_email_key
   on public.employees (org_id, lower(email)) where email is not null;
 
--- Employee.activityPeriods. end_date null = periodo en curso.
+-- end_date null = periodo en curso.
 create table if not exists public.activity_periods (
   id uuid primary key default gen_random_uuid(),
   employee_id uuid not null references public.employees (id) on delete cascade,
   start_date date not null,
   end_date date check (end_date is null or end_date >= start_date),
-  -- daterange(start, NULL) ya es «sin fin», así que un periodo en curso encaja
-  -- sin ningún truco. El rango es cerrado '[]' a propósito: compartir el día de
-  -- la baja con el alta siguiente contaría ese día dos veces, y aquí se rechaza.
+  -- Rango cerrado '[]' a propósito: compartir el día entre baja y alta siguiente contaría
+  -- ese día dos veces.
   constraint periodos_sin_solape exclude using gist (
     employee_id with =,
     daterange(start_date, end_date, '[]') with &&
@@ -102,10 +87,9 @@ create table if not exists public.allowances (
   primary key (employee_id, year)
 );
 
--- Sin org_id: sería redundante con employee_id (que ya la fija vía employees) y
--- sin una FK que lo comprobara, nada impediría que se desincronizaran. Las
--- políticas usan employee_in_my_org(employee_id), igual que activity_periods y
--- allowances.
+-- Sin org_id: era redundante con employee_id y sin FK que lo comprobara, permitía que un
+-- admin creara una solicitud a nombre de otra empresa. Las políticas usan
+-- employee_in_my_org(employee_id).
 create table if not exists public.vacation_requests (
   id uuid primary key default gen_random_uuid(),
   employee_id uuid not null references public.employees (id) on delete cascade,
@@ -125,16 +109,14 @@ create table if not exists public.vacation_requests (
 create index if not exists vacation_requests_employee_year_idx
   on public.vacation_requests (employee_id, year);
 
--- VacationRequest.days, normalizado. Contiene días laborables ya filtrados:
--- nunca domingos ni festivos (lo garantiza toWorkingDays() en el cliente).
+-- Días laborables ya filtrados: nunca domingos ni festivos (toWorkingDays() en el cliente).
 create table if not exists public.vacation_request_days (
   request_id uuid not null references public.vacation_requests (id) on delete cascade,
   day date not null,
   primary key (request_id, day)
 );
 
--- author_name se guarda copiado a propósito: es el nombre que tenía quien
--- comentó en ese momento, y debe sobrevivir a que se borre el empleado.
+-- author_name copiado a propósito: sobrevive a que se borre el empleado.
 create table if not exists public.request_comments (
   id uuid primary key default gen_random_uuid(),
   request_id uuid not null references public.vacation_requests (id) on delete cascade,
@@ -150,9 +132,7 @@ create index if not exists request_comments_request_idx
 -- -----------------------------------------------------------------------------
 -- 2. Enlace con Supabase Auth
 -- -----------------------------------------------------------------------------
--- No es una regla de negocio, es el cableado: enlaza el empleado con su usuario
--- en cuanto el administrador lo crea en el panel con el mismo email. Es lo que
--- permite dar de alta gente sin escribir todavía una Edge Function.
+-- Enlaza el empleado con su usuario por email en cuanto se crea en el panel.
 
 create or replace function public.link_employee_to_auth_user() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -169,18 +149,11 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function public.link_employee_to_auth_user();
 
--- La pantalla de acceso lista a los empleados de la empresa para elegir perfil,
--- y eso ocurre SIN sesión: ninguna política puede servirlo, así que va por esta
--- función security definer, que es la única rendija abierta a `anon`.
+-- Única rendija abierta a `anon`: la lista de perfiles se pide sin sesión. Trátala como
+-- pública — lo que protege los datos es la contraseña.
 --
--- Devuelve solo lo justo para pintar la lista y para poder llamar después a
--- signInWithPassword(). Asúmelo como público: quien tenga la URL puede leer la
--- plantilla de la empresa. Lo que protege los datos es la contraseña.
---
--- left join a propósito: si la empresa existe pero todavía no tiene ningún
--- perfil con usuario, sigue devolviendo una fila (con id null) para que el
--- cliente distinga «no existe esa empresa» (0 filas) de «existe, sin perfiles
--- listos todavía» (1+ filas con id null), sin otra llamada para el nombre.
+-- left join a propósito: una empresa sin perfiles todavía devuelve una fila con id null,
+-- para distinguirla de «no existe esa empresa» (0 filas) sin otra llamada.
 create or replace function public.perfiles_para_acceso(p_slug text)
 returns table (org_name text, id uuid, first_name text, last_name text, email text)
 language sql stable security definer set search_path = public as $$
@@ -255,18 +228,8 @@ $$;
 -- -----------------------------------------------------------------------------
 -- 4. Row Level Security
 -- -----------------------------------------------------------------------------
--- Todas las políticas son para el rol `authenticated`. No hay ninguna para
--- `anon`: sin sesión no se ve absolutamente nada.
---
--- Los permisos de tabla van primero y son imprescindibles: PostgREST se conecta
--- como `authenticated` (o como `anon` si no hay sesión), y RLS solo filtra filas
--- una vez que el rol tiene permiso sobre la tabla. Sin estos grants la API
--- responde «permission denied» aunque las políticas sean correctas.
---
--- Están aquí escritos a mano a propósito, para poder crear el proyecto con
--- «Automatically expose new tables» desactivado, que es lo que recomienda
--- Supabase: así lo que se expone es solo esto y no lo que aparezca en el futuro.
--- A `anon` no se le concede nada.
+-- Los grants van primero: sin ellos la API responde «permission denied» aunque las
+-- políticas sean correctas. A `anon` no se le concede nada.
 
 grant usage on schema public to authenticated;
 
@@ -360,10 +323,8 @@ create policy vacation_requests_select on public.vacation_requests
     or (public.is_admin() and public.employee_in_my_org(employee_id))
   );
 
--- Un empleado solo crea solicitudes suyas y pendientes. El administrador puede
--- crearlas para cualquiera de su empresa y ya aprobadas («Crear directamente
--- como aprobadas»). employee_in_my_org() es lo que evita que un administrador
--- cree una solicitud a nombre de alguien de otra empresa.
+-- Un empleado crea solo las suyas y pendientes; el admin, cualquiera de su empresa y ya
+-- aprobadas.
 create policy vacation_requests_insert on public.vacation_requests
   for insert to authenticated
   with check (
@@ -399,27 +360,27 @@ create policy vacation_request_days_write on public.vacation_request_days
 create policy request_comments_select on public.request_comments
   for select to authenticated using (public.can_read_request(request_id));
 
+-- Un admin puede firmar un comentario como otro empleado: resolveRequestDay() copia el
+-- hilo al separar un día, y esa copia la ejecuta quien resuelve.
 create policy request_comments_insert on public.request_comments
   for insert to authenticated
   with check (
-    author_id = public.current_employee_id() and public.can_read_request(request_id)
+    public.can_read_request(request_id)
+    and (
+      author_id = public.current_employee_id()
+      or (public.is_admin() and public.employee_in_my_org(author_id))
+    )
   );
 
 -- -----------------------------------------------------------------------------
 -- 5. Arranque: primera empresa y primer administrador
 -- -----------------------------------------------------------------------------
--- Huevo y gallina: RLS necesita una fila en employees para saber tu empresa, y
--- el primer administrador todavía no la tiene. Se resuelve una sola vez desde
--- aquí, porque el SQL Editor ejecuta como `postgres` y no pasa por RLS.
+-- Huevo y gallina: RLS necesita una fila en employees, y el primer admin todavía no la
+-- tiene. Se resuelve aquí porque el SQL Editor ejecuta como `postgres`, sin RLS. Sin RPC
+-- a propósito: una que aceptara un user_id arbitrario sería un agujero si se expusiera.
 --
--- No hay ninguna función RPC para esto a propósito: una que aceptara un user_id
--- arbitrario sería un agujero si quedara expuesta en la API.
---
--- No hace falta copiar ningún UUID: la ficha se crea aquí SIN user_id, y el
--- trigger link_employee_to_auth_user() de la sección 2 la empareja solo en
--- cuanto creas el usuario en el panel con el mismo email.
---
--- ANTES: descomentar, rellenar y ejecutar este bloque.
+-- ANTES: descomentar, rellenar y ejecutar este bloque (sin user_id: el trigger de la
+-- sección 2 lo empareja por email).
 -- DESPUÉS: Authentication -> Users -> Add user, con el MISMO email y marcando
 -- «Auto Confirm User». Los festivos se añaden luego desde Ajustes.
 

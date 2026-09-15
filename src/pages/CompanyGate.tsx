@@ -1,7 +1,13 @@
-import type { PostgrestError } from '@supabase/supabase-js'
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import type { PostgrestError, Session, SupabaseClient } from '@supabase/supabase-js'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { Splash } from '../App'
+import { AuthenticatedRoutes } from '../AppRoutes'
 import { getSupabaseClient } from '../data/supabaseClient'
+import { createSupabaseRepository } from '../data/supabaseRepository'
+import { AppProvider } from '../state/AppStore'
+import { useApp } from '../state/appContext'
 import { Avatar } from '../ui/Avatar'
+import { Toasts } from '../ui/Toasts'
 
 interface Profile {
   id: string
@@ -28,18 +34,16 @@ function avatarPerson(profile: Profile) {
   return { id: profile.id, firstName: profile.first_name, lastName: profile.last_name }
 }
 
-interface CompanySignInProps {
+interface CompanyGateProps {
   readonly slug: string
 }
 
-// El estado de carga no se resetea a mano dentro del efecto (setState síncrono ahí es
-// justo la trampa que ya documenta CLAUDE.md para MobileMonth): en vez de eso, la pantalla
-// se remonta con key={slug}:{reloadToken}, así que «cargando» vuelve a ser el estado
-// inicial de un useState nuevo, tanto al cambiar de empresa como al pulsar «Reintentar».
-export function CompanySignIn({ slug }: CompanySignInProps) {
+// Se remonta con key={slug}:{reloadToken} (la misma trampa de MobileMonth en CLAUDE.md) en vez
+// de resetear el estado a mano dentro del efecto.
+export function CompanyGate({ slug }: CompanyGateProps) {
   const [reloadToken, setReloadToken] = useState(0)
   return (
-    <CompanySignInScreen
+    <CompanyGateScreen
       key={`${slug}:${reloadToken}`}
       slug={slug}
       onRetry={() => setReloadToken((current) => current + 1)}
@@ -47,12 +51,12 @@ export function CompanySignIn({ slug }: CompanySignInProps) {
   )
 }
 
-interface CompanySignInScreenProps {
+interface CompanyGateScreenProps {
   readonly slug: string
   readonly onRetry: () => void
 }
 
-function CompanySignInScreen({ slug, onRetry }: CompanySignInScreenProps) {
+function CompanyGateScreen({ slug, onRetry }: CompanyGateScreenProps) {
   // Llamada sincrónica y estable (getSupabaseClient() memoiza), no un valor que dependa de un
   // efecto: si falta, se decide directamente en el render de más abajo, sin pasar por `state`.
   const supabase = getSupabaseClient()
@@ -62,10 +66,30 @@ function CompanySignInScreen({ slug, onRetry }: CompanySignInScreenProps) {
   const [password, setPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [signedIn, setSignedIn] = useState<Profile | null>(null)
+
+  // La sesión de Supabase Auth es la fuente de verdad de «ha entrado», no un estado propio.
+  const [session, setSession] = useState<Session | null>(null)
+  const [sessionChecked, setSessionChecked] = useState(false)
 
   useEffect(() => {
     if (!supabase) return
+    let cancelled = false
+    void supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return
+      setSession(data.session)
+      setSessionChecked(true)
+    })
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
+  }, [supabase])
+
+  useEffect(() => {
+    if (!supabase || !sessionChecked || session) return
 
     let cancelled = false
 
@@ -100,7 +124,7 @@ function CompanySignInScreen({ slug, onRetry }: CompanySignInScreenProps) {
     return () => {
       cancelled = true
     }
-  }, [slug, supabase])
+  }, [slug, supabase, sessionChecked, session])
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -116,41 +140,10 @@ function CompanySignInScreen({ slug, onRetry }: CompanySignInScreenProps) {
         setPasswordError('Contraseña incorrecta.')
         return
       }
-      setSignedIn(selected)
+      // onAuthStateChange actualiza `session` solo: no hace falta tocar nada más aquí.
     } finally {
       setBusy(false)
     }
-  }
-
-  if (signedIn) {
-    return (
-      <Centered>
-        <p className="text-sm text-[var(--color-ink-muted)]">Conectado a Supabase</p>
-        <h1 className="mt-1 text-2xl">Sesión iniciada</h1>
-        <div className="card mt-6 space-y-4 p-6">
-          <div className="flex items-center gap-3">
-            <Avatar employee={avatarPerson(signedIn)} />
-            <p className="text-[15px] font-medium">
-              {signedIn.first_name} {signedIn.last_name}
-            </p>
-          </div>
-          <p className="text-sm text-[var(--color-ink-muted)]">
-            Has iniciado sesión correctamente contra Supabase. La aplicación conectada a estos datos
-            todavía no está construida — es el siguiente paso.
-          </p>
-          <button
-            type="button"
-            className="btn btn-secondary w-full"
-            onClick={() => {
-              void supabase?.auth.signOut()
-              setSignedIn(null)
-            }}
-          >
-            Cerrar sesión
-          </button>
-        </div>
-      </Centered>
-    )
   }
 
   if (!supabase) {
@@ -166,6 +159,14 @@ function CompanySignInScreen({ slug, onRetry }: CompanySignInScreenProps) {
         </p>
       </Centered>
     )
+  }
+
+  if (!sessionChecked) {
+    return <Splash />
+  }
+
+  if (session) {
+    return <CompanyWorkspace client={supabase} />
   }
 
   if (state.kind === 'cargando') {
@@ -284,6 +285,55 @@ function CompanySignInScreen({ slug, onRetry }: CompanySignInScreenProps) {
       )}
     </Centered>
   )
+}
+
+interface CompanyWorkspaceProps {
+  readonly client: SupabaseClient
+}
+
+// createSupabaseRepository() se memoiza: ver CLAUDE.md, «Trampas conocidas».
+function CompanyWorkspace({ client }: CompanyWorkspaceProps) {
+  const repository = useMemo(() => createSupabaseRepository(client), [client])
+  return (
+    <AppProvider repository={repository} mode="empresa" supabase={client}>
+      <CompanyScreen />
+      <Toasts />
+    </AppProvider>
+  )
+}
+
+function CompanyScreen() {
+  const { status, database, currentUser, error, signOut } = useApp()
+
+  if (status === 'loading') return <Splash />
+
+  if (status === 'error') {
+    return (
+      <Centered>
+        <h1 className="text-2xl">No se pudo cargar la empresa</h1>
+        <p className="mt-2 text-[15px] text-[var(--color-rejected)]">{error}</p>
+        <button type="button" className="btn btn-secondary mt-4" onClick={signOut}>
+          Salir
+        </button>
+      </Centered>
+    )
+  }
+
+  if (!database || !currentUser) {
+    return (
+      <Centered>
+        <h1 className="text-2xl">Sin acceso</h1>
+        <p className="mt-2 text-[15px] text-[var(--color-ink-muted)]">
+          Tu usuario no está vinculado a ninguna ficha de esta empresa.
+        </p>
+        <button type="button" className="btn btn-secondary mt-4" onClick={signOut}>
+          Salir
+        </button>
+      </Centered>
+    )
+  }
+
+  return <AuthenticatedRoutes />
 }
 
 function Centered({ children }: { readonly children: ReactNode }) {

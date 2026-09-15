@@ -10,8 +10,6 @@ import {
 } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { hashPin, randomSalt } from '../data/pin'
-import { createEmployee } from '../data/seed'
 import {
   estimateAnnualDays,
   isActive,
@@ -75,7 +73,17 @@ function minAltaDate(employee: Employee, today: IsoDate): IsoDate {
 }
 
 export function Employees() {
-  const { database, currentUser, year, commit, apply, notify } = useSession()
+  const {
+    database,
+    currentUser,
+    year,
+    commit,
+    apply,
+    notify,
+    mode,
+    createEmployee,
+    updateEmployee,
+  } = useSession()
   const [dialog, setDialog] = useState<Dialog>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('todos')
@@ -114,38 +122,20 @@ export function Employees() {
   const saveEmployee = async (values: EmployeeFormValues) => {
     if (dialog?.kind !== 'form') return
     const existing = dialog.employee
-
-    if (!existing) {
-      const employee = await createEmployee({
-        firstName: values.firstName.trim(),
-        lastName: values.lastName.trim(),
-        role: values.role,
-        isSeasonal: values.isSeasonal,
-        activityPeriods: values.activityPeriods,
-        pin: values.pin,
-      })
-      commit({ ...database, employees: [...database.employees, employee] })
-      notify(`${displayName(employee)} dado de alta.`)
-    } else {
-      const pinSalt = values.pin ? randomSalt() : existing.pinSalt
-      const pinHash = values.pin ? await hashPin(values.pin, pinSalt) : existing.pinHash
-      const updated: Employee = {
-        ...existing,
-        firstName: values.firstName.trim(),
-        lastName: values.lastName.trim(),
-        role: values.role,
-        isSeasonal: values.isSeasonal,
-        activityPeriods: values.activityPeriods,
-        pinSalt,
-        pinHash,
-      }
-      commit({
-        ...database,
-        employees: database.employees.map((item) => (item.id === existing.id ? updated : item)),
-      })
-      notify('Cambios guardados.')
+    const fields = {
+      firstName: values.firstName.trim(),
+      lastName: values.lastName.trim(),
+      role: values.role,
+      isSeasonal: values.isSeasonal,
+      activityPeriods: values.activityPeriods,
     }
 
+    const ok = existing
+      ? await updateEmployee(existing.id, fields, values.secret)
+      : await createEmployee(fields, values.secret)
+    if (!ok) return
+
+    notify(existing ? 'Cambios guardados.' : `${fields.firstName} ${fields.lastName} dado de alta.`)
     setDialog(null)
   }
 
@@ -352,6 +342,7 @@ export function Employees() {
             formId="employee-form"
             employee={dialog.employee}
             year={year}
+            mode={mode}
             onSubmit={(values) => void saveEmployee(values)}
             onError={(message) => notify(message, 'error')}
           />

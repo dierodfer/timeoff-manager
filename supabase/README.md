@@ -135,7 +135,7 @@ Quién puede hacer qué, con sesión iniciada:
 | `allowances`            | los propios; el admin, todos               | solo el administrador                                                                                 |
 | `vacation_requests`     | las propias; el admin, todas               | crear: propias y pendientes, o el admin. Resolver: el admin. Borrar: propias y pendientes, o el admin |
 | `vacation_request_days` | según su solicitud                         | según su solicitud                                                                                    |
-| `request_comments`      | según su solicitud                         | crear firmando como uno mismo; no se editan ni se borran                                              |
+| `request_comments`      | según su solicitud                         | crear firmando como uno mismo, o como cualquiera de su empresa si es admin; no se editan ni se borran |
 
 Esa matriz se aplica en dos capas, y hacen falta las dos: los **permisos de tabla** deciden si el rol
 puede tocarla siquiera, y las **políticas RLS** filtran qué filas ve. PostgREST se conecta como
@@ -145,6 +145,11 @@ puede tocarla siquiera, y las **políticas RLS** filtran qué filas ve. PostgRES
 A `anon` no se le concede nada: **sin sesión ni siquiera se llega a evaluar RLS**, la petición se
 rechaza antes. Y los verbos que no aparecen arriba tampoco están concedidos, de modo que borrar una
 empresa o editar un comentario fallan por permisos, sin depender de que no exista una política.
+
+Que un admin pueda firmar un comentario como otro empleado no es un descuido: separar un día de una
+solicitud (`resolveRequestDay()`/`addRequestDayComment()`, en `state/actions.ts`) copia el hilo
+entero a la solicitud nueva, y esa copia la ejecuta quien resuelve, no el autor original. Sin este
+permiso esa copia fallaría siempre que resolviera alguien distinto de quien escribió el comentario.
 
 Además, dos invariantes del dominio son restricciones declarativas, no código:
 
@@ -257,22 +262,25 @@ nombre de empresa las mismas palabras que ya son rutas locales (`empleados`, `aj
    tenerla en dos sitios sería una trampa. Cuando se conecte el cliente los sembrará
    `seedHolidays()`, que ya existe.
 
-6. **Desplegar la Edge Function** que da de alta a los empleados, con el
-   [CLI de Supabase](https://supabase.com/docs/guides/cli):
+6. **Desplegar las dos Edge Functions**, con el [CLI de Supabase](https://supabase.com/docs/guides/cli):
 
    ```bash
    supabase functions deploy crear-empleado
+   supabase functions deploy cambiar-password
    ```
 
-   No hace falta configurarle nada: `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` ya están en el
-   entorno de toda Edge Function. A partir de aquí, las altas se hacen desde la aplicación.
+   No hace falta configurarles nada: `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` ya están en el
+   entorno de toda Edge Function. A partir de aquí, las altas y los cambios de contraseña se hacen
+   desde la aplicación.
 
    El trigger `link_employee_to_auth_user()` se queda como red de seguridad, por si alguna vez creas
    un usuario a mano en el panel: empareja por email la ficha que estuviera esperando.
 
-7. **Database → Replication**: añadir las ocho tablas a la publicación `supabase_realtime` si quieres
-   que un cambio hecho en un dispositivo aparezca en el otro sin recargar. Es justo lo que hoy no se
-   puede hacer («Los datos no se sincronizan» en `CLAUDE.md`).
+7. **Database → Replication**: añadir las ocho tablas a la publicación `supabase_realtime` si
+   quieres que un cambio hecho en un dispositivo aparezca en el otro **sin recargar**. Sin este
+   paso los datos siguen compartidos entre dispositivos —`supabaseRepository.load()` los trae
+   todos en cada arranque y `save()` los escribe de verdad—, solo que un cambio ajeno no aparece
+   hasta la siguiente carga de la pantalla.
 
 8. **Settings → API**: copiar el _Project ID_ (el subdominio de `<ref>.supabase.co`, no la URL
    completa) y la _anon public key_. Van al repositorio como `VITE_SUPABASE_PROJECT_REF` (variable:
@@ -287,19 +295,24 @@ scripts que ejecutes tú o para una Edge Function.
 
 ## Qué hay ya, y qué queda
 
-Ya están el cliente `supabase-js` (`src/data/supabaseClient.ts`, `null` si faltan las variables de
-entorno) y la pantalla de acceso por empresa (`src/pages/CompanySignIn.tsx`): entrar en `/<slug>`
-lista los perfiles de esa empresa vía `perfiles_para_acceso()` y entra con
-`signInWithPassword()`. Verificado contra un stub local de PostgREST/Auth, a falta de un proyecto
-real: perfiles correctos, empresa sin perfiles todavía, empresa inexistente, contraseña incorrecta y
-sesión iniciada.
+Ya está todo el modo empresa funcionando de punta a punta: entrar en `/<slug>`
+(`src/pages/CompanyGate.tsx`) lista los perfiles vía `perfiles_para_acceso()`, entra con
+`signInWithPassword()` y, en cuanto hay sesión, monta la aplicación completa —las ocho pantallas,
+igual que en modo local— contra `supabaseRepository.ts`. La sesión sobrevive a un recargo de
+página (`getSession()`) y a un cierre desde otra pestaña (`onAuthStateChange()`). Altas y cambios
+de contraseña pasan por las Edge Functions `crear-empleado`/`cambiar-password`, nunca por una
+escritura directa a `employees`. `CLAUDE.md`, sección «El modo empresa», documenta cómo encaja
+esto con `state/actions.ts` y el resto de la aplicación —la arquitectura de instantánea + diff, el
+motor de diff, la cola de escrituras— con más detalle del que tiene sentido repetir aquí.
 
-Lo que queda **después de iniciar sesión** es la parte grande: `VacationRepository` contra Supabase.
-No es solo escribir otra implementación de la interfaz — `apply()`/`commit()` (`state/AppStore.tsx`)
-dan por hecho una única base de datos en memoria que se sustituye entera y de golpe en cada
-mutación, y Supabase es ocho tablas relacionadas con escrituras async por fila. Encajar las dos
-cosas es su propio diseño, no una extensión de este. Hasta entonces, tras iniciar sesión en
-`/<slug>` solo se ve una pantalla de «conectado», sin datos.
+Lo que queda:
 
-Sigue pendiente subir lo que ya haya en IndexedDB: exportar el JSON desde Ajustes y volcarlo con un
-script, cuando exista el repositorio al que volcarlo.
+- **Tiempo real.** Hoy un cambio hecho en un dispositivo no aparece en otro hasta la siguiente
+  carga de la pantalla — ver el paso 7 de arriba (`Database → Replication`) para lo que falta en
+  el panel; en el cliente haría falta suscribirse a los cambios de cada tabla y fusionarlos con el
+  `Database` en memoria, no solo recargar.
+- **Que el propio empleado cambie su contraseña.** Hoy solo puede hacerlo un administrador, vía
+  `cambiar-password`. El camino de autoservicio (`supabase.auth.updateUser({ password })`, que no
+  necesita Edge Function porque cada uno puede cambiar la suya) no está construido.
+- **Subir lo que ya haya en IndexedDB.** Migrar de modo local a modo empresa es manual hoy: no hay
+  ningún camino para volcar los datos de un navegador en un proyecto de Supabase.

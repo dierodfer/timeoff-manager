@@ -1,10 +1,12 @@
 import { createContext, useContext } from 'react'
 import type { FirstRunInput } from '../data/seed'
-import type { Database, Employee } from '../domain/types'
+import type { ActivityPeriod, Database, Employee, Role } from '../domain/types'
 import type { WorkCalendar } from '../domain/workdays'
 import type { Outcome } from './actions'
 
-export type Status = 'loading' | 'empty' | 'ready'
+export type Mode = 'local' | 'empresa'
+
+export type Status = 'loading' | 'empty' | 'ready' | 'error'
 
 export interface Toast {
   id: number
@@ -12,8 +14,20 @@ export interface Toast {
   tone: 'success' | 'error'
 }
 
+/** Los campos de un empleado que edita el formulario, sin el secreto ni lo que decide el modo. */
+export interface EmployeeFields {
+  firstName: string
+  lastName: string
+  role: Role
+  isSeasonal: boolean
+  activityPeriods: ActivityPeriod[]
+}
+
 export interface AppContextValue {
+  mode: Mode
   status: Status
+  /** Mensaje de `status === 'error'`: por qué falló la carga contra Supabase. */
+  error: string | null
   database: Database | null
   currentUser: Employee | null
   year: number
@@ -30,6 +44,10 @@ export interface AppContextValue {
   /** Síncrona a propósito: esperar al disco dejaba la selección anterior a la vista. */
   apply: (mutation: (database: Database) => Outcome) => boolean
   wipe: () => Promise<void>
+  /** Da de alta con el secreto inicial (PIN en local, contraseña en empresa). */
+  createEmployee: (fields: EmployeeFields, secret: string) => Promise<boolean>
+  /** `secret` vacío significa «no cambiar el acceso», en los dos modos. */
+  updateEmployee: (employeeId: string, fields: EmployeeFields, secret: string) => Promise<boolean>
 }
 
 export const AppContext = createContext<AppContextValue | null>(null)

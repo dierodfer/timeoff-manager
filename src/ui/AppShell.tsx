@@ -25,7 +25,7 @@ const LINKS: (NavItem & { adminOnly?: boolean })[] = [
 ]
 
 export function AppShell() {
-  const { database, currentUser, year, setYear } = useSession()
+  const { database, currentUser, year, setYear, mode } = useSession()
   const [toggled, setToggled] = useState(false)
   const isAdmin = currentUser.role === 'admin'
   const links = LINKS.filter((link) => isAdmin || !link.adminOnly)
@@ -73,7 +73,7 @@ export function AppShell() {
           </div>
 
           <span className="ml-auto flex items-center gap-2">
-            <LocalModeBadge />
+            {mode === 'local' && <LocalModeBadge />}
             {isAdmin && (
               <NavLink
                 to="/solicitudes"

@@ -76,7 +76,7 @@ function AddHolidayForm({
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    onAdd({ id: newId('hol'), date, name: name.trim(), scope: 'algarrobo' })
+    onAdd({ id: newId(), date, name: name.trim(), scope: 'algarrobo' })
     setName('')
   }
 
@@ -119,7 +119,7 @@ function AddHolidayForm({
 }
 
 export function SettingsPage() {
-  const { database, year, commit, notify, wipe } = useSession()
+  const { database, year, commit, notify, wipe, mode } = useSession()
   const [confirmWipe, setConfirmWipe] = useState(false)
 
   const holidays = useMemo(
@@ -292,24 +292,26 @@ export function SettingsPage() {
         <AddHolidayForm key={year} year={year} onAdd={addHoliday} />
       </Section>
 
-      <Section
-        title="Datos"
-        description="Todo se guarda en este navegador y no sale de él. Es una demostración: si borras los datos de navegación o cambias de equipo, se empieza de cero."
-      >
-        <Row
-          label="Empezar de cero"
-          hint="Elimina empleados, solicitudes, festivos y ajustes de este navegador."
-          control={
-            <button
-              type="button"
-              className="btn btn-danger btn-sm"
-              onClick={() => setConfirmWipe(true)}
-            >
-              Borrar todo
-            </button>
-          }
-        />
-      </Section>
+      {mode === 'local' && (
+        <Section
+          title="Datos"
+          description="Todo se guarda en este navegador y no sale de él. Es una demostración: si borras los datos de navegación o cambias de equipo, se empieza de cero."
+        >
+          <Row
+            label="Empezar de cero"
+            hint="Elimina empleados, solicitudes, festivos y ajustes de este navegador."
+            control={
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={() => setConfirmWipe(true)}
+              >
+                Borrar todo
+              </button>
+            }
+          />
+        </Section>
+      )}
 
       {confirmWipe && (
         <Modal
