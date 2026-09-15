@@ -221,8 +221,10 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   sobrevive el último `commit()`. Una acción sobre varios elementos tiene que ser una única función
   pura en `state/actions.ts` que va enhebrando el `Database` internamente y hace un solo `apply()`
   al final — así lo hacen `bulkAssign()`, `resolveAllPending()` y `resolveRequestDays()`.
-- **`commit()` no espera a IndexedDB** y por eso devuelve `void`, no una promesa: la pantalla se
-  actualiza al instante y la escritura va por detrás, avisando con un aviso si falla.
+- **`commit()` no espera al repositorio** (IndexedDB o Supabase, según el modo) y por eso devuelve
+  `void`, no una promesa: la pantalla se actualiza al instante y la escritura va por detrás,
+  avisando con un aviso si falla. En modo empresa, además, resincroniza recargando del servidor:
+  a diferencia de IndexedDB, un fallo de red no es la excepción.
 - **Fechas en UTC, salvo en `EmployeeForm`.** `src/domain/dates.ts` trabaja sobre cadenas
   `yyyy-MM-dd` con aritmética UTC; con hora local, un 1 de enero cambia de día según la zona
   horaria. `DateRangePicker` (Asignación masiva) sigue esa convención con `timeZone="UTC"` en el
@@ -233,6 +235,12 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   sitio equivocado desplaza el día mostrado según la zona horaria, exactamente el bug que ambas
   parejas existen para evitar, cada una a su manera.
 - **`HashRouter`, no `BrowserRouter`.** Pages no reescribe rutas: un refresco daría un 404.
+- **`createSupabaseRepository()` se memoiza con `useMemo` en `CompanyGate.tsx`, no se crea en cada
+  render.** El repositorio guarda su última instantánea cargada en una variable de módulo interna
+  (`lastKnown`); si `AppProvider` recibiera una instancia nueva en cada render de su padre, `commit()`
+  acabaría escribiendo contra un repositorio que nunca ha llegado a cargar nada, porque el efecto de
+  carga de `AppProvider` solo se ejecuta una vez (`useEffect(..., [])`) y queda atado a la instancia
+  del primer render.
 - **`base` en `vite.config.ts`** apunta a `/timeoff-manager/`. Si se renombra el repositorio, hay
   que cambiarlo o pasar `BASE_PATH`.
 - **El formulario de festivos de Ajustes se remonta con `key={year}`.** Sin eso la fecha propuesta
@@ -242,6 +250,13 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   al abrir la aplicación por IP en la red local no está disponible.
 - **`crypto.randomUUID()` también exige contexto seguro**, así que los identificadores (`ids.ts`) y
   la sal del PIN salen de `crypto.getRandomValues()`, que sí funciona por IP en la red local.
+  `newId()` compone un UUID v4 a mano con esos bytes: las claves primarias de Supabase son `uuid`,
+  así que el mismo id sirve en los dos modos sin traducirlo.
+- **Separar un día de una solicitud regenera el id de cada comentario copiado.**
+  `resolveRequestDay()`/`addRequestDayComment()` mueven el hilo entero a la solicitud nueva; si se
+  copiara tal cual, los mismos objetos de comentario (mismo id) quedarían en dos solicitudes a la
+  vez, y en Supabase `request_comments.id` es la clave primaria — la segunda inserción chocaría con
+  la primera. En modo local nunca se notó porque nadie busca un comentario por su id.
 - **`checkSelection()` compara el saldo con un margen de `1e-9`.** El saldo es decimal: sin ese
   margen, el ruido de coma flotante puede rechazar 13 días contra un saldo real de 13 pero
   representado como 12,999999999. `useDaySelection()` aplica el mismo margen al tope de días
@@ -290,9 +305,11 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
 
 ## El PIN no es seguridad
 
-Evita cambiar de perfil por descuido, nada más. Los datos están en el IndexedDB del navegador y
-cualquiera con acceso al dispositivo puede leerlos. Se guarda el hash y no el número por costumbre,
-no porque proteja de nada. No presentarlo como control de acceso.
+Es del modo local — en modo empresa no hay PIN, hay una contraseña de verdad contra Supabase Auth
+(ver «El modo empresa» más abajo). Evita cambiar de perfil por descuido, nada más. Los datos están
+en el IndexedDB del navegador y cualquiera con acceso al dispositivo puede leerlos. Se guarda el
+hash y no el número por costumbre, no porque proteja de nada. No presentarlo como control de
+acceso.
 
 **El PIN es opcional.** `isValidPin()` acepta la cadena vacía además de 4-8 dígitos, así que un
 empleado sin PIN entra en Acceso dejando el campo en blanco. Ojo al editar: el campo de PIN en
@@ -317,18 +334,78 @@ IndexedDB y recarga. Habla con `indexedDbRepository` directamente porque envuelv
 cuando se pinta, el contexto puede no existir todavía o ser justo lo que está roto. Sin ese botón,
 recargar releía lo mismo y volvía a fallar: la única salida era borrar los datos del sitio a mano.
 
-**Salvo en `/<slug>`, que es la puerta de una empresa conectada a Supabase.** `App.tsx` decide el
-modo mirando el primer tramo de la URL: si coincide con una ruta local (`empleados`, `ajustes`…) o
-está vacío, es el modo de siempre; si no, `isCompanySlug()` (`src/domain/orgSlug.ts`) lo trata como
-el slug de una empresa y monta `CompanySignIn`, que entra por Supabase (`perfiles_para_acceso()` +
-`signInWithPassword()`). Las mismas palabras reservadas viven también en el `check` de
-`organizations.slug` en `supabase/schema.sql`, para que no se pueda crear una empresa cuyo slug
-quede detrás de una ruta local y sea inalcanzable. Los detalles de ese modo —qué se ha construido y
-qué falta— están en `supabase/README.md`, no aquí: este fichero documenta la aplicación local.
-
 **La etiqueta «Modo local» (`ui/LocalModeBadge.tsx`) es la señal de en qué modo se está.** Sale en
-Acceso, en la primera configuración y en la cabecera; hoy sale siempre, porque hasta que exista
-`VacationRepository` contra Supabase el modo local es el único que hace algo más que iniciar sesión.
+Acceso, en la primera configuración y en la cabecera —solo cuando `mode === 'local'`; en modo
+empresa no sale— porque los datos de verdad viven en el navegador y no en ningún sitio más.
+
+## El modo empresa
+
+`/<slug>` (por ejemplo `/agrorifer`) es la puerta de una empresa conectada a Supabase: la misma
+aplicación, las mismas ocho pantallas, pero con los datos compartidos entre dispositivos en vez de
+encerrados en un navegador. `supabase/README.md` documenta el modelo de datos, las políticas RLS y
+cómo se configura un proyecto; aquí se documenta cómo encaja con el resto de la aplicación.
+
+**El slug se decide una sola vez, en `main.tsx`, antes de montar nada.** `readCompanySlug()` lee
+`window.location.hash` a mano (no un hook de router: `HashRouter` todavía no existe) y aplica
+`isCompanySlug()` (`src/domain/orgSlug.ts`) — la misma lista de palabras reservadas que el `check`
+de `organizations.slug` en el esquema. El resultado se pasa como `basename` de `HashRouter` (raíz
+en local, `/<slug>` en empresa) y como prop a `<App>`. Con el `basename` ya puesto, ningún
+`NavLink to="/empleados"` ni `<Route path="ajustes">` sabe en qué modo está: los resuelve el router
+solo, relativos a donde toque. Si `App.tsx` volviera a mirar `useLocation()` para decidir el modo,
+vería el primer tramo _después_ del basename (`/empleados`, no `/agrorifer`) y la detección se
+rompería — por eso el slug baja como prop en vez de recalcularse.
+
+**`CompanyGate.tsx`** es la pantalla de acceso: lista los perfiles con `perfiles_para_acceso()` y
+entra con `signInWithPassword()`, igual que antes. La diferencia es que la sesión de Supabase Auth
+—no un `useState` local— es la fuente de verdad de «ha entrado» (`getSession()` +
+`onAuthStateChange()`), así que sobrevive a un recargo de página y refleja un cierre de sesión
+desde otra pestaña sin que nadie llame a nada. En cuanto hay sesión, monta `AppProvider` con
+`createSupabaseRepository()` y las mismas `AuthenticatedRoutes` que usa el modo local
+(`src/AppRoutes.tsx`): es el único componente que las comparten, para que las ocho pantallas no se
+dupliquen entre modos.
+
+**Arquitectura: instantánea + diff, no un cliente que hable tabla a tabla.** `apply()` sigue siendo
+síncrona y `state/actions.ts` sigue produciendo un `Database` completo, igual que en local — eso es
+lo que permite reutilizar el dominio, las acciones y casi toda la interfaz sin tocarlas.
+`supabaseRepository.ts` es quien encaja las dos piezas: `load()` trae la empresa entera de las ocho
+tablas (RLS decide qué filas ve cada rol, no hay filtros de más en el cliente) y la ensambla con la
+forma exacta del `Database` del modo local; `save()` compara esa instantánea con la última
+conocida usando `diffDatabase()` (`src/data/diffDatabase.ts`) y escribe solo lo que cambió, tabla a
+tabla, en el orden que no pisa claves foráneas.
+
+**`diffDatabase()` sustituye el conjunto entero de `activity_periods` y de `vacation_request_days`
+del padre afectado, en vez de diferenciar fila a fila.** Son conjuntos pequeños, y sustituir
+esquiva el constraint `EXCLUDE` de no-solape de `activity_periods`: si se insertara un periodo
+nuevo antes de cerrar el viejo en la misma operación, chocaría contra el que se está a punto de
+cerrar. Borrar todos e insertar todos de nuevo no tiene ese problema de orden. `comments` se
+compara por id a través de **todas** las solicitudes anteriores, no solicitud a solicitud: separar
+un día (`resolveRequestDay()`/`addRequestDayComment()`) mueve el hilo a una solicitud con un id
+distinto y regenera el id de cada comentario copiado (ver la trampa correspondiente), así que
+cualquier id que no existiera antes en ninguna solicitud es, por definición, una fila nueva.
+
+**Las escrituras van en una cola de promesas dentro del repositorio**, no en `AppStore.tsx`: dos
+`commit()` seguidos no pueden solapar sus diffs sobre la misma base. Si una escritura falla, el
+`AppStore` avisa y **resincroniza recargando del servidor** — a diferencia del modo local, aquí un
+fallo de red es frecuente, y dejar la pantalla mostrando algo que no llegó a guardarse sería peor
+que el propio fallo.
+
+**El alta de empleado no pasa por `commit()`.** Crear un usuario exige la Admin API de Supabase, y
+la Admin API exige la `service_role key`, que nunca puede viajar al navegador — por eso vive en la
+Edge Function `crear-empleado`, no en el cliente. `AppContextValue.createEmployee()` es el único
+método que ven las pantallas: en local hashea el PIN y hace `commit()`; en empresa llama a la Edge
+Function y recarga con `repository.load()`. La pantalla no sabe cuál de las dos está pasando.
+Cambiar la contraseña de alguien ya dado de alta es la misma idea con `updateEmployee()` y la Edge
+Function `cambiar-password` — **solo un administrador puede cambiarla**, no hay autoservicio: el
+propio empleado no tiene desde dónde hacerlo todavía.
+
+**`resolveCurrentEmployeeId()` (`src/data/supabaseSession.ts`) es quien decide «quién soy».** No
+sale de `database.employees.find(...)`: un empleado normal solo ve su propia fila por RLS, pero un
+administrador ve las de toda la empresa, así que asumir la primera sería asumir mal la mitad de las
+veces. Consulta `employees` filtrando por `user_id = auth.uid()` aparte.
+
+**«Borrar todo» de Ajustes no existe en modo empresa.** Ni hay permiso en la base de datos para
+borrar una organización desde la aplicación (a propósito, ver `supabase/README.md`), ni tendría
+sentido ofrecerlo: borrar una empresa es una operación del panel de Supabase, no un botón.
 
 ## Diseño
 
