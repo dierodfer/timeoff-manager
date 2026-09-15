@@ -27,11 +27,12 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
-      # Si faltan los secretos, quedan vacíos y la aplicación compila en modo local:
-      # getSupabaseClient() trata una URL/clave vacía igual que si no existieran.
+      # Si faltan, quedan vacías y la aplicación compila en modo local: getSupabaseClient()
+      # trata un ref/clave vacíos igual que si no existieran. El ref va como variable (no es
+      # secreto: ya viaja embebido en el bundle público) y la clave anónima como secreto.
       - run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PROJECT_REF: ${{ vars.VITE_SUPABASE_PROJECT_REF }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - uses: actions/configure-pages@v5
