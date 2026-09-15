@@ -1,12 +1,77 @@
-import { sortedPeriods } from '../domain/accrual'
+import { CalendarDays, ListChecks } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import {
+  ACCRUAL_PER_WORKED_DAY,
+  sortedPeriods,
+  type EstimateBreakdown,
+  type WorkedDaysBreakdown,
+} from '../domain/accrual'
 import type { Balance } from '../domain/balance'
+import { todayIso } from '../domain/dates'
 import { formatDate, formatDays } from '../domain/format'
 import type { ActivityPeriod, Employee } from '../domain/types'
 import { displayName } from '../state/actions'
 import { Avatar } from './Avatar'
 import { Metric } from './Metric'
+import { MetricInfo } from './MetricInfo'
 import { RowMenu } from './RowMenu'
 import { Stepper } from './Stepper'
+
+const ACCRUAL_RATE_LABEL = ACCRUAL_PER_WORKED_DAY.toString().replace('.', ',')
+
+function rangeLabel(start: string, end: string, today: string): string {
+  return `${formatDate(start)} – ${end === today ? 'hoy' : formatDate(end)}`
+}
+
+function WorkedTooltip({
+  breakdown,
+  today,
+}: {
+  readonly breakdown: WorkedDaysBreakdown
+  readonly today: string
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="space-y-0.5">
+        {breakdown.ranges.map((range) => (
+          <p key={range.start}>
+            <span className="font-semibold text-[var(--color-ink)]">
+              {rangeLabel(range.start, range.end, today)}
+            </span>
+            : {range.days} {range.days === 1 ? 'día' : 'días'}
+          </p>
+        ))}
+      </div>
+      {breakdown.holidays.length > 0 && (
+        <div className="space-y-0.5 border-t border-[var(--color-hairline)] pt-2">
+          <p className="font-semibold text-[var(--color-ink)]">Festivos descontados</p>
+          {breakdown.holidays.map((holiday) => (
+            <p key={holiday.id}>
+              {formatDate(holiday.date)} · {holiday.name}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EstimateTooltip({ breakdown }: { readonly breakdown: EstimateBreakdown }) {
+  return (
+    <div className="space-y-1">
+      <p>
+        <span className="font-semibold text-[var(--color-ink)]">{ACCRUAL_RATE_LABEL}</span> ×{' '}
+        {breakdown.worked} {breakdown.worked === 1 ? 'día trabajado' : 'días trabajados'} ={' '}
+        {formatDays(breakdown.raw)}
+      </p>
+      {breakdown.isCapped && (
+        <p className="text-[var(--color-ink-muted)]">
+          Tope anual: {formatDays(breakdown.cap)} días
+        </p>
+      )}
+    </div>
+  )
+}
 
 function periodsSummary(employee: Employee): string {
   return sortedPeriods(employee)
@@ -27,6 +92,8 @@ export interface EmployeeRowData {
   /** Con un periodo abierto: se le puede dar de baja, y no se puede borrar. */
   employed: boolean
   worked: number
+  workedBreakdown: WorkedDaysBreakdown
+  estimateBreakdown: EstimateBreakdown
 }
 
 interface EmployeeRowProps {
@@ -50,8 +117,19 @@ export function EmployeeRow({
   onAssignedChange,
   onResetAssigned,
 }: EmployeeRowProps) {
-  const { employee, balance, inYear, last, active, employed, worked } = row
+  const {
+    employee,
+    balance,
+    inYear,
+    last,
+    active,
+    employed,
+    worked,
+    workedBreakdown,
+    estimateBreakdown,
+  } = row
   const nombre = displayName(employee)
+  const today = todayIso()
 
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-4 p-4">
@@ -82,23 +160,49 @@ export function EmployeeRow({
       {inYear ? (
         <>
           <div className="flex flex-none gap-6">
-            <Metric
-              layout="value-first"
+            <MetricInfo
               value={worked}
               label={
                 <>
                   Días trabajados<span className="block">hasta hoy</span>
                 </>
               }
-            />
-            <Metric layout="value-first" value={formatDays(balance.estimated)} label="Estimación" />
-            <Metric layout="value-first" value={balance.approved} label="Aprobados" />
-            <Metric
-              layout="value-first"
-              value={balance.pending}
-              label="Pendientes"
-              tone={balance.pending > 0 ? 'var(--color-pending)' : undefined}
-            />
+              panelLabel={`Desglose de días trabajados de ${nombre}`}
+            >
+              <WorkedTooltip breakdown={workedBreakdown} today={today} />
+            </MetricInfo>
+            <MetricInfo
+              value={formatDays(balance.estimated)}
+              label="Estimación"
+              panelLabel={`Cálculo de la estimación de ${nombre}`}
+            >
+              <EstimateTooltip breakdown={estimateBreakdown} />
+            </MetricInfo>
+            <div>
+              <Metric layout="value-first" value={balance.approved} label="Aprobados" />
+              <Link
+                to={`/?empleado=${employee.id}`}
+                className="mt-1 flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline"
+              >
+                <CalendarDays className="size-3.5" />
+                Ver calendario
+              </Link>
+            </div>
+            <div>
+              <Metric
+                layout="value-first"
+                value={balance.pending}
+                label="Pendientes"
+                tone={balance.pending > 0 ? 'var(--color-pending)' : undefined}
+              />
+              <Link
+                to={`/solicitudes?empleado=${employee.id}`}
+                className="mt-1 flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline"
+              >
+                <ListChecks className="size-3.5" />
+                Ver solicitudes
+              </Link>
+            </div>
           </div>
 
           <div className="flex flex-col items-center gap-1">

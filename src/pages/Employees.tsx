@@ -12,12 +12,13 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   estimateAnnualDays,
+  estimateAnnualDaysBreakdown,
   isActive,
   isActiveInYear,
   lastEndDate,
   openPeriod,
   sortedPeriods,
-  workedDaysToDate,
+  workedDaysBreakdown,
 } from '../domain/accrual'
 import { pendingDaysInYear, terminationSettlement, withBalances } from '../domain/balance'
 import { formatDate, pluralDays } from '../domain/format'
@@ -81,6 +82,7 @@ export function Employees() {
     apply,
     notify,
     mode,
+    calendar,
     createEmployee,
     updateEmployee,
   } = useSession()
@@ -101,16 +103,21 @@ export function Employees() {
   const rows = useMemo(
     () =>
       withBalances(employees, year, database.settings, database.allowances, database.requests).map(
-        (row) => ({
-          ...row,
-          inYear: isActiveInYear(row.employee, year),
-          last: sortedPeriods(row.employee).at(-1),
-          active: isActive(row.employee, today),
-          employed: Boolean(openPeriod(row.employee)),
-          worked: workedDaysToDate(row.employee, year, database.settings.workweek, today),
-        }),
+        (row) => {
+          const worked = workedDaysBreakdown(row.employee, year, calendar, today)
+          return {
+            ...row,
+            inYear: isActiveInYear(row.employee, year),
+            last: sortedPeriods(row.employee).at(-1),
+            active: isActive(row.employee, today),
+            employed: Boolean(openPeriod(row.employee)),
+            worked: worked.total,
+            workedBreakdown: worked,
+            estimateBreakdown: estimateAnnualDaysBreakdown(row.employee, year, database.settings),
+          }
+        },
       ),
-    [employees, year, today, database.settings, database.allowances, database.requests],
+    [employees, year, today, calendar, database.settings, database.allowances, database.requests],
   )
 
   const inYearCount = (of: number) =>
