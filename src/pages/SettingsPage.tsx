@@ -173,7 +173,11 @@ export function SettingsPage() {
 
   const loadOfficialHolidays = () => {
     const existing = new Set(database.holidays.map((holiday) => holiday.date))
-    const missing = preloadedHolidays(year).filter((holiday) => !existing.has(holiday.date))
+    // Los ids de preloadedHolidays() son fijos ("nacional-2026-01-01"), no uuid: valen para
+    // IndexedDB pero Supabase los rechaza. Se sustituyen aquí, al cargarlos de verdad.
+    const missing = preloadedHolidays(year)
+      .filter((holiday) => !existing.has(holiday.date))
+      .map((holiday) => ({ ...holiday, id: newId() }))
     if (missing.length === 0) {
       return notify(`Los ${holidays.length} festivos oficiales de ${year} ya están cargados.`)
     }
