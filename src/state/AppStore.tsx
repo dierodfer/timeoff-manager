@@ -1,11 +1,25 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { indexedDbRepository } from '../data/indexedDbRepository'
-import { verifyPin } from '../data/pin'
-import { createInitialDatabase, type FirstRunInput } from '../data/seed'
-import type { Database } from '../domain/types'
+import type { VacationRepository } from '../data/repository'
+import { hashPin, randomSalt, verifyPin } from '../data/pin'
+import {
+  createInitialDatabase,
+  createEmployee as createLocalEmployee,
+  type FirstRunInput,
+} from '../data/seed'
+import { callCambiarPassword, callCrearEmpleado } from '../data/supabaseFunctions'
+import { resolveCurrentEmployeeId } from '../data/supabaseSession'
+import type { Database, Employee } from '../domain/types'
 import { buildWorkCalendar, type WorkCalendar } from '../domain/workdays'
 import type { Outcome } from './actions'
-import { AppContext, type AppContextValue, type Status, type Toast } from './appContext'
+import {
+  AppContext,
+  type AppContextValue,
+  type EmployeeFields,
+  type Mode,
+  type Status,
+  type Toast,
+} from './appContext'
 
 const SESSION_KEY = 'timeoff:user'
 
@@ -16,8 +30,21 @@ const EMPTY_CALENDAR: WorkCalendar = {
 
 let lastToastId = 0
 
-export function AppProvider({ children }: { readonly children: ReactNode }) {
+interface AppProviderProps {
+  readonly children: ReactNode
+  /** El repositorio decide contra qué habla `commit()`: IndexedDB en local, Supabase en empresa. */
+  readonly repository: VacationRepository
+  readonly mode: Mode
+  /**
+   * Solo en modo empresa: hace falta para la sesión de Auth (cerrarla, saber quién ha entrado)
+   * y para las Edge Functions de alta y cambio de contraseña.
+   */
+  readonly supabase?: SupabaseClient
+}
+
+export function AppProvider({ children, repository, mode, supabase }: AppProviderProps) {
   const [status, setStatus] = useState<Status>('loading')
+  const [error, setError] = useState<string | null>(null)
   const [database, setDatabase] = useState<Database | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [year, setYear] = useState(() => new Date().getFullYear())
@@ -25,18 +52,40 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    void indexedDbRepository.load().then((loaded) => {
-      if (cancelled) return
-      setDatabase(loaded)
-      setStatus(loaded ? 'ready' : 'empty')
-      const remembered = sessionStorage.getItem(SESSION_KEY)
-      if (loaded && remembered && loaded.employees.some((item) => item.id === remembered)) {
-        setCurrentUserId(remembered)
-      }
-    })
+
+    // En modo empresa, quién soy no sale de database.employees: un empleado normal solo ve su
+    // propia fila por RLS, pero un administrador ve las de toda la empresa, así que hace falta
+    // resolverlo aparte (resolveCurrentEmployeeId) en vez de asumir la primera fila.
+    const identify = mode === 'empresa' && supabase ? resolveCurrentEmployeeId(supabase) : null
+
+    Promise.all([repository.load(), identify])
+      .then(([loaded, employeeId]) => {
+        if (cancelled) return
+        setDatabase(loaded)
+        setStatus(loaded ? 'ready' : 'empty')
+        if (employeeId) {
+          setCurrentUserId(employeeId)
+        } else if (mode === 'local') {
+          const remembered = sessionStorage.getItem(SESSION_KEY)
+          if (loaded && remembered && loaded.employees.some((item) => item.id === remembered)) {
+            setCurrentUserId(remembered)
+          }
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (cancelled) return
+        console.error(loadError)
+        setStatus('error')
+        setError(
+          loadError instanceof Error ? loadError.message : 'No se han podido cargar los datos.',
+        )
+      })
     return () => {
       cancelled = true
     }
+    // El repositorio y el modo no cambian en caliente: cada uno vive en su propio árbol
+    // (CompanyGate desmonta este proveedor entero al cerrar sesión), así que un solo arranque.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const notify = useCallback((message: string, tone: Toast['tone'] = 'success') => {
@@ -55,12 +104,16 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
   const commit = useCallback(
     (next: Database) => {
       setDatabase(next)
-      void indexedDbRepository.save(next).catch((error: unknown) => {
-        console.error(error)
-        notify('No se han podido guardar los cambios en este navegador.', 'error')
+      void repository.save(next).catch((saveError: unknown) => {
+        console.error(saveError)
+        notify('No se han podido guardar los cambios.', 'error')
+        // Resincroniza: sin esto, la pantalla seguiría mostrando algo que no llegó a guardarse.
+        void repository.load().then((reloaded) => {
+          if (reloaded) setDatabase(reloaded)
+        })
       })
     },
-    [notify],
+    [repository, notify],
   )
 
   const apply = useCallback(
@@ -71,7 +124,7 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
         notify(outcome.reason, 'error')
         return false
       }
-      void commit(outcome.database)
+      commit(outcome.database)
       return true
     },
     [database, commit, notify],
@@ -102,17 +155,86 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
   )
 
   const signOut = useCallback(() => {
+    if (mode === 'empresa') {
+      void supabase?.auth.signOut()
+      return
+    }
     setCurrentUserId(null)
     sessionStorage.removeItem(SESSION_KEY)
-  }, [])
+  }, [mode, supabase])
 
   const wipe = useCallback(async () => {
-    await indexedDbRepository.clear()
+    await repository.clear()
     setDatabase(null)
     setStatus('empty')
     setCurrentUserId(null)
     sessionStorage.removeItem(SESSION_KEY)
-  }, [])
+  }, [repository])
+
+  const createEmployee = useCallback(
+    async (fields: EmployeeFields, secret: string) => {
+      if (!database) return false
+
+      if (mode === 'empresa') {
+        if (!supabase) return false
+        const result = await callCrearEmpleado(supabase, {
+          firstName: fields.firstName,
+          lastName: fields.lastName,
+          password: secret,
+          role: fields.role,
+          isSeasonal: fields.isSeasonal,
+          activityPeriods: fields.activityPeriods.map(({ start, end }) => ({ start, end })),
+        })
+        if (!result.ok) {
+          notify(result.message, 'error')
+          return false
+        }
+        const reloaded = await repository.load()
+        if (reloaded) setDatabase(reloaded)
+        return true
+      }
+
+      const employee = await createLocalEmployee({ ...fields, pin: secret })
+      commit({ ...database, employees: [...database.employees, employee] })
+      return true
+    },
+    [database, mode, supabase, repository, commit, notify],
+  )
+
+  const updateEmployee = useCallback(
+    async (employeeId: string, fields: EmployeeFields, secret: string) => {
+      if (!database) return false
+      const existing = database.employees.find((item) => item.id === employeeId)
+      if (!existing) return false
+
+      if (mode === 'empresa') {
+        if (secret) {
+          if (!supabase) return false
+          const result = await callCambiarPassword(supabase, employeeId, secret)
+          if (!result.ok) {
+            notify(result.message, 'error')
+            return false
+          }
+        }
+        const updated: Employee = { ...existing, ...fields }
+        commit({
+          ...database,
+          employees: database.employees.map((item) => (item.id === employeeId ? updated : item)),
+        })
+        return true
+      }
+
+      const pinSalt = secret ? randomSalt() : existing.pinSalt
+      const pinHash = secret ? await hashPin(secret, pinSalt) : existing.pinHash
+      const updated: Employee = { ...existing, ...fields, pinSalt, pinHash }
+      commit({
+        ...database,
+        employees: database.employees.map((item) => (item.id === employeeId ? updated : item)),
+      })
+      return true
+    },
+    [database, mode, supabase, commit, notify],
+  )
 
   const calendar = useMemo(
     () => (database ? buildWorkCalendar(database.holidays, database.settings) : EMPTY_CALENDAR),
@@ -126,7 +248,9 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
 
   const value = useMemo<AppContextValue>(
     () => ({
+      mode,
       status,
+      error,
       database,
       currentUser,
       year,
@@ -141,9 +265,13 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
       commit,
       apply,
       wipe,
+      createEmployee,
+      updateEmployee,
     }),
     [
+      mode,
       status,
+      error,
       database,
       currentUser,
       year,
@@ -157,6 +285,8 @@ export function AppProvider({ children }: { readonly children: ReactNode }) {
       commit,
       apply,
       wipe,
+      createEmployee,
+      updateEmployee,
     ],
   )
 
