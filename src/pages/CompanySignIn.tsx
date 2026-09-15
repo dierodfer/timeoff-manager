@@ -159,7 +159,7 @@ function CompanySignInScreen({ slug, onRetry }: CompanySignInScreenProps) {
         <h1 className="text-2xl">/{slug}</h1>
         <p className="mt-2 text-[15px] text-[var(--color-ink-muted)]">
           {'Esta URL es de una empresa, pero el despliegue no tiene configurado Supabase ('}
-          <code className="tabular">VITE_SUPABASE_URL</code>
+          <code className="tabular">VITE_SUPABASE_PROJECT_REF</code>
           {' / '}
           <code className="tabular">VITE_SUPABASE_ANON_KEY</code>
           {').'}

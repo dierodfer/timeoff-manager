@@ -274,9 +274,10 @@ nombre de empresa las mismas palabras que ya son rutas locales (`empleados`, `aj
    que un cambio hecho en un dispositivo aparezca en el otro sin recargar. Es justo lo que hoy no se
    puede hacer («Los datos no se sincronizan» en `CLAUDE.md`).
 
-8. **Settings → API**: copiar _Project URL_ y _anon public key_. Van como secretos del repositorio
-   (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) y se pasan al paso `npm run build` del workflow de
-   Pages. Hacen falta en el paso siguiente, no todavía.
+8. **Settings → API**: copiar el _Project ID_ (el subdominio de `<ref>.supabase.co`, no la URL
+   completa) y la _anon public key_. Van al repositorio como `VITE_SUPABASE_PROJECT_REF` (variable:
+   no es secreto, ya viaja embebido en el bundle público) y `VITE_SUPABASE_ANON_KEY` (secreto), y se
+   pasan al paso `npm run build` del workflow de Pages. Hacen falta en el paso siguiente, no todavía.
 
 No hay que tocar CORS (la API REST de Supabase acepta cualquier origen) ni las _Redirect URLs_ (solo
 importan con enlaces mágicos u OAuth, y aquí es email + contraseña).
