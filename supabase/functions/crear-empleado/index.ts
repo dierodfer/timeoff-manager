@@ -14,13 +14,21 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+interface Periodo {
+  start: string
+  end: string | null
+}
+
 interface Alta {
   firstName: string
   lastName?: string
   password: string
   role?: 'admin' | 'employee'
   isSeasonal?: boolean
-  startDate?: string
+  // El formulario de empleado siempre manda al menos uno (el mismo invariante que
+  // Employee.activityPeriods en el cliente): un fijo, uno abierto hoy; un fijo discontinuo,
+  // sus llamamientos ya conocidos. Si no llega ninguno, un único periodo abierto hoy.
+  activityPeriods?: Periodo[]
 }
 
 function responde(body: Record<string, unknown>, status: number): Response {
@@ -132,10 +140,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return responde({ error: errorFicha?.message ?? 'No se pudo crear la ficha.' }, 400)
   }
 
-  const { error: errorPeriodo } = await admin.from('activity_periods').insert({
-    employee_id: ficha.id,
-    start_date: alta.startDate ?? new Date().toISOString().slice(0, 10),
-  })
+  const periodos =
+    alta.activityPeriods && alta.activityPeriods.length > 0
+      ? alta.activityPeriods
+      : [{ start: new Date().toISOString().slice(0, 10), end: null }]
+
+  // Un solo insert con todas las filas: es una única sentencia, así que si el
+  // constraint de no-solape o el de «como mucho un periodo abierto» rechaza
+  // cualquiera de ellas, no se llega a escribir ninguna — no hay que deshacer
+  // periodos a medias.
+  const { error: errorPeriodo } = await admin.from('activity_periods').insert(
+    periodos.map((periodo) => ({
+      employee_id: ficha.id,
+      start_date: periodo.start,
+      end_date: periodo.end,
+    })),
+  )
   if (errorPeriodo) {
     await admin.from('employees').delete().eq('id', ficha.id)
     await admin.auth.admin.deleteUser(creado.user.id)

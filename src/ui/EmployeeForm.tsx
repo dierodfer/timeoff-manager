@@ -4,10 +4,12 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { newId } from '../data/ids'
 import { isValidPin, PIN_RULE } from '../data/pin'
+import { isValidPassword, PASSWORD_RULE } from '../data/password'
 import { initialActivityPeriods } from '../data/seed'
 import { periodsOverlap } from '../domain/accrual'
 import { addDays, compareIso, isoOf, todayIso, yearStart } from '../domain/dates'
 import type { ActivityPeriod, Employee, IsoDate, Role } from '../domain/types'
+import type { Mode } from '../state/appContext'
 
 // react-datepicker interpreta sus Date en hora local: aquí nunca toUtcDate()/toIso().
 function isoToLocalDate(iso: IsoDate): Date {
@@ -25,7 +27,8 @@ export interface EmployeeFormValues {
   role: Role
   isSeasonal: boolean
   activityPeriods: ActivityPeriod[]
-  pin: string
+  /** PIN en modo local, contraseña en modo empresa. Vacío al editar es «no cambiarlo». */
+  secret: string
 }
 
 function initialValues(employee: Employee | null, year: number): EmployeeFormValues {
@@ -35,19 +38,27 @@ function initialValues(employee: Employee | null, year: number): EmployeeFormVal
     role: employee?.role ?? 'employee',
     isSeasonal: employee?.isSeasonal ?? false,
     activityPeriods: employee?.activityPeriods ?? initialActivityPeriods(yearStart(year)),
-    pin: '',
+    secret: '',
   }
 }
 
 interface EmployeeFormProps {
   readonly employee: Employee | null
   readonly year: number
+  readonly mode: Mode
   readonly onSubmit: (values: EmployeeFormValues) => void
   readonly formId: string
   readonly onError: (message: string) => void
 }
 
-export function EmployeeForm({ employee, year, onSubmit, formId, onError }: EmployeeFormProps) {
+export function EmployeeForm({
+  employee,
+  year,
+  mode,
+  onSubmit,
+  formId,
+  onError,
+}: EmployeeFormProps) {
   const [values, setValues] = useState(() => initialValues(employee, year))
   const isNew = employee === null
   const today = todayIso()
@@ -89,8 +100,12 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
     event.preventDefault()
 
     if (!values.firstName.trim()) return onError('El nombre es obligatorio.')
-    if (isNew && !isValidPin(values.pin)) return onError(PIN_RULE)
-    if (values.pin && !isValidPin(values.pin)) return onError(PIN_RULE)
+    if (mode === 'local') {
+      if (!isValidPin(values.secret)) return onError(PIN_RULE)
+    } else {
+      if (isNew && !values.secret) return onError('La contraseña es obligatoria.')
+      if (!isValidPassword(values.secret)) return onError(PASSWORD_RULE)
+    }
     if (periods.length === 0) return onError('Añade al menos un periodo de actividad.')
     if (periods.some((period) => period.end !== null && period.end < period.start)) {
       return onError('Hay un periodo de actividad con la fecha final anterior a la inicial.')
@@ -281,19 +296,28 @@ export function EmployeeForm({ employee, year, onSubmit, formId, onError }: Empl
       </div>
 
       <div>
-        <label className="label" htmlFor="employee-pin">
-          {isNew ? 'PIN de acceso (opcional)' : 'Nuevo PIN (dejar vacío para no cambiarlo)'}
+        <label className="label" htmlFor="employee-secret">
+          {mode === 'local'
+            ? isNew
+              ? 'PIN de acceso (opcional)'
+              : 'Nuevo PIN (dejar vacío para no cambiarlo)'
+            : isNew
+              ? 'Contraseña de acceso'
+              : 'Nueva contraseña (dejar vacío para no cambiarla)'}
         </label>
         <input
-          id="employee-pin"
+          id="employee-secret"
           type="password"
-          inputMode="numeric"
+          inputMode={mode === 'local' ? 'numeric' : undefined}
           autoComplete="new-password"
+          required={mode === 'empresa' && isNew}
           className="field tabular"
-          value={values.pin}
-          onChange={(event) => patch({ pin: event.target.value })}
+          value={values.secret}
+          onChange={(event) => patch({ secret: event.target.value })}
         />
-        <p className="mt-1 text-xs text-[var(--color-ink-muted)]">{PIN_RULE}</p>
+        <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+          {mode === 'local' ? PIN_RULE : PASSWORD_RULE}
+        </p>
       </div>
     </form>
   )
