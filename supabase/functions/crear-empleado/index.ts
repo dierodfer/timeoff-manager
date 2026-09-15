@@ -38,6 +38,44 @@ function responde(body: Record<string, unknown>, status: number): Response {
   })
 }
 
+type AdminClient = ReturnType<typeof createClient>
+
+type Autorizacion =
+  | { ok: true; solicitante: { id: string; org_id: string; role: string } }
+  | { ok: false; error: string; status: number }
+
+// El rol se lee de la base de datos, nunca del token: un JWT no dice si eres administrador de
+// esta aplicación.
+async function autorizar(admin: AdminClient, token: string): Promise<Autorizacion> {
+  const { data: quienLlama, error: errorToken } = await admin.auth.getUser(token)
+  if (errorToken || !quienLlama.user) return { ok: false, error: 'Sesión no válida.', status: 401 }
+
+  const { data: solicitante } = await admin
+    .from('employees')
+    .select('id, org_id, role')
+    .eq('user_id', quienLlama.user.id)
+    .maybeSingle()
+
+  if (!solicitante) return { ok: false, error: 'No tienes ficha de empleado.', status: 403 }
+  if (solicitante.role !== 'admin') {
+    return { ok: false, error: 'Solo un administrador puede dar de alta.', status: 403 }
+  }
+  return { ok: true, solicitante }
+}
+
+// Email interno: nadie lo teclea ni recibe correo en él, solo identifica al usuario ante
+// Supabase Auth. Se deriva del nombre y se desambigua con la hora, para que dos «Luis Peón» no
+// choquen.
+function derivarEmail(firstName: string, lastName: string, slug: string): string {
+  const base = `${firstName} ${lastName}`
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.|\.$/g, '')
+  return `${base}.${Date.now().toString(36)}@${slug}.local`
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return responde({ error: 'Método no permitido.' }, 405)
@@ -53,21 +91,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // sabemos quién llama sin fiarnos de nada que venga en el cuerpo.
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
 
-  const { data: quienLlama, error: errorToken } = await admin.auth.getUser(token)
-  if (errorToken || !quienLlama.user) return responde({ error: 'Sesión no válida.' }, 401)
-
-  // El rol se lee de la base de datos, nunca del token: un JWT no dice si eres
-  // administrador de esta aplicación.
-  const { data: solicitante } = await admin
-    .from('employees')
-    .select('id, org_id, role')
-    .eq('user_id', quienLlama.user.id)
-    .maybeSingle()
-
-  if (!solicitante) return responde({ error: 'No tienes ficha de empleado.' }, 403)
-  if (solicitante.role !== 'admin') {
-    return responde({ error: 'Solo un administrador puede dar de alta.' }, 403)
-  }
+  const autorizacion = await autorizar(admin, token)
+  if (!autorizacion.ok) return responde({ error: autorizacion.error }, autorizacion.status)
+  const { solicitante } = autorizacion
 
   let alta: Alta
   try {
@@ -99,16 +125,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (!empresa) return responde({ error: 'No se encuentra la empresa.' }, 500)
 
-  // Email interno: nadie lo teclea ni recibe correo en él, solo identifica al
-  // usuario ante Supabase Auth. Se deriva del nombre y se desambigua con la
-  // hora, para que dos «Luis Peón» no choquen.
-  const base = `${firstName} ${lastName}`
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '.')
-    .replace(/^\.|\.$/g, '')
-  const email = `${base}.${Date.now().toString(36)}@${empresa.slug}.local`
+  const email = derivarEmail(firstName, lastName, empresa.slug)
 
   const { data: creado, error: errorAlta } = await admin.auth.admin.createUser({
     email,

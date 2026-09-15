@@ -45,12 +45,75 @@ function periodsEqual(a: Employee['activityPeriods'], b: Employee['activityPerio
   const byId = new Map(a.map((period) => [period.id, period]))
   return b.every((period) => {
     const previous = byId.get(period.id)
-    return previous !== undefined && previous.start === period.start && previous.end === period.end
+    return previous?.start === period.start && previous?.end === period.end
   })
+}
+
+interface EmployeesDiff {
+  update: Employee[]
+  delete: string[]
+  activityPeriodsReplaceFor: string[]
+}
+
+function diffEmployees(previous: Employee[], next: Employee[]): EmployeesDiff {
+  const previousById = new Map(previous.map((employee) => [employee.id, employee]))
+  const nextIds = new Set(next.map((employee) => employee.id))
+
+  const update: Employee[] = []
+  const activityPeriodsReplaceFor: string[] = []
+  for (const employee of next) {
+    const before = previousById.get(employee.id)
+    if (!before) continue // alta: ya se escribió por la Edge Function antes de llegar aquí
+    if (!employeeColumnsEqual(before, employee)) update.push(employee)
+    if (!periodsEqual(before.activityPeriods, employee.activityPeriods)) {
+      activityPeriodsReplaceFor.push(employee.id)
+    }
+  }
+  const deleted = previous
+    .filter((employee) => !nextIds.has(employee.id))
+    .map((employee) => employee.id)
+
+  return { update, delete: deleted, activityPeriodsReplaceFor }
 }
 
 function holidayColumnsEqual(a: Holiday, b: Holiday): boolean {
   return a.date === b.date && a.name === b.name && a.scope === b.scope
+}
+
+function diffHolidays(previous: Holiday[], next: Holiday[]): DatabaseDiff['holidays'] {
+  const previousById = new Map(previous.map((holiday) => [holiday.id, holiday]))
+  const nextIds = new Set(next.map((holiday) => holiday.id))
+
+  const insert: Holiday[] = []
+  const update: Holiday[] = []
+  for (const holiday of next) {
+    const before = previousById.get(holiday.id)
+    if (!before) insert.push(holiday)
+    else if (!holidayColumnsEqual(before, holiday)) update.push(holiday)
+  }
+  const deleted = previous
+    .filter((holiday) => !nextIds.has(holiday.id))
+    .map((holiday) => holiday.id)
+
+  return { insert, update, delete: deleted }
+}
+
+function allowanceKey(allowance: Allowance): string {
+  return `${allowance.employeeId}:${allowance.year}`
+}
+
+function diffAllowances(previous: Allowance[], next: Allowance[]): DatabaseDiff['allowances'] {
+  const previousByKey = new Map(previous.map((item) => [allowanceKey(item), item]))
+  const nextKeys = new Set(next.map(allowanceKey))
+
+  const upsert = next.filter(
+    (allowance) => previousByKey.get(allowanceKey(allowance))?.days !== allowance.days,
+  )
+  const deleted = previous
+    .filter((allowance) => !nextKeys.has(allowanceKey(allowance)))
+    .map((allowance) => ({ employeeId: allowance.employeeId, year: allowance.year }))
+
+  return { upsert, delete: deleted }
 }
 
 function requestColumnsEqual(a: VacationRequest, b: VacationRequest): boolean {
@@ -72,6 +135,55 @@ function daysEqual(a: readonly string[], b: readonly string[]): boolean {
   return b.every((day) => set.has(day))
 }
 
+interface RequestsDiff {
+  insert: VacationRequest[]
+  update: VacationRequest[]
+  delete: string[]
+  requestDaysReplaceFor: string[]
+}
+
+function diffRequests(previous: VacationRequest[], next: VacationRequest[]): RequestsDiff {
+  const previousById = new Map(previous.map((request) => [request.id, request]))
+  const nextIds = new Set(next.map((request) => request.id))
+
+  const insert: VacationRequest[] = []
+  const update: VacationRequest[] = []
+  const requestDaysReplaceFor: string[] = []
+  for (const request of next) {
+    const before = previousById.get(request.id)
+    if (!before) {
+      insert.push(request)
+      requestDaysReplaceFor.push(request.id)
+      continue
+    }
+    if (!requestColumnsEqual(before, request)) update.push(request)
+    if (!daysEqual(before.days, request.days)) requestDaysReplaceFor.push(request.id)
+  }
+  const deleted = previous
+    .filter((request) => !nextIds.has(request.id))
+    .map((request) => request.id)
+
+  return { insert, update, delete: deleted, requestDaysReplaceFor }
+}
+
+// Se compara por id a través de TODAS las solicitudes anteriores, no solicitud a solicitud,
+// porque separar un día (resolveRequestDay()/addRequestDayComment()) mueve el hilo entero a una
+// solicitud con un id distinto, regenerando también el id de cada comentario copiado: cualquier
+// id que no existiera antes en ninguna solicitud es, por definición, una fila nueva que insertar.
+function diffComments(
+  previous: VacationRequest[],
+  next: VacationRequest[],
+): DatabaseDiff['comments']['insert'] {
+  const previousCommentIds = new Set(
+    previous.flatMap((request) => request.comments.map((comment) => comment.id)),
+  )
+  return next.flatMap((request) =>
+    request.comments
+      .filter((comment) => !previousCommentIds.has(comment.id))
+      .map((comment) => ({ requestId: request.id, comment })),
+  )
+}
+
 /**
  * Compara dos capturas del `Database` y devuelve solo lo que cambió, por tabla, en el orden en
  * que `supabaseRepository.save()` debe escribirlo. `activityPeriods` y `requestDays` se
@@ -84,92 +196,20 @@ function daysEqual(a: readonly string[], b: readonly string[]): boolean {
  * crear antes el usuario de Auth), nunca por aquí — ver `AppContextValue.createEmployee`.
  *
  * `comments` solo lleva `insert` porque `request_comments` no tiene permiso de `update` ni
- * `delete`: un comentario es inmutable una vez escrito. Se compara por id a través de TODAS las
- * solicitudes anteriores, no solicitud a solicitud, porque separar un día
- * (`resolveRequestDay()`/`addRequestDayComment()`) mueve el hilo entero a una solicitud con un
- * id distinto, regenerando también el id de cada comentario copiado: cualquier id que no
- * existiera antes en ninguna solicitud es, por definición, una fila nueva que insertar.
+ * `delete`: un comentario es inmutable una vez escrito.
  */
 export function diffDatabase(previous: Database, next: Database): DatabaseDiff {
-  const settings = settingsEqual(previous.settings, next.settings) ? null : next.settings
-
-  const previousEmployees = new Map(previous.employees.map((employee) => [employee.id, employee]))
-  const nextEmployees = new Map(next.employees.map((employee) => [employee.id, employee]))
-
-  const employeeUpdates: Employee[] = []
-  const activityPeriodsReplaceFor: string[] = []
-  for (const employee of next.employees) {
-    const before = previousEmployees.get(employee.id)
-    if (!before) continue // alta: ya se escribió por la Edge Function antes de llegar aquí
-    if (!employeeColumnsEqual(before, employee)) employeeUpdates.push(employee)
-    if (!periodsEqual(before.activityPeriods, employee.activityPeriods)) {
-      activityPeriodsReplaceFor.push(employee.id)
-    }
-  }
-  const employeeDeletes = previous.employees
-    .filter((employee) => !nextEmployees.has(employee.id))
-    .map((employee) => employee.id)
-
-  const previousHolidays = new Map(previous.holidays.map((holiday) => [holiday.id, holiday]))
-  const nextHolidays = new Map(next.holidays.map((holiday) => [holiday.id, holiday]))
-  const holidayInserts: Holiday[] = []
-  const holidayUpdates: Holiday[] = []
-  for (const holiday of next.holidays) {
-    const before = previousHolidays.get(holiday.id)
-    if (!before) holidayInserts.push(holiday)
-    else if (!holidayColumnsEqual(before, holiday)) holidayUpdates.push(holiday)
-  }
-  const holidayDeletes = previous.holidays
-    .filter((holiday) => !nextHolidays.has(holiday.id))
-    .map((holiday) => holiday.id)
-
-  const allowanceKey = (allowance: Allowance) => `${allowance.employeeId}:${allowance.year}`
-  const previousAllowances = new Map(previous.allowances.map((item) => [allowanceKey(item), item]))
-  const nextAllowanceKeys = new Set(next.allowances.map(allowanceKey))
-  const allowanceUpserts = next.allowances.filter((allowance) => {
-    const before = previousAllowances.get(allowanceKey(allowance))
-    return !before || before.days !== allowance.days
-  })
-  const allowanceDeletes = previous.allowances
-    .filter((allowance) => !nextAllowanceKeys.has(allowanceKey(allowance)))
-    .map((allowance) => ({ employeeId: allowance.employeeId, year: allowance.year }))
-
-  const previousRequests = new Map(previous.requests.map((request) => [request.id, request]))
-  const nextRequests = new Map(next.requests.map((request) => [request.id, request]))
-  const requestInserts: VacationRequest[] = []
-  const requestUpdates: VacationRequest[] = []
-  const requestDaysReplaceFor: string[] = []
-  for (const request of next.requests) {
-    const before = previousRequests.get(request.id)
-    if (!before) {
-      requestInserts.push(request)
-      requestDaysReplaceFor.push(request.id)
-      continue
-    }
-    if (!requestColumnsEqual(before, request)) requestUpdates.push(request)
-    if (!daysEqual(before.days, request.days)) requestDaysReplaceFor.push(request.id)
-  }
-  const requestDeletes = previous.requests
-    .filter((request) => !nextRequests.has(request.id))
-    .map((request) => request.id)
-
-  const previousCommentIds = new Set(
-    previous.requests.flatMap((request) => request.comments.map((comment) => comment.id)),
-  )
-  const commentInserts = next.requests.flatMap((request) =>
-    request.comments
-      .filter((comment) => !previousCommentIds.has(comment.id))
-      .map((comment) => ({ requestId: request.id, comment })),
-  )
+  const employees = diffEmployees(previous.employees, next.employees)
+  const requests = diffRequests(previous.requests, next.requests)
 
   return {
-    settings,
-    employees: { update: employeeUpdates, delete: employeeDeletes },
-    activityPeriods: { replaceFor: activityPeriodsReplaceFor },
-    holidays: { insert: holidayInserts, update: holidayUpdates, delete: holidayDeletes },
-    allowances: { upsert: allowanceUpserts, delete: allowanceDeletes },
-    requests: { insert: requestInserts, update: requestUpdates, delete: requestDeletes },
-    requestDays: { replaceFor: requestDaysReplaceFor },
-    comments: { insert: commentInserts },
+    settings: settingsEqual(previous.settings, next.settings) ? null : next.settings,
+    employees: { update: employees.update, delete: employees.delete },
+    activityPeriods: { replaceFor: employees.activityPeriodsReplaceFor },
+    holidays: diffHolidays(previous.holidays, next.holidays),
+    allowances: diffAllowances(previous.allowances, next.allowances),
+    requests: { insert: requests.insert, update: requests.update, delete: requests.delete },
+    requestDays: { replaceFor: requests.requestDaysReplaceFor },
+    comments: { insert: diffComments(previous.requests, next.requests) },
   }
 }

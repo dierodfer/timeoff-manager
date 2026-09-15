@@ -31,6 +31,34 @@ export interface EmployeeFormValues {
   secret: string
 }
 
+function validateSecret(mode: Mode, isNew: boolean, secret: string): string | null {
+  if (mode === 'local') return isValidPin(secret) ? null : PIN_RULE
+  if (isNew && !secret) return 'La contraseña es obligatoria.'
+  return isValidPassword(secret) ? null : PASSWORD_RULE
+}
+
+function validatePeriods(periods: ActivityPeriod[], openIndex: number): string | null {
+  if (periods.length === 0) return 'Añade al menos un periodo de actividad.'
+  if (periods.some((period) => period.end !== null && period.end < period.start)) {
+    return 'Hay un periodo de actividad con la fecha final anterior a la inicial.'
+  }
+  if (periodsOverlap(periods)) return 'Hay dos periodos de actividad que se solapan entre sí.'
+  if (periods.filter((period) => period.end === null).length > 1) {
+    return 'Solo puede haber un periodo en curso.'
+  }
+  if (openIndex !== -1 && openIndex !== periods.length - 1) {
+    return 'El periodo en curso tiene que ser el último.'
+  }
+  return null
+}
+
+function secretLabel(mode: Mode, isNew: boolean): string {
+  if (mode === 'local') {
+    return isNew ? 'PIN de acceso (opcional)' : 'Nuevo PIN (dejar vacío para no cambiarlo)'
+  }
+  return isNew ? 'Contraseña de acceso' : 'Nueva contraseña (dejar vacío para no cambiarla)'
+}
+
 function initialValues(employee: Employee | null, year: number): EmployeeFormValues {
   return {
     firstName: employee?.firstName ?? '',
@@ -100,25 +128,12 @@ export function EmployeeForm({
     event.preventDefault()
 
     if (!values.firstName.trim()) return onError('El nombre es obligatorio.')
-    if (mode === 'local') {
-      if (!isValidPin(values.secret)) return onError(PIN_RULE)
-    } else {
-      if (isNew && !values.secret) return onError('La contraseña es obligatoria.')
-      if (!isValidPassword(values.secret)) return onError(PASSWORD_RULE)
-    }
-    if (periods.length === 0) return onError('Añade al menos un periodo de actividad.')
-    if (periods.some((period) => period.end !== null && period.end < period.start)) {
-      return onError('Hay un periodo de actividad con la fecha final anterior a la inicial.')
-    }
-    if (periodsOverlap(periods)) {
-      return onError('Hay dos periodos de actividad que se solapan entre sí.')
-    }
-    if (periods.filter((period) => period.end === null).length > 1) {
-      return onError('Solo puede haber un periodo en curso.')
-    }
-    if (openIndex !== -1 && openIndex !== periods.length - 1) {
-      return onError('El periodo en curso tiene que ser el último.')
-    }
+
+    const secretError = validateSecret(mode, isNew, values.secret)
+    if (secretError) return onError(secretError)
+
+    const periodsError = validatePeriods(periods, openIndex)
+    if (periodsError) return onError(periodsError)
 
     onSubmit({ ...values, activityPeriods: periods })
   }
@@ -297,13 +312,7 @@ export function EmployeeForm({
 
       <div>
         <label className="label" htmlFor="employee-secret">
-          {mode === 'local'
-            ? isNew
-              ? 'PIN de acceso (opcional)'
-              : 'Nuevo PIN (dejar vacío para no cambiarlo)'
-            : isNew
-              ? 'Contraseña de acceso'
-              : 'Nueva contraseña (dejar vacío para no cambiarla)'}
+          {secretLabel(mode, isNew)}
         </label>
         <input
           id="employee-secret"
