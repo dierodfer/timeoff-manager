@@ -234,8 +234,13 @@ $$;
 -- -----------------------------------------------------------------------------
 -- Los grants van primero: sin ellos la API responde «permission denied» aunque las
 -- políticas sean correctas. A `anon` no se le concede nada.
+--
+-- `service_role` también necesita los suyos: salta las políticas de RLS (tiene
+-- `bypassrls`), pero un grant de tabla es un permiso aparte que RLS no sustituye. Sin
+-- esto, las Edge Functions —que usan la service_role key justo para saltarse RLS—
+-- reciben el mismo «permission denied» al leer o escribir cualquiera de estas tablas.
 
-grant usage on schema public to authenticated;
+grant usage on schema public to authenticated, service_role;
 
 grant select, update                 on public.organizations         to authenticated;
 grant select, insert, update, delete on public.employees             to authenticated;
@@ -245,6 +250,15 @@ grant select, insert, update, delete on public.allowances            to authenti
 grant select, insert, update, delete on public.vacation_requests     to authenticated;
 grant select, insert, update, delete on public.vacation_request_days to authenticated;
 grant select, insert                 on public.request_comments      to authenticated;
+
+grant select, insert, update, delete on public.organizations         to service_role;
+grant select, insert, update, delete on public.employees             to service_role;
+grant select, insert, update, delete on public.activity_periods      to service_role;
+grant select, insert, update, delete on public.holidays              to service_role;
+grant select, insert, update, delete on public.allowances            to service_role;
+grant select, insert, update, delete on public.vacation_requests     to service_role;
+grant select, insert, update, delete on public.vacation_request_days to service_role;
+grant select, insert, update, delete on public.request_comments      to service_role;
 
 do $$
 declare t text;
