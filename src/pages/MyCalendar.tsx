@@ -36,6 +36,9 @@ export function MyCalendar() {
     (isAdmin && viewableEmployees.find((employee) => employee.id === params.get('empleado'))) ||
     currentUser
   const viewingSelf = viewedEmployee.id === currentUser.id
+  // Seleccionando por otra persona no se pregunta: queda aprobada directamente, sin pasar por
+  // solicitud pendiente — el checkbox de «crear aprobadas» solo tiene sentido en el propio calendario.
+  const effectiveApproved = !viewingSelf || asApproved
   const requestsPath = viewingSelf
     ? '/mis-solicitudes'
     : `/mis-solicitudes?empleado=${viewedEmployee.id}`
@@ -103,7 +106,7 @@ export function MyCalendar() {
       createVacation(db, {
         employeeId: viewedEmployee.id,
         days: selectedDays,
-        status: asApproved ? 'aprobada' : 'pendiente',
+        status: effectiveApproved ? 'aprobada' : 'pendiente',
         authorId: currentUser.id,
         comment,
       }),
@@ -111,7 +114,9 @@ export function MyCalendar() {
     if (ok) {
       const forThem = viewingSelf ? '' : ` para ${displayName(viewedEmployee)}`
       notify(
-        asApproved ? `Vacaciones creadas y aprobadas${forThem}.` : `Solicitud enviada${forThem}.`,
+        effectiveApproved
+          ? `Vacaciones creadas y aprobadas${forThem}.`
+          : `Solicitud enviada${forThem}.`,
       )
       clear()
       setComment('')
@@ -200,8 +205,16 @@ export function MyCalendar() {
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--color-ink-soft)]">
               <li>Solo puedes seleccionar días laborables.</li>
-              <li>Las solicitudes quedan pendientes hasta que las aprueba un administrador.</li>
-              <li>Puedes cancelar una solicitud mientras siga pendiente.</li>
+              {viewingSelf ? (
+                <>
+                  <li>Las solicitudes quedan pendientes hasta que las aprueba un administrador.</li>
+                  <li>Puedes cancelar una solicitud mientras siga pendiente.</li>
+                </>
+              ) : (
+                <li>
+                  Al seleccionar por esta persona, sus vacaciones quedan aprobadas directamente.
+                </li>
+              )}
             </ul>
           </section>
         </div>
@@ -224,7 +237,7 @@ export function MyCalendar() {
                 Cancelar
               </button>
               <button type="button" className="btn btn-primary" onClick={submit}>
-                {asApproved ? 'Crear aprobadas' : 'Enviar solicitud'}
+                {effectiveApproved ? 'Crear aprobadas' : 'Enviar solicitud'}
               </button>
             </>
           }
@@ -244,7 +257,7 @@ export function MyCalendar() {
               />
             </div>
 
-            {isAdmin && (
+            {isAdmin && viewingSelf && (
               <label className="hairline flex items-center gap-3 rounded-[var(--radius-control)] border p-3 text-sm">
                 <input
                   type="checkbox"
@@ -253,6 +266,13 @@ export function MyCalendar() {
                 />{' '}
                 Crear directamente como aprobadas, sin pasar por solicitud
               </label>
+            )}
+
+            {isAdmin && !viewingSelf && (
+              <p className="text-xs text-[var(--color-ink-muted)]">
+                Al seleccionar por otra persona, sus vacaciones quedan aprobadas directamente, sin
+                pasar por solicitud pendiente.
+              </p>
             )}
 
             <p className="text-xs text-[var(--color-ink-muted)]">

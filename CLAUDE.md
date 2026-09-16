@@ -57,10 +57,13 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
 
 - **Día laborable:** de lunes a sábado, descontando festivos. La jornada semanal es configurable en
   Ajustes (`Settings.workweek`, donde `0` es domingo y `6` sábado).
-- **Estimación:** `0,0737 × días trabajados`, **sin redondear** y limitada a la base anual, que
-  funciona como tope. Un «día trabajado» es un día de `Settings.workweek` dentro de los tramos en
-  activo; los festivos no se descuentan. Con la jornada de lunes a sábado un año completo son 313
-  días → 23,07, que el tope deja en 23. Se aplica igual a todos los empleados.
+- **Estimación:** proporcional a los días de alta en el año — `días de alta × base anual / días
+del año` (365 o 366, `daysInYear()`) —, redondeada a 2 decimales (`roundDays()`,
+  `domain/format.ts`). «Días de alta» son los días naturales de `activityIntervalsInYear()`
+  dentro del año, no solo los de `Settings.workweek`: un tramo cerrado a mitad de año cuenta sus
+  días de calendario, festivos y domingos incluidos. Como esos días nunca superan los del año, el
+  resultado nunca supera la base anual sin necesidad de un tope aparte. Se aplica igual a todos
+  los empleados.
 - **La relación laboral de un empleado es una lista de periodos de actividad**
   (`Employee.activityPeriods`), no un par alta/baja. Un fijo tiene normalmente uno; un fijo
   discontinuo, uno por llamamiento; y cualquiera acumula varios al darse de baja y volver. El
@@ -127,6 +130,11 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   no se añaden a la selección.
 - **El límite se aplica también al administrador.** Para asignar más días hay que subir antes el
   contador del empleado. Tampoco se puede bajar el contador por debajo de lo ya comprometido.
+- **Un administrador puede seleccionar días en el calendario de otra persona** (selector «Ver
+  calendario de» en Mi calendario) y crearle vacaciones directamente: a diferencia de su propio
+  calendario, ahí no se pregunta — quedan `aprobada` sin pasar por `pendiente`, porque quien las crea
+  ya es quien las aprobaría. El checkbox «Crear directamente como aprobadas» solo aparece cuando el
+  administrador mira su propio calendario, donde sí tiene sentido elegir.
 - **Cancelación:** el empleado solo retira solicitudes `pendiente`. El administrador puede eliminar
   cualquiera, incluidas las aprobadas, y los días vuelven al saldo.
 - **Una selección a caballo entre dos años genera una solicitud por año**, porque el saldo es anual.
@@ -143,13 +151,14 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   `rehireEmployee()` en `state/actions.ts`, que devuelven `Outcome` como el resto del fichero, y
   también el `submit()` del formulario.
 - **Los días trabajados que pinta la lista de Empleados sólo llegan hasta hoy y descuentan
-  festivos** (`workedDaysBreakdown()`, en `domain/accrual.ts`), a diferencia de `workedDaysInYear()`,
-  que alimenta la estimación y que **no** descuenta festivos (ver la regla de Estimación, arriba). Son
-  dos cálculos a propósito distintos: uno es un dato de pantalla, el otro es dinero. Al contar día a
-  día si cada uno es laborable y no festivo, nunca puede dar negativo (un 1 de enero festivo cuenta
-  0, no −1). El desglose por tramos y la lista de festivos descontados salen del mismo cálculo y se
-  ven en un popover al pulsar la cifra (`ui/MetricInfo.tsx`); la de Estimación abre otro con la
-  cuenta (`0,0737 × días trabajados = ...`, y el tope si aplica).
+  festivos** (`workedDaysBreakdown()`, en `domain/accrual.ts`), a diferencia de `altaDaysInYear()`,
+  que alimenta la estimación y que cuenta días naturales, no de jornada (ver la regla de
+  Estimación, arriba). Son dos cálculos a propósito distintos: uno es un dato de pantalla, el otro
+  es dinero. Al contar día a día si cada uno es laborable y no festivo, `workedDaysBreakdown()`
+  nunca puede dar negativo (un 1 de enero festivo cuenta 0, no −1). El desglose por tramos y la
+  lista de festivos descontados salen del mismo cálculo y se ven en un popover al pulsar la cifra
+  (`ui/MetricInfo.tsx`); la de Estimación abre otro con la cuenta (`días de alta × base anual /
+días del año = ...`).
 - **«Aprobados» y «Pendientes» de una fila de Empleados enlazan a la persona**: «Ver calendario»
   abre `/?empleado=<id>` (Mi calendario, viendo a esa persona) y «Ver solicitudes» abre
   `/solicitudes?empleado=<id>`, que acota la bandeja de Solicitudes a esa única tarjeta con un
@@ -255,11 +264,12 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
 - **El formulario de festivos de Ajustes se remonta con `key={year}`.** Sin eso la fecha propuesta
   se queda en el año en que se montó y añadir un festivo desde otro año lo mete en el año
   equivocado, donde no se ve.
-- **La sección General de Ajustes (nombre, tope anual, jornada) no guarda al vuelo.** A diferencia
-  de Festivos, cuyas acciones ya son un `commit()` cada una, esos tres campos viven en un `draft`
-  local hasta que se pulsa «Guardar cambios» — el botón se deshabilita cuando `draft` coincide con
-  `database.settings` (`settingsEqual()`). Si se vuelve a un `onBlur`/`onChange` que haga `commit()`
-  directo, el botón deja de reflejar si hay algo sin guardar.
+- **Ninguna sección de Ajustes guarda al vuelo.** General (nombre, tope anual, jornada) y Festivos
+  tienen cada una su propio `draft` local (`settingsEqual()`/`holidaysEqual()`) y su propio botón
+  «Guardar cambios», deshabilitado hasta que el borrador difiere de lo guardado — son dos borradores
+  independientes, se puede tener uno sin guardar y el otro no. Añadir, renombrar, eliminar o cargar
+  oficiales en Festivos solo tocan `holidayDraft`; si se vuelve a un `commit()` directo en cualquiera
+  de los dos, el botón correspondiente deja de reflejar si hay algo sin guardar.
 - **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva:
   al abrir la aplicación por IP en la red local no está disponible.
 - **`crypto.randomUUID()` también exige contexto seguro**, así que los identificadores (`ids.ts`) y
@@ -444,7 +454,7 @@ entra en el bundle lo que se usa.
 
 **La barra lateral (`ui/AppSidebar.tsx`) es CSS propio, no una librería.** Antes era
 `react-pro-sidebar`: 204 KB de fuente más el runtime de emotion, para cuatro enlaces estáticos.
-Fijo por encima de `lg` (`lg:static lg:translate-x-0`) y cajón deslizante por debajo
+Fijo por encima de `xl` (`xl:static xl:translate-x-0`) y cajón deslizante por debajo
 (`fixed … -translate-x-full`, con `translate-x-0` cuando `toggled`), con un botón a pantalla
 completa de fondo oscurecido para cerrarlo — el botón de menú de la cabecera lo abre. El enlace
 activo lo pinta `.sidebar-link[aria-current='page']`: `NavLink` pone ese atributo solo, no hace

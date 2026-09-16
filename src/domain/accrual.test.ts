@@ -1,23 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ACCRUAL_PER_WORKED_DAY,
   activityIntervalsInYear,
+  altaDaysInYear,
   effectiveAnnualDays,
   estimateAnnualDays,
   hasOverlap,
   isActive,
   isActiveInYear,
   periodsOverlap,
-  workedDaysInYear,
-  workedDaysToDate,
+  workedDaysBreakdown,
 } from './accrual'
+import type { Holiday } from './types'
+import { buildWorkCalendar } from './workdays'
 import { makeEmployee, makePeriod, testSettings } from './fixtures'
 
 const TODAY = '2026-06-15'
-const WORKWEEK = testSettings.workweek // lunes a sábado
+const CALENDAR = buildWorkCalendar([], testSettings)
 
-const worked = (employee: ReturnType<typeof makeEmployee>, year = 2026) =>
-  workedDaysInYear(employee, year, WORKWEEK)
+const alta = (employee: ReturnType<typeof makeEmployee>, year = 2026) =>
+  altaDaysInYear(employee, year)
 const estimate = (employee: ReturnType<typeof makeEmployee>, year = 2026) =>
   estimateAnnualDays(employee, year, testSettings)
 
@@ -107,80 +108,100 @@ describe('activityIntervalsInYear', () => {
   })
 })
 
-describe('días trabajados', () => {
-  it('cuenta los días de la jornada semanal, sin domingos', () => {
-    // 2026 tiene 365 días y 52 domingos: 313 días de lunes a sábado.
-    expect(worked(makeEmployee())).toBe(313)
-  })
-
-  it('no descuenta los festivos', () => {
-    // La base anual se define sobre los días de jornada, no sobre los
-    // efectivamente trabajados, así que los 14 festivos siguen contando.
-    expect(worked(makeEmployee())).toBeGreaterThan(300)
-  })
-
-  it('respeta una jornada semanal más corta', () => {
-    expect(workedDaysInYear(makeEmployee(), 2026, [1, 2, 3, 4, 5])).toBe(261)
-  })
-})
-
-describe('días trabajados hasta hoy', () => {
-  const workedToDate = (employee: ReturnType<typeof makeEmployee>, year = 2026) =>
-    workedDaysToDate(employee, year, WORKWEEK, TODAY)
-
-  it('no cuenta los días que aún no han llegado', () => {
-    // Del 1 de enero al 15 de junio: 166 días menos 24 domingos, no los 313 del año entero.
-    expect(workedToDate(makeEmployee())).toBe(142)
-    expect(workedToDate(makeEmployee())).toBeLessThan(worked(makeEmployee()))
-  })
-
-  it('un periodo ya cerrado cuenta igual que en el devengo', () => {
-    const employee = makeEmployee({ activityPeriods: [makePeriod('2026-01-05', '2026-02-28')] })
-    expect(workedToDate(employee)).toBe(worked(employee))
-  })
-
-  it('un periodo que todavía no ha empezado no suma nada', () => {
-    expect(workedToDate(makeEmployee({ activityPeriods: [makePeriod('2026-09-01')] }))).toBe(0)
+describe('altaDaysInYear', () => {
+  it('cuenta los días naturales del año entero, domingos incluidos', () => {
+    expect(alta(makeEmployee())).toBe(365)
   })
 
   it('un año ya terminado cuenta entero', () => {
     const employee = makeEmployee({ activityPeriods: [makePeriod('2025-01-01')] })
-    expect(workedToDate(employee, 2025)).toBe(worked(employee, 2025))
+    expect(alta(employee, 2025)).toBe(365)
   })
 
-  it('no cambia la estimación, que sigue proyectando hasta fin de año', () => {
-    expect(estimate(makeEmployee())).toBe(testSettings.defaultAnnualDays)
+  it('un periodo que todavía no ha empezado en el año no suma nada', () => {
+    expect(alta(makeEmployee({ activityPeriods: [makePeriod('2027-01-01')] }))).toBe(0)
   })
 })
 
-describe('estimación a 0,0737 por día trabajado', () => {
-  it('un año completo queda en la base anual por el tope', () => {
-    // 313 días × 0,0737 = 23,0681, algo por encima de la base de 23: el tope
-    // lo deja justo en la base.
-    expect(313 * ACCRUAL_PER_WORKED_DAY).toBeGreaterThan(testSettings.defaultAnnualDays)
+describe('workedDaysBreakdown', () => {
+  const breakdown = (employee: ReturnType<typeof makeEmployee>, until = TODAY) =>
+    workedDaysBreakdown(employee, 2026, CALENDAR, until)
+
+  it('cuenta solo hasta `until`, sin llegar al año entero', () => {
+    // Del 1 de enero al 15 de junio: 166 días menos 24 domingos.
+    expect(breakdown(makeEmployee()).total).toBe(142)
+    expect(breakdown(makeEmployee()).total).toBeLessThan(
+      breakdown(makeEmployee(), '2026-12-31').total,
+    )
+  })
+
+  it('un periodo que todavía no ha empezado no suma nada', () => {
+    expect(breakdown(makeEmployee({ activityPeriods: [makePeriod('2026-09-01')] })).total).toBe(0)
+  })
+
+  it('descuenta los festivos que caen en día laborable', () => {
+    const holidays: Holiday[] = [
+      { id: 'h1', date: '2026-01-01', name: 'Año Nuevo', scope: 'nacional' },
+      { id: 'h2', date: '2026-01-04', name: 'Domingo festivo', scope: 'nacional' },
+    ]
+    const calendar = buildWorkCalendar(holidays, testSettings)
+    const withHolidays = workedDaysBreakdown(makeEmployee(), 2026, calendar, TODAY)
+    const withoutHolidays = workedDaysBreakdown(makeEmployee(), 2026, CALENDAR, TODAY)
+
+    // El 4 de enero de 2026 es domingo (no laborable): solo cuenta el 1 de enero.
+    expect(withHolidays.total).toBe(withoutHolidays.total - 1)
+    expect(withHolidays.holidays.map((h) => h.id)).toEqual(['h1'])
+  })
+
+  it('nunca da negativo: un festivo en el primer día de alta cuenta 0, no −1', () => {
+    const holidays: Holiday[] = [
+      { id: 'h1', date: '2026-01-01', name: 'Año Nuevo', scope: 'nacional' },
+    ]
+    const calendar = buildWorkCalendar(holidays, testSettings)
+    expect(workedDaysBreakdown(makeEmployee(), 2026, calendar, '2026-01-01').total).toBe(0)
+  })
+
+  it('un tramo por periodo de actividad, con su rango', () => {
+    const employee = makeEmployee({
+      activityPeriods: [makePeriod('2026-01-05', '2026-02-28'), makePeriod('2026-09-01')],
+    })
+    expect(breakdown(employee, '2026-12-31').ranges).toEqual([
+      { start: '2026-01-05', end: '2026-02-28', days: 48 },
+      { start: '2026-09-01', end: '2026-12-31', days: 105 },
+    ])
+  })
+})
+
+describe('estimación proporcional a los días de alta', () => {
+  it('un año completo da la base anual entera', () => {
     expect(estimate(makeEmployee())).toBe(testSettings.defaultAnnualDays)
   })
 
-  it('no redondea: el resultado es decimal', () => {
+  it('se redondea a 2 decimales', () => {
     const employee = makeEmployee({ activityPeriods: [makePeriod('2026-07-01')] })
     const days = estimate(employee)
     expect(Number.isInteger(days)).toBe(false)
-    expect(days).toBeCloseTo(worked(employee) * ACCRUAL_PER_WORKED_DAY, 6)
+    expect(days).toBe(Math.round(days * 100) / 100)
   })
 
-  it('prorratea a quien se da de alta a mitad de año', () => {
+  it('prorratea a quien se da de alta a mitad de año: días de alta × 23 / 365', () => {
     const employee = makeEmployee({ activityPeriods: [makePeriod('2026-07-01')] })
-    expect(worked(employee)).toBe(158)
-    expect(estimate(employee)).toBeCloseTo(11.6446, 4)
+    expect(alta(employee)).toBe(184)
+    expect(estimate(employee)).toBeCloseTo((184 * 23) / 365, 2)
   })
 
   it('no asigna días fuera de la relación laboral', () => {
     expect(estimate(makeEmployee({ activityPeriods: [makePeriod('2027-01-01')] }))).toBe(0)
   })
 
-  it('limita la estimación a la base anual', () => {
+  it('nunca supera la base anual, sin necesidad de un tope aparte', () => {
     const settings = { ...testSettings, defaultAnnualDays: 10 }
     expect(estimateAnnualDays(makeEmployee(), 2026, settings)).toBe(10)
+  })
+
+  it('un año bisiesto reparte sobre 366 días', () => {
+    const employee = makeEmployee({ activityPeriods: [makePeriod('2028-01-01')] })
+    expect(estimateAnnualDays(employee, 2028, testSettings)).toBe(testSettings.defaultAnnualDays)
   })
 })
 
@@ -194,7 +215,7 @@ describe('varios periodos de actividad en un mismo año', () => {
     })
     const segundoTramo = makeEmployee({ activityPeriods: [makePeriod('2026-09-01')] })
 
-    expect(worked(readmitido)).toBe(worked(primerTramo) + worked(segundoTramo))
+    expect(alta(readmitido)).toBe(alta(primerTramo) + alta(segundoTramo))
   })
 
   it('no cuenta el hueco entre dos periodos', () => {
@@ -202,7 +223,7 @@ describe('varios periodos de actividad en un mismo año', () => {
       activityPeriods: [makePeriod('2026-01-01', '2026-03-31'), makePeriod('2026-09-01')],
     })
     const sinHueco = makeEmployee({ activityPeriods: [makePeriod('2026-01-01')] })
-    expect(worked(conHueco)).toBeLessThan(worked(sinHueco))
+    expect(alta(conHueco)).toBeLessThan(alta(sinHueco))
   })
 })
 
@@ -212,8 +233,8 @@ describe('fijo discontinuo', () => {
       isSeasonal: true,
       activityPeriods: [makePeriod('2026-01-05', '2026-02-28')],
     })
-    expect(worked(employee)).toBe(48)
-    expect(estimate(employee)).toBeCloseTo(48 * ACCRUAL_PER_WORKED_DAY, 6)
+    expect(alta(employee)).toBe(55)
+    expect(estimate(employee)).toBeCloseTo((55 * 23) / 365, 2)
   })
 
   it('el periodo en curso llega hasta fin de año', () => {
@@ -222,10 +243,8 @@ describe('fijo discontinuo', () => {
       isSeasonal: true,
       activityPeriods: [makePeriod('2026-03-01', '2026-05-31')],
     })
-    expect(worked(enCurso)).toBe(
-      worked(makeEmployee({ activityPeriods: [makePeriod('2026-03-01')] })),
-    )
-    expect(worked(yaCerrado)).toBeLessThan(worked(enCurso))
+    expect(alta(enCurso)).toBe(alta(makeEmployee({ activityPeriods: [makePeriod('2026-03-01')] })))
+    expect(alta(yaCerrado)).toBeLessThan(alta(enCurso))
   })
 
   it('suma los llamamientos anteriores y el que sigue en curso', () => {
@@ -233,9 +252,9 @@ describe('fijo discontinuo', () => {
       isSeasonal: true,
       activityPeriods: [makePeriod('2026-01-05', '2026-02-28'), makePeriod('2026-06-01')],
     })
-    const cerrado = 48
-    const enCurso = 184 // 1 de junio al 31 de diciembre
-    expect(worked(employee)).toBe(cerrado + enCurso)
+    const cerrado = 55
+    const enCurso = 214 // 1 de junio al 31 de diciembre
+    expect(alta(employee)).toBe(cerrado + enCurso)
   })
 
   it('no cuenta dos veces los periodos solapados', () => {
@@ -246,7 +265,7 @@ describe('fijo discontinuo', () => {
         makePeriod('2026-02-01', '2026-02-20'),
       ],
     })
-    expect(worked(employee)).toBe(48)
+    expect(alta(employee)).toBe(55)
   })
 
   it('recorta los periodos al año consultado', () => {
@@ -254,7 +273,7 @@ describe('fijo discontinuo', () => {
       isSeasonal: true,
       activityPeriods: [makePeriod('2025-12-01', '2026-01-31')],
     })
-    expect(worked(employee)).toBe(27)
+    expect(alta(employee)).toBe(31)
   })
 })
 
@@ -285,7 +304,7 @@ describe('actividad hoy y en el año', () => {
 describe('días efectivos', () => {
   it('usa la estimación cuando no hay ajuste manual', () => {
     const employee = makeEmployee({ activityPeriods: [makePeriod('2026-07-01')] })
-    expect(effectiveAnnualDays(employee, 2026, testSettings, [])).toBeCloseTo(11.6446, 4)
+    expect(effectiveAnnualDays(employee, 2026, testSettings, [])).toBeCloseTo((184 * 23) / 365, 2)
   })
 
   it('el ajuste del administrador tiene prioridad sobre la estimación', () => {

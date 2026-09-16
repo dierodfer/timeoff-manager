@@ -47,7 +47,7 @@ export function AppShell() {
           {isAdmin ? (
             <button
               type="button"
-              className="icon-btn lg:hidden"
+              className="icon-btn xl:hidden"
               aria-label="Abrir el menú"
               onClick={() => setToggled(true)}
             >

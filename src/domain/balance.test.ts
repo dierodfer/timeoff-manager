@@ -90,8 +90,8 @@ describe('liquidación al dar de baja', () => {
       '2026-06-30',
     )
     expect(settlement.taken).toBe(0)
-    expect(settlement.entitlement).toBeCloseTo(11.42, 1)
-    expect(settlement.difference).toBeCloseTo(11.42, 1)
+    expect(settlement.entitlement).toBe(11.41)
+    expect(settlement.difference).toBe(11.41)
   })
 
   it('detecta cuando el empleado ha disfrutado más de lo que le correspondía', () => {
