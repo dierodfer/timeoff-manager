@@ -44,14 +44,33 @@ type Autorizacion =
 // El rol se lee de la base de datos, nunca del token: un JWT no dice si eres administrador.
 async function autorizar(admin: AdminClient, token: string): Promise<Autorizacion> {
   const { data: quienLlama, error: errorToken } = await admin.auth.getUser(token)
-  if (errorToken || !quienLlama.user) return { ok: false, error: 'Sesión no válida.', status: 401 }
+  if (errorToken || !quienLlama.user) {
+    console.error('autorizar: getUser falló', errorToken)
+    return { ok: false, error: 'Sesión no válida.', status: 401 }
+  }
 
-  const { data: solicitante } = await admin
+  const { data: solicitante, error: errorSolicitante } = await admin
     .from('employees')
     .select('id, org_id, role')
     .eq('user_id', quienLlama.user.id)
     .maybeSingle()
 
+  console.log(
+    'autorizar: user_id buscado',
+    quienLlama.user.id,
+    'encontrado',
+    solicitante,
+    'error',
+    errorSolicitante,
+  )
+
+  if (errorSolicitante) {
+    return {
+      ok: false,
+      error: `Error consultando employees: ${errorSolicitante.message}`,
+      status: 500,
+    }
+  }
   if (!solicitante) return { ok: false, error: 'No tienes ficha de empleado.', status: 403 }
   if (solicitante.role !== 'admin') {
     return { ok: false, error: 'Solo un administrador puede dar de alta.', status: 403 }
