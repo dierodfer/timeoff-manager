@@ -259,11 +259,12 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
 - **El formulario de festivos de Ajustes se remonta con `key={year}`.** Sin eso la fecha propuesta
   se queda en el año en que se montó y añadir un festivo desde otro año lo mete en el año
   equivocado, donde no se ve.
-- **La sección General de Ajustes (nombre, tope anual, jornada) no guarda al vuelo.** A diferencia
-  de Festivos, cuyas acciones ya son un `commit()` cada una, esos tres campos viven en un `draft`
-  local hasta que se pulsa «Guardar cambios» — el botón se deshabilita cuando `draft` coincide con
-  `database.settings` (`settingsEqual()`). Si se vuelve a un `onBlur`/`onChange` que haga `commit()`
-  directo, el botón deja de reflejar si hay algo sin guardar.
+- **Ninguna sección de Ajustes guarda al vuelo.** General (nombre, tope anual, jornada) y Festivos
+  tienen cada una su propio `draft` local (`settingsEqual()`/`holidaysEqual()`) y su propio botón
+  «Guardar cambios», deshabilitado hasta que el borrador difiere de lo guardado — son dos borradores
+  independientes, se puede tener uno sin guardar y el otro no. Añadir, renombrar, eliminar o cargar
+  oficiales en Festivos solo tocan `holidayDraft`; si se vuelve a un `commit()` directo en cualquiera
+  de los dos, el botón correspondiente deja de reflejar si hay algo sin guardar.
 - **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva:
   al abrir la aplicación por IP en la red local no está disponible.
 - **`crypto.randomUUID()` también exige contexto seguro**, así que los identificadores (`ids.ts`) y

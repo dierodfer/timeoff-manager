@@ -19,6 +19,10 @@ function settingsEqual(a: Settings, b: Settings): boolean {
   )
 }
 
+function holidaysEqual(a: Holiday[], b: Holiday[]): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
 function Section({
   title,
   description,
@@ -133,13 +137,15 @@ export function SettingsPage() {
   const [confirmWipe, setConfirmWipe] = useState(false)
   const [draft, setDraft] = useState(database.settings)
   const dirty = !settingsEqual(draft, database.settings)
+  const [holidayDraft, setHolidayDraft] = useState(database.holidays)
+  const holidayDirty = !holidaysEqual(holidayDraft, database.holidays)
 
   const holidays = useMemo(
     () =>
-      database.holidays
+      holidayDraft
         .filter((holiday) => yearOf(holiday.date) === year)
         .sort((a, b) => a.date.localeCompare(b.date)),
-    [database.holidays, year],
+    [holidayDraft, year],
   )
 
   const patchDraft = (changes: Partial<Settings>) => {
@@ -166,32 +172,26 @@ export function SettingsPage() {
     if (yearOf(holiday.date) !== year) {
       return notify(`Esa fecha no es de ${year}. Cambia de año arriba o corrige la fecha.`, 'error')
     }
-    const clash = database.holidays.find((item) => item.date === holiday.date)
+    const clash = holidayDraft.find((item) => item.date === holiday.date)
     if (clash) return notify(`Ese día ya es festivo: ${clash.name}.`, 'error')
 
-    commit({ ...database, holidays: [...database.holidays, holiday] })
-    notify(`${holiday.name} añadido el ${formatDate(holiday.date)}.`)
+    setHolidayDraft((current) => [...current, holiday])
+    notify(`${holiday.name} añadido el ${formatDate(holiday.date)}. Falta guardar los cambios.`)
   }
 
   const renameHoliday = (id: string, name: string) => {
-    commit({
-      ...database,
-      holidays: database.holidays.map((holiday) =>
-        holiday.id === id ? { ...holiday, name } : holiday,
-      ),
-    })
+    setHolidayDraft((current) =>
+      current.map((holiday) => (holiday.id === id ? { ...holiday, name } : holiday)),
+    )
   }
 
   const removeHoliday = (holiday: Holiday) => {
-    commit({
-      ...database,
-      holidays: database.holidays.filter((item) => item.id !== holiday.id),
-    })
-    notify(`${holiday.name} eliminado.`)
+    setHolidayDraft((current) => current.filter((item) => item.id !== holiday.id))
+    notify(`${holiday.name} eliminado. Falta guardar los cambios.`)
   }
 
   const loadOfficialHolidays = () => {
-    const existing = new Set(database.holidays.map((holiday) => holiday.date))
+    const existing = new Set(holidayDraft.map((holiday) => holiday.date))
     // Los ids de preloadedHolidays() son fijos ("nacional-2026-01-01"), no uuid: valen para
     // IndexedDB pero Supabase los rechaza. Se sustituyen aquí, al cargarlos de verdad.
     const missing = preloadedHolidays(year)
@@ -200,8 +200,13 @@ export function SettingsPage() {
     if (missing.length === 0) {
       return notify(`Los ${holidays.length} festivos oficiales de ${year} ya están cargados.`)
     }
-    commit({ ...database, holidays: [...database.holidays, ...missing] })
-    notify(`${missing.length} festivos oficiales añadidos a ${year}.`)
+    setHolidayDraft((current) => [...current, ...missing])
+    notify(`${missing.length} festivos oficiales añadidos a ${year}. Falta guardar los cambios.`)
+  }
+
+  const saveHolidays = () => {
+    commit({ ...database, holidays: holidayDraft })
+    notify('Festivos guardados.')
   }
 
   return (
@@ -281,17 +286,30 @@ export function SettingsPage() {
         title={`Festivos de ${year}`}
         description={`${holidays.length} en el calendario. Comunes para toda la plantilla; no computan como vacaciones.`}
         action={
-          hasPreloadedHolidays(year) && (
+          <div className="flex items-center gap-2">
+            {hasPreloadedHolidays(year) && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={loadOfficialHolidays}
+              >
+                Cargar oficiales
+              </button>
+            )}
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={loadOfficialHolidays}
+              className="btn btn-primary btn-sm"
+              disabled={!holidayDirty}
+              onClick={saveHolidays}
             >
-              Cargar oficiales
+              <Save className="size-4" />
+              Guardar cambios
             </button>
-          )
+          </div>
         }
       >
+        <AddHolidayForm key={year} year={year} onAdd={addHoliday} />
+
         {holidays.length === 0 && (
           <p className="px-5 py-4 text-sm text-[var(--color-ink-muted)]">
             {hasPreloadedHolidays(year)
@@ -324,8 +342,6 @@ export function SettingsPage() {
             </button>
           </div>
         ))}
-
-        <AddHolidayForm key={year} year={year} onAdd={addHoliday} />
       </Section>
 
       {mode === 'local' && (
