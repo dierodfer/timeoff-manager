@@ -130,6 +130,11 @@ del año` (365 o 366, `daysInYear()`) —, redondeada a 2 decimales (`roundDays(
   no se añaden a la selección.
 - **El límite se aplica también al administrador.** Para asignar más días hay que subir antes el
   contador del empleado. Tampoco se puede bajar el contador por debajo de lo ya comprometido.
+- **Un administrador puede seleccionar días en el calendario de otra persona** (selector «Ver
+  calendario de» en Mi calendario) y crearle vacaciones directamente: a diferencia de su propio
+  calendario, ahí no se pregunta — quedan `aprobada` sin pasar por `pendiente`, porque quien las crea
+  ya es quien las aprobaría. El checkbox «Crear directamente como aprobadas» solo aparece cuando el
+  administrador mira su propio calendario, donde sí tiene sentido elegir.
 - **Cancelación:** el empleado solo retira solicitudes `pendiente`. El administrador puede eliminar
   cualquiera, incluidas las aprobadas, y los días vuelven al saldo.
 - **Una selección a caballo entre dos años genera una solicitud por año**, porque el saldo es anual.
