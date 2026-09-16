@@ -151,16 +151,24 @@ solicitud (`resolveRequestDay()`/`addRequestDayComment()`, en `state/actions.ts`
 entero a la solicitud nueva, y esa copia la ejecuta quien resuelve, no el autor original. Sin este
 permiso esa copia fallaría siempre que resolviera alguien distinto de quien escribió el comentario.
 
-Además, dos invariantes del dominio son restricciones declarativas, no código:
-
-| Regla                                     | Dónde                                         |
-| ----------------------------------------- | --------------------------------------------- |
-| Los periodos de un empleado no se solapan | `exclude … periodos_sin_solape`               |
-| Como mucho un periodo abierto             | índice parcial `activity_periods_uno_abierto` |
+Además, un invariante del dominio es una restricción declarativa, no código: **los periodos
+de un empleado no se solapan** (`exclude … periodos_sin_solape`, con `daterange(start_date,
+end_date, '[]')`). «Como mucho un periodo abierto por empleado» no necesita una restricción
+aparte: dos periodos del mismo empleado con `end_date` nulo son ambos `[fecha, ∞)`, así que
+siempre se solapan entre sí y el propio `exclude` ya los rechaza.
 
 El resto de reglas de negocio (no comprometer el mismo día dos veces, no borrar al único
 administrador, no borrar a quien no está de baja) se quedan en `src/state/actions.ts`, que es donde
 ya estaban.
+
+**Toda llamada a `is_admin()`, `current_org_id()` o `current_employee_id()` dentro de una política
+va envuelta en `(select ...)`.** Sin el `select`, Postgres no puede tratarla como constante para
+toda la consulta y la reejecuta —con su propia subconsulta a `employees`— fila a fila; con él, la
+calcula una sola vez por consulta (es la optimización que recomienda la propia documentación de
+Supabase para RLS). No aplica a `employee_in_my_org()`, `can_read_request()` ni
+`can_write_request()`, que reciben una columna de la fila como argumento: al depender de la fila,
+no se pueden precalcular una sola vez para toda la consulta. Cualquier política nueva que añada una
+de las tres primeras funciones debe seguir el mismo patrón.
 
 ## Altas y acceso: el administrador lo hace todo
 
@@ -292,6 +300,41 @@ importan con enlaces mágicos u OAuth, y aquí es email + contraseña).
 
 **La `service_role key` no se usa en ningún sitio del cliente**: se salta RLS entera. Solo vale para
 scripts que ejecutes tú o para una Edge Function.
+
+## Recrear el esquema
+
+`schema.sql` define el estado actual, no una migración: pegarlo entero crea lo que falte, pero no
+actualiza una tabla que ya exista con otra forma. Si cambia la estructura de una tabla y hace falta
+aplicarlo a un proyecto que ya tiene el esquema anterior, la vía es borrar las ocho tablas y volver
+a ejecutar `schema.sql` entero, no parchear a mano tabla por tabla.
+
+En el **SQL Editor**:
+
+```sql
+begin;
+
+drop table if exists
+  public.request_comments,
+  public.vacation_request_days,
+  public.vacation_requests,
+  public.allowances,
+  public.holidays,
+  public.activity_periods,
+  public.employees,
+  public.organizations
+cascade;
+
+commit;
+```
+
+`cascade` se lleva también las políticas RLS y los índices de esas tablas (viven dentro de la
+tabla), pero no las funciones (`is_admin()`, `perfiles_para_acceso()`, etc.) ni el trigger
+`on_auth_user_created` — son objetos aparte y `schema.sql` los recrea con `create or replace` al
+volver a ejecutarlo.
+
+Esto borra los datos, no las cuentas de `auth.users`: para vaciarlas también,
+`delete from auth.users;` en la misma transacción. Después, pega `schema.sql` entero y repite el
+paso 3 (Arranque) de arriba para tener otra vez una empresa con su primer administrador.
 
 ## Qué hay ya, y qué queda
 
