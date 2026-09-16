@@ -162,6 +162,15 @@ El resto de reglas de negocio (no comprometer el mismo día dos veces, no borrar
 administrador, no borrar a quien no está de baja) se quedan en `src/state/actions.ts`, que es donde
 ya estaban.
 
+**Toda llamada a `is_admin()`, `current_org_id()` o `current_employee_id()` dentro de una política
+va envuelta en `(select ...)`.** Sin el `select`, Postgres no puede tratarla como constante para
+toda la consulta y la reejecuta —con su propia subconsulta a `employees`— fila a fila; con él, la
+calcula una sola vez por consulta (es la optimización que recomienda la propia documentación de
+Supabase para RLS). No aplica a `employee_in_my_org()`, `can_read_request()` ni
+`can_write_request()`, que reciben una columna de la fila como argumento: al depender de la fila,
+no se pueden precalcular una sola vez para toda la consulta. Cualquier política nueva que añada una
+de las tres primeras funciones debe seguir el mismo patrón.
+
 ## Altas y acceso: el administrador lo hace todo
 
 Nadie se registra por su cuenta y **el administrador nunca entra en Supabase**. Da de alta desde la

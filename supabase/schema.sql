@@ -52,6 +52,10 @@ create table if not exists public.employees (
 create unique index if not exists employees_org_email_key
   on public.employees (org_id, lower(email)) where email is not null;
 
+-- Sin este índice, el join de perfiles_para_acceso() (abierto a `anon`, se pide en cada
+-- carga de la pantalla de Acceso) recorre entera la tabla employees de todas las empresas.
+create index if not exists employees_org_id_idx on public.employees (org_id);
+
 -- end_date null = periodo en curso.
 create table if not exists public.activity_periods (
   id uuid primary key default gen_random_uuid(),
@@ -261,67 +265,77 @@ end $$;
 
 -- organizations ---------------------------------------------------------------
 -- Sin insert ni delete: crear o borrar una empresa no se hace por API.
+--
+-- (select public.is_admin()) en vez de public.is_admin(): sin el select, Postgres no puede
+-- tratarla como constante para toda la consulta y la reejecuta (con su propia subconsulta a
+-- employees) fila a fila. Con (select ...) la calcula una sola vez. Aplica a is_admin(),
+-- current_org_id() y current_employee_id() en todas las políticas de aquí abajo; no a
+-- employee_in_my_org()/can_read_request()/can_write_request(), que reciben una columna de la
+-- fila como argumento y por eso no se pueden precalcular igual.
 create policy organizations_select on public.organizations
-  for select to authenticated using (id = public.current_org_id());
+  for select to authenticated using (id = (select public.current_org_id()));
 
 create policy organizations_update on public.organizations
   for update to authenticated
-  using (id = public.current_org_id() and public.is_admin())
-  with check (id = public.current_org_id() and public.is_admin());
+  using (id = (select public.current_org_id()) and (select public.is_admin()))
+  with check (id = (select public.current_org_id()) and (select public.is_admin()));
 
 -- employees -------------------------------------------------------------------
 -- Un empleado normal solo se ve a sí mismo: con Supabase Auth el acceso ya no
 -- lista perfiles y ninguna de sus pantallas necesita a sus compañeros.
 create policy employees_select on public.employees
   for select to authenticated
-  using (user_id = auth.uid() or (public.is_admin() and org_id = public.current_org_id()));
+  using (
+    user_id = (select auth.uid())
+    or ((select public.is_admin()) and org_id = (select public.current_org_id()))
+  );
 
 create policy employees_admin_write on public.employees
   for all to authenticated
-  using (public.is_admin() and org_id = public.current_org_id())
-  with check (public.is_admin() and org_id = public.current_org_id());
+  using ((select public.is_admin()) and org_id = (select public.current_org_id()))
+  with check ((select public.is_admin()) and org_id = (select public.current_org_id()));
 
 -- activity_periods ------------------------------------------------------------
 create policy activity_periods_select on public.activity_periods
   for select to authenticated
   using (
-    employee_id = public.current_employee_id()
-    or (public.is_admin() and public.employee_in_my_org(employee_id))
+    employee_id = (select public.current_employee_id())
+    or ((select public.is_admin()) and public.employee_in_my_org(employee_id))
   );
 
 create policy activity_periods_admin_write on public.activity_periods
   for all to authenticated
-  using (public.is_admin() and public.employee_in_my_org(employee_id))
-  with check (public.is_admin() and public.employee_in_my_org(employee_id));
+  using ((select public.is_admin()) and public.employee_in_my_org(employee_id))
+  with check ((select public.is_admin()) and public.employee_in_my_org(employee_id));
 
 -- holidays --------------------------------------------------------------------
 create policy holidays_select on public.holidays
-  for select to authenticated using (org_id = public.current_org_id());
+  for select to authenticated using (org_id = (select public.current_org_id()));
 
 create policy holidays_admin_write on public.holidays
   for all to authenticated
-  using (public.is_admin() and org_id = public.current_org_id())
-  with check (public.is_admin() and org_id = public.current_org_id());
+  using ((select public.is_admin()) and org_id = (select public.current_org_id()))
+  with check ((select public.is_admin()) and org_id = (select public.current_org_id()));
 
 -- allowances ------------------------------------------------------------------
 create policy allowances_select on public.allowances
   for select to authenticated
   using (
-    employee_id = public.current_employee_id()
-    or (public.is_admin() and public.employee_in_my_org(employee_id))
+    employee_id = (select public.current_employee_id())
+    or ((select public.is_admin()) and public.employee_in_my_org(employee_id))
   );
 
 create policy allowances_admin_write on public.allowances
   for all to authenticated
-  using (public.is_admin() and public.employee_in_my_org(employee_id))
-  with check (public.is_admin() and public.employee_in_my_org(employee_id));
+  using ((select public.is_admin()) and public.employee_in_my_org(employee_id))
+  with check ((select public.is_admin()) and public.employee_in_my_org(employee_id));
 
 -- vacation_requests -----------------------------------------------------------
 create policy vacation_requests_select on public.vacation_requests
   for select to authenticated
   using (
-    employee_id = public.current_employee_id()
-    or (public.is_admin() and public.employee_in_my_org(employee_id))
+    employee_id = (select public.current_employee_id())
+    or ((select public.is_admin()) and public.employee_in_my_org(employee_id))
   );
 
 -- Un empleado crea solo las suyas y pendientes; el admin, cualquiera de su empresa y ya
@@ -329,22 +343,22 @@ create policy vacation_requests_select on public.vacation_requests
 create policy vacation_requests_insert on public.vacation_requests
   for insert to authenticated
   with check (
-    (employee_id = public.current_employee_id() and status = 'pendiente')
-    or (public.is_admin() and public.employee_in_my_org(employee_id))
+    (employee_id = (select public.current_employee_id()) and status = 'pendiente')
+    or ((select public.is_admin()) and public.employee_in_my_org(employee_id))
   );
 
 -- Resolver (aprobar o rechazar) es cosa del administrador.
 create policy vacation_requests_update on public.vacation_requests
   for update to authenticated
-  using (public.is_admin() and public.employee_in_my_org(employee_id))
-  with check (public.is_admin() and public.employee_in_my_org(employee_id));
+  using ((select public.is_admin()) and public.employee_in_my_org(employee_id))
+  with check ((select public.is_admin()) and public.employee_in_my_org(employee_id));
 
 -- «El empleado solo retira solicitudes pendientes; el administrador, cualquiera».
 create policy vacation_requests_delete on public.vacation_requests
   for delete to authenticated
   using (
-    (employee_id = public.current_employee_id() and status = 'pendiente')
-    or (public.is_admin() and public.employee_in_my_org(employee_id))
+    (employee_id = (select public.current_employee_id()) and status = 'pendiente')
+    or ((select public.is_admin()) and public.employee_in_my_org(employee_id))
   );
 
 -- vacation_request_days -------------------------------------------------------
@@ -368,8 +382,8 @@ create policy request_comments_insert on public.request_comments
   with check (
     public.can_read_request(request_id)
     and (
-      author_id = public.current_employee_id()
-      or (public.is_admin() and public.employee_in_my_org(author_id))
+      author_id = (select public.current_employee_id())
+      or ((select public.is_admin()) and public.employee_in_my_org(author_id))
     )
   );
 
