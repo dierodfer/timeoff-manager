@@ -1,7 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { MyCalendar } from './pages/MyCalendar'
-import { MyRequests } from './pages/MyRequests'
 import { useApp } from './state/appContext'
 import { AppShell } from './ui/AppShell'
 
@@ -21,7 +20,6 @@ export function AuthenticatedRoutes() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<MyCalendar />} />
-        <Route path="mis-solicitudes" element={<MyRequests />} />
         <Route
           path="planificacion"
           element={

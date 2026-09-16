@@ -335,25 +335,6 @@ export function removeRequestDay(
   }
 }
 
-/** Cancela un tramo de días de una vez, como resolveRequestDays(): ver CLAUDE.md, «Trampas conocidas». */
-export function removeRequestDays(
-  database: Database,
-  requestId: string,
-  days: IsoDate[],
-  actor: Employee,
-): Outcome {
-  if (days.length === 0) return { ok: false, reason: 'No hay ningún día que cancelar.' }
-
-  let draft = database
-  for (const day of days) {
-    const outcome = removeRequestDay(draft, requestId, day, actor)
-    if (!outcome.ok) return outcome
-    draft = outcome.database
-  }
-
-  return { ok: true, database: draft }
-}
-
 export function addRequestDayComment(
   database: Database,
   requestId: string,

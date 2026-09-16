@@ -2,7 +2,6 @@
 // si una empresa se llamara igual que una de estas rutas, su slug sería inalcanzable,
 // porque el primer tramo de la URL ya cae en modo local antes de mirar si es una empresa.
 const RESERVED_SLUGS: ReadonlySet<string> = new Set([
-  'mis-solicitudes',
   'planificacion',
   'solicitudes',
   'empleados',
