@@ -220,7 +220,7 @@ Precargados para **Algarrobo (Málaga)** en `src/domain/holidays.es.ts`:
   agosto).
 - **2027:** Decreto 84/2026, de 29 de abril (BOJA núm. 84, de 5 de mayo de 2026). **Faltan las dos
   fiestas locales**: los ayuntamientos las proponen después de ese decreto y se publican en una
-  resolución posterior. Hay que añadirlas desde Ajustes cuando salgan.
+  resolución posterior. Hay que añadirlas desde Festivos cuando salgan.
 
 Al añadir un año nuevo, verificar las fechas contra el BOE y el BOJA. No inventarlas.
 
@@ -261,15 +261,17 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   del primer render.
 - **`base` en `vite.config.ts`** apunta a `/timeoff-manager/`. Si se renombra el repositorio, hay
   que cambiarlo o pasar `BASE_PATH`.
-- **El formulario de festivos de Ajustes se remonta con `key={year}`.** Sin eso la fecha propuesta
+- **El formulario de Festivos se remonta con `key={year}`.** Sin eso la fecha propuesta
   se queda en el año en que se montó y añadir un festivo desde otro año lo mete en el año
   equivocado, donde no se ve.
-- **Ninguna sección de Ajustes guarda al vuelo.** General (nombre, tope anual, jornada) y Festivos
-  tienen cada una su propio `draft` local (`settingsEqual()`/`holidaysEqual()`) y su propio botón
-  «Guardar cambios», deshabilitado hasta que el borrador difiere de lo guardado — son dos borradores
-  independientes, se puede tener uno sin guardar y el otro no. Añadir, renombrar, eliminar o cargar
-  oficiales en Festivos solo tocan `holidayDraft`; si se vuelve a un `commit()` directo en cualquiera
-  de los dos, el botón correspondiente deja de reflejar si hay algo sin guardar.
+- **Ni Ajustes ni Festivos guardan al vuelo, y son dos páginas con dos borradores
+  independientes.** Ajustes (nombre, tope anual, jornada) y Festivos (`pages/Holidays.tsx`) tienen
+  cada uno su propio `draft` local (`settingsEqual()`/`holidaysEqual()`) y su propio botón
+  «Guardar cambios», deshabilitado hasta que el borrador difiere de lo guardado — se puede tener
+  uno sin guardar y el otro no, y cada uno pierde su borrador al salir de la página sin guardar.
+  Añadir, renombrar, eliminar o cargar oficiales en Festivos solo tocan `holidayDraft`; si se
+  vuelve a un `commit()` directo en cualquiera de los dos, el botón correspondiente deja de
+  reflejar si hay algo sin guardar.
 - **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva:
   al abrir la aplicación por IP en la red local no está disponible.
 - **`crypto.randomUUID()` también exige contexto seguro**, así que los identificadores (`ids.ts`) y
@@ -471,12 +473,14 @@ Editar, Dar de alta/baja y Eliminar en línea, la fila no cabía junto a las cif
 fuera o con Escape; lo usan `RowMenu`, `UserMenu`, `YearCalendar` y `MetricInfo`), `ui/Metric.tsx`
 (la pareja cifra/etiqueta de `BalanceCard` y de la lista de Empleados), `ui/MetricInfo.tsx` (un
 `Metric` que al pulsarlo despliega un popover con el detalle del cálculo, para «Días trabajados» y
-«Estimación» de Empleados), `ui/SelectField.tsx` (etiqueta + `select` de una lista de
+«Estimación» de Empleados), `ui/Section.tsx` (la cabecera con título/descripción/acción y la
+tarjeta con divisores; la comparten Ajustes y Festivos, que antes eran una sola pantalla),
+`ui/SelectField.tsx` (etiqueta + `select` de una lista de
 opciones) y el prop `confirm` de `Modal` (con `disabled` opcional, para el botón que exige rellenar
 algo antes, como el de «Añadir comentario»), que pinta el pie Cancelar + acción en vez de repetir
 los dos botones en cada diálogo. `footer` sigue existiendo para un pie que no sea ese par.
 
-**Solicitudes y Asignación masiva no están en la barra lateral**, que se queda con las cuatro
+**Solicitudes y Asignación masiva no están en la barra lateral**, que se queda con las cinco
 pantallas que se visitan a diario. Sus rutas siguen existiendo y se llega a ellas desde donde hacen
 falta: a Solicitudes, por la campana con el número de días pendientes de la cabecera y por la
 tarjeta de resumen de Empleados; a Asignación masiva, por un botón junto a «Nuevo empleado». El

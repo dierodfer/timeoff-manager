@@ -8,6 +8,7 @@ import { AppShell } from './ui/AppShell'
 // Perezosas: un empleado normal no descarga react-datepicker ni react-day-picker, que no puede abrir.
 const BulkAssign = lazy(() => import('./pages/BulkAssign').then((m) => ({ default: m.BulkAssign })))
 const Employees = lazy(() => import('./pages/Employees').then((m) => ({ default: m.Employees })))
+const Holidays = lazy(() => import('./pages/Holidays').then((m) => ({ default: m.Holidays })))
 const Planning = lazy(() => import('./pages/Planning').then((m) => ({ default: m.Planning })))
 const Requests = lazy(() => import('./pages/Requests').then((m) => ({ default: m.Requests })))
 const SettingsPage = lazy(() =>
@@ -50,6 +51,14 @@ export function AuthenticatedRoutes() {
           element={
             <AdminOnly>
               <BulkAssign />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="festivos"
+          element={
+            <AdminOnly>
+              <Holidays />
             </AdminOnly>
           }
         />

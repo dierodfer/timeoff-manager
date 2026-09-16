@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu as MenuIcon,
+  PartyPopper,
   Settings,
   Sprout,
   Users,
@@ -21,6 +22,7 @@ const LINKS: (NavItem & { adminOnly?: boolean })[] = [
   { to: '/', label: 'Mi calendario', icon: CalendarDays },
   { to: '/planificacion', label: 'Planificación', icon: CalendarRange, adminOnly: true },
   { to: '/empleados', label: 'Empleados', icon: Users, adminOnly: true },
+  { to: '/festivos', label: 'Festivos', icon: PartyPopper, adminOnly: true },
   { to: '/ajustes', label: 'Ajustes', icon: Settings, adminOnly: true },
 ]
 
