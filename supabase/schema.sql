@@ -1,14 +1,13 @@
 -- =============================================================================
 -- Gestor de vacaciones — esquema de Supabase
 -- =============================================================================
--- Pegar entero en el SQL Editor de Supabase. Se puede reejecutar sin fallar,
--- pero no migra: si una tabla ya existe, se deja como está. Diagrama y pasos
--- del panel en supabase/README.md.
+-- Define el estado actual del esquema, no una migración: pegar entero en el SQL Editor de
+-- Supabase crea lo que falte, pero no hay ningún ALTER aquí que actualice una tabla que ya
+-- existe con otra forma. Para llevar un proyecto ya creado a este esquema, borrar las tablas
+-- y volver a ejecutar el fichero entero — «Recrear el esquema» en supabase/README.md tiene los
+-- comandos. Diagrama y pasos del panel también en supabase/README.md.
 --
 -- RLS es la única barrera real: GitHub Pages hace pública la anon key.
---
--- Si ya ejecutaste una versión con `vacation_requests.org_id`, quítala a mano
--- antes de reejecutar:  alter table public.vacation_requests drop column org_id;
 -- =============================================================================
 
 create extension if not exists btree_gist; -- para el EXCLUDE de activity_periods
@@ -73,10 +72,6 @@ create table if not exists public.activity_periods (
     daterange(start_date, end_date, '[]') with &&
   )
 );
-
--- Redundante con periodos_sin_solape (ver más arriba): si ya lo ejecutaste en una versión
--- anterior de este fichero, esto lo quita.
-drop index if exists public.activity_periods_uno_abierto;
 
 -- Un día es festivo o no lo es: WorkCalendar mapea día -> festivo uno a uno.
 create table if not exists public.holidays (

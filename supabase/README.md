@@ -301,6 +301,41 @@ importan con enlaces mágicos u OAuth, y aquí es email + contraseña).
 **La `service_role key` no se usa en ningún sitio del cliente**: se salta RLS entera. Solo vale para
 scripts que ejecutes tú o para una Edge Function.
 
+## Recrear el esquema
+
+`schema.sql` define el estado actual, no una migración: pegarlo entero crea lo que falte, pero no
+actualiza una tabla que ya exista con otra forma. Si cambia la estructura de una tabla y hace falta
+aplicarlo a un proyecto que ya tiene el esquema anterior, la vía es borrar las ocho tablas y volver
+a ejecutar `schema.sql` entero, no parchear a mano tabla por tabla.
+
+En el **SQL Editor**:
+
+```sql
+begin;
+
+drop table if exists
+  public.request_comments,
+  public.vacation_request_days,
+  public.vacation_requests,
+  public.allowances,
+  public.holidays,
+  public.activity_periods,
+  public.employees,
+  public.organizations
+cascade;
+
+commit;
+```
+
+`cascade` se lleva también las políticas RLS y los índices de esas tablas (viven dentro de la
+tabla), pero no las funciones (`is_admin()`, `perfiles_para_acceso()`, etc.) ni el trigger
+`on_auth_user_created` — son objetos aparte y `schema.sql` los recrea con `create or replace` al
+volver a ejecutarlo.
+
+Esto borra los datos, no las cuentas de `auth.users`: para vaciarlas también,
+`delete from auth.users;` en la misma transacción. Después, pega `schema.sql` entero y repite el
+paso 3 (Arranque) de arriba para tener otra vez una empresa con su primer administrador.
+
 ## Qué hay ya, y qué queda
 
 Ya está todo el modo empresa funcionando de punta a punta: entrar en `/<slug>`
