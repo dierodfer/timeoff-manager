@@ -194,7 +194,9 @@ export function MyCalendar() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-        <div className="space-y-4">
+        {/* order-*: en móvil el saldo y «Ten en cuenta» van antes que el calendario, que es largo
+            y obliga a desplazarse; en pantallas lg+ vuelven a su sitio, calendario a la izquierda. */}
+        <div className="order-2 space-y-4 lg:order-1">
           <Legend />
           <div className="card p-4 sm:p-6">
             {selectedDays.length > 0 && (
@@ -224,7 +226,7 @@ export function MyCalendar() {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="order-1 space-y-4 lg:order-2">
           <BalanceCard
             balance={balance}
             onRequest={openRequestDialog}
