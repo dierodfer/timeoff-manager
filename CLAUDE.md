@@ -57,10 +57,13 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
 
 - **Día laborable:** de lunes a sábado, descontando festivos. La jornada semanal es configurable en
   Ajustes (`Settings.workweek`, donde `0` es domingo y `6` sábado).
-- **Estimación:** `0,0737 × días trabajados`, **sin redondear** y limitada a la base anual, que
-  funciona como tope. Un «día trabajado» es un día de `Settings.workweek` dentro de los tramos en
-  activo; los festivos no se descuentan. Con la jornada de lunes a sábado un año completo son 313
-  días → 23,07, que el tope deja en 23. Se aplica igual a todos los empleados.
+- **Estimación:** proporcional a los días de alta en el año — `días de alta × base anual / días
+del año` (365 o 366, `daysInYear()`) —, redondeada a 2 decimales (`roundDays()`,
+  `domain/format.ts`). «Días de alta» son los días naturales de `activityIntervalsInYear()`
+  dentro del año, no solo los de `Settings.workweek`: un tramo cerrado a mitad de año cuenta sus
+  días de calendario, festivos y domingos incluidos. Como esos días nunca superan los del año, el
+  resultado nunca supera la base anual sin necesidad de un tope aparte. Se aplica igual a todos
+  los empleados.
 - **La relación laboral de un empleado es una lista de periodos de actividad**
   (`Employee.activityPeriods`), no un par alta/baja. Un fijo tiene normalmente uno; un fijo
   discontinuo, uno por llamamiento; y cualquiera acumula varios al darse de baja y volver. El
@@ -143,13 +146,14 @@ hooks vuelven al fichero del componente, Fast Refresh deja de conservar el estad
   `rehireEmployee()` en `state/actions.ts`, que devuelven `Outcome` como el resto del fichero, y
   también el `submit()` del formulario.
 - **Los días trabajados que pinta la lista de Empleados sólo llegan hasta hoy y descuentan
-  festivos** (`workedDaysBreakdown()`, en `domain/accrual.ts`), a diferencia de `workedDaysInYear()`,
-  que alimenta la estimación y que **no** descuenta festivos (ver la regla de Estimación, arriba). Son
-  dos cálculos a propósito distintos: uno es un dato de pantalla, el otro es dinero. Al contar día a
-  día si cada uno es laborable y no festivo, nunca puede dar negativo (un 1 de enero festivo cuenta
-  0, no −1). El desglose por tramos y la lista de festivos descontados salen del mismo cálculo y se
-  ven en un popover al pulsar la cifra (`ui/MetricInfo.tsx`); la de Estimación abre otro con la
-  cuenta (`0,0737 × días trabajados = ...`, y el tope si aplica).
+  festivos** (`workedDaysBreakdown()`, en `domain/accrual.ts`), a diferencia de `altaDaysInYear()`,
+  que alimenta la estimación y que cuenta días naturales, no de jornada (ver la regla de
+  Estimación, arriba). Son dos cálculos a propósito distintos: uno es un dato de pantalla, el otro
+  es dinero. Al contar día a día si cada uno es laborable y no festivo, `workedDaysBreakdown()`
+  nunca puede dar negativo (un 1 de enero festivo cuenta 0, no −1). El desglose por tramos y la
+  lista de festivos descontados salen del mismo cálculo y se ven en un popover al pulsar la cifra
+  (`ui/MetricInfo.tsx`); la de Estimación abre otro con la cuenta (`días de alta × base anual /
+días del año = ...`).
 - **«Aprobados» y «Pendientes» de una fila de Empleados enlazan a la persona**: «Ver calendario»
   abre `/?empleado=<id>` (Mi calendario, viendo a esa persona) y «Ver solicitudes» abre
   `/solicitudes?empleado=<id>`, que acota la bandeja de Solicitudes a esa única tarjeta con un
@@ -444,7 +448,7 @@ entra en el bundle lo que se usa.
 
 **La barra lateral (`ui/AppSidebar.tsx`) es CSS propio, no una librería.** Antes era
 `react-pro-sidebar`: 204 KB de fuente más el runtime de emotion, para cuatro enlaces estáticos.
-Fijo por encima de `lg` (`lg:static lg:translate-x-0`) y cajón deslizante por debajo
+Fijo por encima de `xl` (`xl:static xl:translate-x-0`) y cajón deslizante por debajo
 (`fixed … -translate-x-full`, con `translate-x-0` cuando `toggled`), con un botón a pantalla
 completa de fondo oscurecido para cerrarlo — el botón de menú de la cabecera lo abre. El enlace
 activo lo pinta `.sidebar-link[aria-current='page']`: `NavLink` pone ese atributo solo, no hace

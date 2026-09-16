@@ -1,11 +1,6 @@
 import { CalendarDays, ListChecks } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import {
-  ACCRUAL_PER_WORKED_DAY,
-  sortedPeriods,
-  type EstimateBreakdown,
-  type WorkedDaysBreakdown,
-} from '../domain/accrual'
+import { sortedPeriods, type EstimateBreakdown, type WorkedDaysBreakdown } from '../domain/accrual'
 import type { Balance } from '../domain/balance'
 import { todayIso } from '../domain/dates'
 import { formatDate, formatDays } from '../domain/format'
@@ -16,8 +11,6 @@ import { Metric } from './Metric'
 import { MetricInfo } from './MetricInfo'
 import { RowMenu } from './RowMenu'
 import { Stepper } from './Stepper'
-
-const ACCRUAL_RATE_LABEL = ACCRUAL_PER_WORKED_DAY.toString().replace('.', ',')
 
 function rangeLabel(start: string, end: string, today: string): string {
   return `${formatDate(start)} – ${end === today ? 'hoy' : formatDate(end)}`
@@ -58,18 +51,11 @@ function WorkedTooltip({
 
 function EstimateTooltip({ breakdown }: { readonly breakdown: EstimateBreakdown }) {
   return (
-    <div className="space-y-1">
-      <p>
-        <span className="font-semibold text-[var(--color-ink)]">{ACCRUAL_RATE_LABEL}</span> ×{' '}
-        {breakdown.worked} {breakdown.worked === 1 ? 'día trabajado' : 'días trabajados'} ={' '}
-        {formatDays(breakdown.raw)}
-      </p>
-      {breakdown.isCapped && (
-        <p className="text-[var(--color-ink-muted)]">
-          Tope anual: {formatDays(breakdown.cap)} días
-        </p>
-      )}
-    </div>
+    <p>
+      <span className="font-semibold text-[var(--color-ink)]">{breakdown.altaDays}</span> días de
+      alta × {breakdown.annualDays} / {breakdown.daysInYear} días del año ={' '}
+      {formatDays(breakdown.raw)}
+    </p>
   )
 }
 

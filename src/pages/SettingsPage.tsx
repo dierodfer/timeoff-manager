@@ -240,7 +240,7 @@ export function SettingsPage() {
 
         <Row
           label="Días de vacaciones al año"
-          hint="Tope anual. La estimación acumula 0,0737 días por día trabajado y nunca lo supera."
+          hint="Días para quien está de alta todo el año. Quien se da de alta a mitad de año recibe la parte proporcional."
           control={
             <Stepper
               label="tope anual"

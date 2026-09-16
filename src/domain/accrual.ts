@@ -1,18 +1,17 @@
 import {
   compareIso,
+  daysBetweenInclusive,
+  daysInYear,
   expandRange,
   overlapDays,
-  toIso,
   todayIso,
-  toUtcDate,
   weekday,
   yearEnd,
   yearStart,
 } from './dates'
+import { roundDays } from './format'
 import type { ActivityPeriod, Allowance, Employee, Holiday, IsoDate, Settings } from './types'
 import { holidayOn, workingDaysInRange, type WorkCalendar } from './workdays'
-
-export const ACCRUAL_PER_WORKED_DAY = 0.0737
 
 const OPEN_END: IsoDate = '9999-12-31'
 
@@ -96,32 +95,6 @@ export function isActiveInYear(employee: Employee, year: number): boolean {
   )
 }
 
-/** Días de jornada dentro de los tramos del año, contando solo hasta `until`. */
-export function workedDaysToDate(
-  employee: Employee,
-  year: number,
-  workweek: number[],
-  until: IsoDate = todayIso(),
-): number {
-  const workdays = new Set(workweek)
-  return activityIntervalsInYear(employee, year).reduce((total, interval) => {
-    const end = interval.end < until ? interval.end : until
-    let count = 0
-    for (
-      let day = toUtcDate(interval.start);
-      toIso(day) <= end;
-      day.setUTCDate(day.getUTCDate() + 1)
-    ) {
-      if (workdays.has(day.getUTCDay())) count += 1
-    }
-    return total + count
-  }, 0)
-}
-
-export function workedDaysInYear(employee: Employee, year: number, workweek: number[]): number {
-  return workedDaysToDate(employee, year, workweek, yearEnd(year))
-}
-
 export interface WorkedRange {
   start: IsoDate
   end: IsoDate
@@ -134,8 +107,8 @@ export interface WorkedDaysBreakdown {
   holidays: Holiday[]
 }
 
-/** Como workedDaysToDate(), pero descontando festivos: es lo que enseña la lista de Empleados,
- * no lo que alimenta la estimación (ver CLAUDE.md, «Días trabajados que pinta Empleados»). */
+/** Días de jornada, sin festivos, dentro de los tramos del año hasta `until`: es lo que enseña
+ * la lista de Empleados, no lo que alimenta la estimación (ver CLAUDE.md, «Estimación»). */
 export function workedDaysBreakdown(
   employee: Employee,
   year: number,
@@ -169,31 +142,40 @@ export function workedDaysBreakdown(
   }
 }
 
-export interface EstimateBreakdown {
-  worked: number
-  raw: number
-  cap: number
-  isCapped: boolean
+/** Días naturales de alta dentro del año: no solo los de jornada, los tramos enteros. */
+export function altaDaysInYear(employee: Employee, year: number): number {
+  return activityIntervalsInYear(employee, year).reduce(
+    (total, interval) => total + daysBetweenInclusive(interval.start, interval.end),
+    0,
+  )
 }
 
+export interface EstimateBreakdown {
+  altaDays: number
+  daysInYear: number
+  annualDays: number
+  raw: number
+}
+
+/** altaDays / daysInYear nunca supera 1 (activityIntervalsInYear() recorta al año), así que
+ * `raw` nunca supera `annualDays`: no hace falta un tope aparte. */
 export function estimateAnnualDaysBreakdown(
   employee: Employee,
   year: number,
   settings: Settings,
 ): EstimateBreakdown {
-  const worked = workedDaysInYear(employee, year, settings.workweek)
-  const raw = worked > 0 ? worked * ACCRUAL_PER_WORKED_DAY : 0
+  const altaDays = altaDaysInYear(employee, year)
+  const totalDays = daysInYear(year)
   return {
-    worked,
-    raw,
-    cap: settings.defaultAnnualDays,
-    isCapped: raw > settings.defaultAnnualDays,
+    altaDays,
+    daysInYear: totalDays,
+    annualDays: settings.defaultAnnualDays,
+    raw: roundDays((altaDays * settings.defaultAnnualDays) / totalDays),
   }
 }
 
 export function estimateAnnualDays(employee: Employee, year: number, settings: Settings): number {
-  const { raw, cap, isCapped } = estimateAnnualDaysBreakdown(employee, year, settings)
-  return isCapped ? cap : raw
+  return estimateAnnualDaysBreakdown(employee, year, settings).raw
 }
 
 export function findAllowance(
