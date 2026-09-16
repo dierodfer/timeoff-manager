@@ -3,7 +3,9 @@
 //
 // Desplegar con la CLI:  supabase functions deploy crear-empleado
 // O pegando este fichero tal cual en el Dashboard → Edge Functions → Deploy a new function:
-// la URL evita depender de deno.json, que el editor del Dashboard no admite.
+// la URL evita depender de deno.json, que el editor del Dashboard no admite. Por el mismo
+// motivo no comparte código con cambiar-password aunque autorizar() sea casi idéntica: cada
+// función tiene que poder pegarse sola, sin ficheros aparte.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // authorization/content-type son del fetch; apikey/x-client-info los añade supabase-js solo:
@@ -44,10 +46,7 @@ type Autorizacion =
 // El rol se lee de la base de datos, nunca del token: un JWT no dice si eres administrador.
 async function autorizar(admin: AdminClient, token: string): Promise<Autorizacion> {
   const { data: quienLlama, error: errorToken } = await admin.auth.getUser(token)
-  if (errorToken || !quienLlama.user) {
-    console.error('autorizar: getUser falló', errorToken)
-    return { ok: false, error: 'Sesión no válida.', status: 401 }
-  }
+  if (errorToken || !quienLlama.user) return { ok: false, error: 'Sesión no válida.', status: 401 }
 
   const { data: solicitante, error: errorSolicitante } = await admin
     .from('employees')
@@ -55,21 +54,9 @@ async function autorizar(admin: AdminClient, token: string): Promise<Autorizacio
     .eq('user_id', quienLlama.user.id)
     .maybeSingle()
 
-  console.log(
-    'autorizar: user_id buscado',
-    quienLlama.user.id,
-    'encontrado',
-    solicitante,
-    'error',
-    errorSolicitante,
-  )
-
   if (errorSolicitante) {
-    return {
-      ok: false,
-      error: `Error consultando employees: ${errorSolicitante.message}`,
-      status: 500,
-    }
+    console.error('crear-empleado: fallo comprobando permisos:', errorSolicitante.message)
+    return { ok: false, error: 'Error interno comprobando permisos.', status: 500 }
   }
   if (!solicitante) return { ok: false, error: 'No tienes ficha de empleado.', status: 403 }
   if (solicitante.role !== 'admin') {
@@ -124,13 +111,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return responde({ error: 'La contraseña debe tener entre 8 y 72 caracteres.' }, 400)
   }
 
-  const { data: empresa } = await admin
+  const { data: empresa, error: errorEmpresa } = await admin
     .from('organizations')
     .select('slug')
     .eq('id', solicitante.org_id)
     .single()
 
-  if (!empresa) return responde({ error: 'No se encuentra la empresa.' }, 500)
+  if (errorEmpresa || !empresa) {
+    console.error('crear-empleado: fallo consultando organizations:', errorEmpresa?.message)
+    return responde({ error: 'No se encuentra la empresa.' }, 500)
+  }
 
   const email = derivarEmail(firstName, lastName, empresa.slug)
 
