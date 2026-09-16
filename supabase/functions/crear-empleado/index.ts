@@ -1,8 +1,10 @@
 // Alta de empleados: crea el usuario de Auth y su ficha. Necesita la service_role key, que
 // nunca puede viajar al navegador, así que corre aquí. Ver CLAUDE.md, «El modo empresa».
 //
-// Desplegar con:  supabase functions deploy crear-empleado
-import { createClient } from '@supabase/supabase-js'
+// Desplegar con la CLI:  supabase functions deploy crear-empleado
+// O pegando este fichero tal cual en el Dashboard → Edge Functions → Deploy a new function:
+// la URL evita depender de deno.json, que el editor del Dashboard no admite.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

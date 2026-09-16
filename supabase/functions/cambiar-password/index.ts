@@ -1,8 +1,10 @@
 // Cambia la contraseña de OTRO empleado: solo el administrador, vía Admin API. El propio
 // empleado cambia la suya con supabase.auth.updateUser({ password }), sin pasar por aquí.
 //
-// Desplegar con:  supabase functions deploy cambiar-password
-import { createClient } from '@supabase/supabase-js'
+// Desplegar con la CLI:  supabase functions deploy cambiar-password
+// O pegando este fichero tal cual en el Dashboard → Edge Functions → Deploy a new function:
+// la URL evita depender de deno.json, que el editor del Dashboard no admite.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
