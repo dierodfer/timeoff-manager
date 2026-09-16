@@ -25,7 +25,8 @@ create table if not exists public.organizations (
   slug text not null unique
     check (slug ~ '^[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$')
     check (slug not in
-      ('mis-solicitudes', 'planificacion', 'solicitudes', 'empleados', 'asignacion', 'ajustes')),
+      ('mis-solicitudes', 'planificacion', 'solicitudes', 'empleados', 'asignacion', 'festivos',
+       'ajustes')),
   name text not null,
   default_annual_days numeric(5, 2) not null default 23,
   -- 0 = domingo … 6 = sábado, igual que Settings.workweek.

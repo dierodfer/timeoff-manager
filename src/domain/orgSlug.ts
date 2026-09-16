@@ -7,6 +7,7 @@ const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'solicitudes',
   'empleados',
   'asignacion',
+  'festivos',
   'ajustes',
 ])
 
