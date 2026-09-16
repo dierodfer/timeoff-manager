@@ -151,12 +151,11 @@ solicitud (`resolveRequestDay()`/`addRequestDayComment()`, en `state/actions.ts`
 entero a la solicitud nueva, y esa copia la ejecuta quien resuelve, no el autor original. Sin este
 permiso esa copia fallaría siempre que resolviera alguien distinto de quien escribió el comentario.
 
-Además, dos invariantes del dominio son restricciones declarativas, no código:
-
-| Regla                                     | Dónde                                         |
-| ----------------------------------------- | --------------------------------------------- |
-| Los periodos de un empleado no se solapan | `exclude … periodos_sin_solape`               |
-| Como mucho un periodo abierto             | índice parcial `activity_periods_uno_abierto` |
+Además, un invariante del dominio es una restricción declarativa, no código: **los periodos
+de un empleado no se solapan** (`exclude … periodos_sin_solape`, con `daterange(start_date,
+end_date, '[]')`). «Como mucho un periodo abierto por empleado» no necesita una restricción
+aparte: dos periodos del mismo empleado con `end_date` nulo son ambos `[fecha, ∞)`, así que
+siempre se solapan entre sí y el propio `exclude` ya los rechaza.
 
 El resto de reglas de negocio (no comprometer el mismo día dos veces, no borrar al único
 administrador, no borrar a quien no está de baja) se quedan en `src/state/actions.ts`, que es donde

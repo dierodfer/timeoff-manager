@@ -64,15 +64,19 @@ create table if not exists public.activity_periods (
   end_date date check (end_date is null or end_date >= start_date),
   -- Rango cerrado '[]' a propósito: compartir el día entre baja y alta siguiente contaría
   -- ese día dos veces.
+  -- «Como mucho un periodo abierto por empleado» va implícito aquí, no hace falta un índice
+  -- aparte: daterange(start_date, null, '[]') es [start_date, ∞), así que dos periodos del
+  -- mismo empleado con end_date null siempre se solapan entre sí, sea cual sea su fecha de
+  -- inicio, y este EXCLUDE ya los rechaza.
   constraint periodos_sin_solape exclude using gist (
     employee_id with =,
     daterange(start_date, end_date, '[]') with &&
   )
 );
 
--- «Como mucho un periodo abierto por empleado», la otra invariante del dominio.
-create unique index if not exists activity_periods_uno_abierto
-  on public.activity_periods (employee_id) where end_date is null;
+-- Redundante con periodos_sin_solape (ver más arriba): si ya lo ejecutaste en una versión
+-- anterior de este fichero, esto lo quita.
+drop index if exists public.activity_periods_uno_abierto;
 
 -- Un día es festivo o no lo es: WorkCalendar mapea día -> festivo uno a uno.
 create table if not exists public.holidays (
