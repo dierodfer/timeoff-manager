@@ -480,7 +480,9 @@ fuera o con Escape; lo usan `RowMenu`, `UserMenu`, `YearCalendar` y `MetricInfo`
 (la pareja cifra/etiqueta de `BalanceCard` y de la lista de Empleados), `ui/MetricInfo.tsx` (un
 `Metric` que al pulsarlo despliega un popover con el detalle del cálculo, para «Días trabajados» y
 «Estimación» de Empleados), `ui/Section.tsx` (la cabecera con título/descripción/acción y la
-tarjeta con divisores; la comparten Ajustes y Festivos, que antes eran una sola pantalla),
+tarjeta con divisores; la comparten Ajustes y Festivos, que antes eran una sola pantalla —
+`title` es opcional, y sin él la cabecera solo pinta el `action`: Festivos ya no repite «Festivos
+de {año}» ahí, porque ese título vive en el `h1` de la página),
 `ui/SelectField.tsx` (etiqueta + `select` de una lista de
 opciones) y el prop `confirm` de `Modal` (con `disabled` opcional, para el botón que exige rellenar
 algo antes, como el de «Añadir comentario»), que pinta el pie Cancelar + acción en vez de repetir
@@ -521,7 +523,16 @@ misma selección.
 **El aviso «Ten en cuenta» de Mi calendario son solo las reglas que no son evidentes por sí solas**
 (qué días se pueden seleccionar y qué pasa con una solicitud pendiente), no una lista exhaustiva de
 todo lo que hace la pantalla: el límite de saldo y el bloqueo de un día ya solicitado ya se ven al
-intentar marcarlos, así que no hace falta explicarlos también aquí.
+intentar marcarlos, así que no hace falta explicarlos también aquí. **Es siempre el mismo texto
+fijo, sin condicionarlo a quién mira el calendario**: aunque solo uno de sus puntos aplique a la
+persona que lo lee (el de solicitar-y-cancelar a quien no es administrador, el de seleccionar por
+otra persona a quien no lo hace), la lista no cambia según `viewingSelf` ni el rol — evita mantener
+varias combinaciones de texto para una caja que ya se lee entera de un vistazo.
+
+**El selector de año de la cabecera (`ui/AppShell.tsx`) tiene tope: no baja de 2023 ni sube del año
+actual + 1.** Los botones se deshabilitan al llegar al límite (mismo patrón que enero/diciembre en
+el selector de mes de `YearCalendar`), sin ningún aviso ni mensaje — no hay nada que explicar, así
+que tampoco hay una línea nueva en «Ten en cuenta» por esto.
 
 **La selección de días de Mi calendario no lleva barra flotante.** El resumen («N días: rango») y el
 botón «Limpiar» viven dentro de la propia tarjeta del calendario, encima de la rejilla de meses;

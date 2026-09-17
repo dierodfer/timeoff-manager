@@ -18,6 +18,9 @@ import { AppSidebar, type NavItem } from './AppSidebar'
 import { LocalModeBadge } from './LocalModeBadge'
 import { UserMenu } from './UserMenu'
 
+// El año más antiguo con datos reales; no tiene sentido navegar más allá del que viene.
+const MIN_YEAR = 2023
+
 const LINKS: (NavItem & { adminOnly?: boolean })[] = [
   { to: '/', label: 'Mi calendario', icon: CalendarDays },
   { to: '/planificacion', label: 'Planificación', icon: CalendarRange, adminOnly: true },
@@ -32,6 +35,7 @@ export function AppShell() {
   const isAdmin = currentUser.role === 'admin'
   const links = LINKS.filter((link) => isAdmin || !link.adminOnly)
   const pendingCount = pendingDaysInYear(database.requests, year)
+  const maxYear = new Date().getFullYear() + 1
 
   return (
     <div className="flex min-h-dvh">
@@ -65,11 +69,21 @@ export function AppShell() {
           )}
 
           <div className="year-picker">
-            <button type="button" aria-label="Año anterior" onClick={() => setYear(year - 1)}>
+            <button
+              type="button"
+              aria-label="Año anterior"
+              disabled={year <= MIN_YEAR}
+              onClick={() => setYear(year - 1)}
+            >
               <ChevronLeft className="size-4" />
             </button>
             <span className="tabular">{year}</span>
-            <button type="button" aria-label="Año siguiente" onClick={() => setYear(year + 1)}>
+            <button
+              type="button"
+              aria-label="Año siguiente"
+              disabled={year >= maxYear}
+              onClick={() => setYear(year + 1)}
+            >
               <ChevronRight className="size-4" />
             </button>
           </div>

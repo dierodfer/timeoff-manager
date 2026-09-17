@@ -236,18 +236,14 @@ export function MyCalendar() {
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--color-ink-soft)]">
               <li>Solo puedes seleccionar días laborables.</li>
-              {viewingSelf ? (
-                <>
-                  <li>Las solicitudes quedan pendientes hasta que las aprueba un administrador.</li>
-                  <li>
-                    Puedes cancelar una solicitud pendiente pulsando ese día en el calendario.
-                  </li>
-                </>
-              ) : (
-                <li>
-                  Al seleccionar por esta persona, sus vacaciones quedan aprobadas directamente.
-                </li>
-              )}
+              <li>
+                Tus propias solicitudes quedan pendientes hasta que las aprueba un administrador;
+                puedes cancelarlas pulsando ese día en el calendario mientras sigan pendientes.
+              </li>
+              <li>
+                Si eres administrador y seleccionas por otra persona, sus vacaciones quedan
+                aprobadas directamente.
+              </li>
             </ul>
           </section>
         </div>
