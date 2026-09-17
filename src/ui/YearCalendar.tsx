@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react'
 import type { IsoDate } from '../domain/types'
 import type { WorkCalendar } from '../domain/workdays'
 import { MONTH_NAMES } from './calendarGrid'
-import { MonthCalendar, type DayMark } from './MonthCalendar'
+import { MonthCalendar, type DayAction, type DayMark } from './MonthCalendar'
 import { useDismiss } from './useDismiss'
 
 interface YearCalendarProps {
@@ -13,6 +13,7 @@ interface YearCalendarProps {
   readonly selected: ReadonlySet<IsoDate>
   readonly today: IsoDate
   readonly onToggle?: (date: IsoDate, extendRange: boolean) => void
+  readonly actionOf?: (date: IsoDate) => DayAction | undefined
 }
 
 export function YearCalendar({ onToggle, ...props }: YearCalendarProps) {
@@ -66,6 +67,7 @@ interface MobileMonthProps {
   readonly selected: ReadonlySet<IsoDate>
   readonly today: IsoDate
   readonly onToggle?: (date: IsoDate, extendRange: boolean) => void
+  readonly actionOf?: (date: IsoDate) => DayAction | undefined
   readonly infoDay: IsoDate | null
   readonly onInfo: (date: IsoDate | null) => void
 }

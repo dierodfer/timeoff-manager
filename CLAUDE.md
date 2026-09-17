@@ -136,7 +136,10 @@ del año` (365 o 366, `daysInYear()`) —, redondeada a 2 decimales (`roundDays(
   ya es quien las aprobaría. El checkbox «Crear directamente como aprobadas» solo aparece cuando el
   administrador mira su propio calendario, donde sí tiene sentido elegir.
 - **Cancelación:** el empleado solo retira solicitudes `pendiente`. El administrador puede eliminar
-  cualquiera, incluidas las aprobadas, y los días vuelven al saldo.
+  cualquiera, incluidas las aprobadas, y los días vuelven al saldo. Se hace desde el propio
+  calendario: el globo informativo de un día ya solicitado lleva un botón «Cancelar»
+  (`pendiente`, para el empleado) o «Eliminar» (cualquier estado, para el administrador) — no hay
+  una pantalla de solicitudes aparte para esto.
 - **Una selección a caballo entre dos años genera una solicitud por año**, porque el saldo es anual.
 - **Dar de baja cierra el periodo en curso** en vez de borrar el registro, para conservar el
   histórico de vacaciones disfrutadas. Se confirma en un diálogo con la fecha propuesta en hoy,
@@ -162,8 +165,8 @@ días del año = ...`).
 - **«Aprobados» y «Pendientes» de una fila de Empleados enlazan a la persona**: «Ver calendario»
   abre `/?empleado=<id>` (Mi calendario, viendo a esa persona) y «Ver solicitudes» abre
   `/solicitudes?empleado=<id>`, que acota la bandeja de Solicitudes a esa única tarjeta con un
-  aviso y un enlace «Ver todos» para quitar el filtro — el mismo patrón de `?empleado=` que ya
-  usaban Mi calendario y Mis solicitudes para que un administrador mire a otra persona.
+  aviso y un enlace «Ver todos» para quitar el filtro — el mismo patrón de `?empleado=` que ya usa
+  Mi calendario para que un administrador mire a otra persona.
 - **La lista de Empleados los muestra todos y se acota con filtros**: búsqueda por nombre, Estado
   (Todos / En activo / De baja, sobre `isActive()`), Tipo de contrato y orden. Cada fila lleva el
   chip «Activo» o «De baja», así que ya no hace falta esconder a nadie por defecto. Un fijo
@@ -185,6 +188,9 @@ días del año = ...`).
   basta porque en un móvil no hay puntero con el que pasar por encima. El cursor al pasar por
   encima es el normal de un enlace (`cursor-pointer`), no el de ayuda (`cursor-help`, la flecha con
   interrogación): el día sí es pulsable, solo que para ver información en vez de para seleccionar.
+  Si además se puede cancelar (ver «Cancelación», arriba), el globo lleva también su botón: por eso
+  la celda es un `<div>` que envuelve dos `<button>` hermanos —el de abrir el globo y, dentro de
+  él, el de cancelar— en vez de anidar uno dentro del otro, que el HTML no admite.
 
 ### Invariantes de los datos
 
@@ -488,11 +494,11 @@ globo de la campana cuenta días pendientes, así que va en `--color-pending` co
 pendiente, no en rojo. El recuento sale de `pendingDaysInYear()` (`domain/balance.ts`), que es lo
 único que define «día pendiente del año».
 
-**La barra lateral es solo para el administrador.** Un empleado normal tiene dos pantallas —Mi
-calendario y Mis solicitudes— y llega a la segunda desde la primera, así que un menú de navegación
-con una sola entrada sobra: `AppShell` no monta el `Sidebar` (ni el botón de menú del móvil) si el
-usuario no es administrador, y en su lugar la cabecera pinta el logo y el nombre de la organización,
-que si no se perderían con la barra.
+**La barra lateral es solo para el administrador.** Un empleado normal tiene una única pantalla
+—Mi calendario, donde también solicita y cancela— así que un menú de navegación no tiene nada que
+enlazar: `AppShell` no monta el `Sidebar` (ni el botón de menú del móvil) si el usuario no es
+administrador, y en su lugar la cabecera pinta el logo y el nombre de la organización, que si no se
+perderían con la barra.
 
 **El usuario vive en la esquina superior derecha (`ui/UserMenu.tsx`)**, no al pie de la barra
 lateral: al pulsar su avatar se abre un popover con su nombre, su rol y «Salir». Reutiliza las
@@ -500,20 +506,17 @@ clases `.row-menu`/`.row-menu-item` del menú `⋮` de una fila y el `useDismiss
 es el mismo patrón de popover. Es lo único que cierra la sesión, y está donde está para que también
 lo tenga a mano quien no ve barra lateral.
 
-**Mis solicitudes es una pantalla propia (`pages/MyRequests.tsx`)**, a la que se entra desde dos
-sitios de Mi calendario: el botón «Ver mis solicitudes» de `BalanceCard` (prop `requestsTo`) y el
-enlace «Ver todas» de la vista previa de solicitudes recientes de la propia página. Antes era una
-sección al final del calendario, donde quedaba lejos del saldo que la explica. **A quién mira un
-administrador vive en la URL** (`?empleado=<id>`) y no en un estado local: es lo que permite ir de
-un calendario ajeno a sus solicitudes y volver sin perder de vista a esa persona.
+**No hay una pantalla de «Mis solicitudes» separada.** Existió (`pages/MyRequests.tsx`, con
+`ui/RequestCard.tsx` y `removeRequestDays()`), a la que se entraba desde un botón «Ver mis
+solicitudes» de `BalanceCard`. Se quitó al mover cancelar/eliminar al propio globo informativo del
+día (ver «Cancelación», arriba): con eso cubierto, la pantalla aparte solo repetía lo que ya se ve
+en el calendario, así que en vez de dejarla como una ruta sin ningún enlace que llegue a ella, se
+borró entera junto con su único punto de entrada.
 
-**`BalanceCard` lleva sus propias acciones («Solicitar vacaciones» y «Ver mis solicitudes»)**, no
-una tarjeta clicable entera: son dos intenciones distintas (pedir días nuevos, consultar las que ya
-existen) y un botón por intención es más claro que un enlace ambiguo sobre toda la tarjeta.
-«Solicitar vacaciones» se deshabilita mientras no haya ningún día marcado en el calendario — abre el
-mismo diálogo que el botón del mismo nombre del resumen de selección, encima de la rejilla de meses,
-que aparece con la misma selección. «Ver mis solicitudes» es la única vía a Mis solicitudes desde Mi
-calendario: no hay vista previa de solicitudes en la propia página, solo el botón.
+**`BalanceCard` lleva su propia acción («Solicitar vacaciones»)**, no una tarjeta clicable entera:
+se deshabilita mientras no haya ningún día marcado en el calendario — abre el mismo diálogo que el
+botón del mismo nombre del resumen de selección, encima de la rejilla de meses, que aparece con la
+misma selección.
 
 **El aviso «Ten en cuenta» de Mi calendario son solo las reglas que no son evidentes por sí solas**
 (qué días se pueden seleccionar y qué pasa con una solicitud pendiente), no una lista exhaustiva de
@@ -525,15 +528,13 @@ botón «Limpiar» viven dentro de la propia tarjeta del calendario, encima de l
 «Solicitar vacaciones» ya vive en `BalanceCard` y no necesita otro sitio. Una barra `fixed` tapaba
 contenido en pantallas pequeñas y obligaba a un `pb-24` de relleno que ya no hace falta.
 
-**Una solicitud se muestra y se cancela por tramos de días consecutivos, no por solicitud entera.**
-`RequestCard` (`ui/RequestCard.tsx`) agrupa `request.days` con `dayRanges()`
-(`ui/calendarGrid.ts`, la misma agrupación que ya usaba `summarizeDays()` para el texto) y pinta una
-fila por tramo, cada una con su propio botón de cancelar. `removeRequestDays()`
-(`state/actions.ts`) cancela los días de un tramo de una sola vez —el mismo motivo que
-`resolveRequestDays()`: nunca varios `apply()` seguidos—, reutilizando `removeRequestDay()` en un
-bucle interno; como no cambia el id de la solicitud al quitar un día (a diferencia de
-`resolveRequestDay()`, que sí lo hace al resolver), no hace falta enhebrar ningún id entre
-iteraciones. Sustituye a la antigua `removeRequest()`, que cancelaba la solicitud entera de golpe.
+**Cancelar o eliminar una solicitud es por día suelto, no por tramo ni por solicitud entera.**
+`removeRequestDay()` (`state/actions.ts`) quita un único día de una solicitud —o la solicitud
+entera si era el único que le quedaba— y es lo que llama el botón del globo informativo de Mi
+calendario (`pages/MyCalendar.tsx`, prop `actionOf` de `YearCalendar`/`MonthCalendar`) y también el
+botón «Eliminar» de la bandeja de Solicitudes (`pages/Requests.tsx`). No hace falta una versión en
+lote como `resolveRequestDays()`: cada día del calendario ya es un globo aparte, así que cancelar
+varios es pulsar varias veces, no una acción sobre un tramo.
 
 **`.btn-alt` es la única excepción al color de acento único.** Lo lleva Asignación masiva para
 distinguirse de «Nuevo empleado» sin competir con él, y reutiliza el verde de `--color-approved`,

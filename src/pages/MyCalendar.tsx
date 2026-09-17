@@ -7,12 +7,12 @@ import { formatDays, pluralDays, truncateDays } from '../domain/format'
 import { compareIso, todayIso } from '../domain/dates'
 import type { Employee, IsoDate } from '../domain/types'
 import { isWorkingDay } from '../domain/workdays'
-import { createVacation, displayName, sortByName } from '../state/actions'
+import { createVacation, displayName, removeRequestDay, sortByName } from '../state/actions'
 import { useSession } from '../state/appContext'
 import { BalanceCard } from '../ui/BalanceCard'
 import { Modal } from '../ui/Modal'
 import { summarizeDays } from '../ui/calendarGrid'
-import type { DayMark } from '../ui/MonthCalendar'
+import type { DayAction, DayMark } from '../ui/MonthCalendar'
 import { useDaySelection, type SelectionLimit } from '../ui/useDaySelection'
 import { YearCalendar } from '../ui/YearCalendar'
 
@@ -31,7 +31,7 @@ export function MyCalendar() {
   const [dialogOpen, setDialogOpen] = useState(false)
 
   // Derivado, no estado: sincronizarlo con un efecto provoca renders en cascada. Vive en la URL
-  // para que volver desde Mis solicitudes conserve a quién mira el administrador.
+  // para que volver desde la bandeja de Solicitudes conserve a quién mira el administrador.
   const viewedEmployee: Employee =
     (isAdmin && viewableEmployees.find((employee) => employee.id === params.get('empleado'))) ||
     currentUser
@@ -39,9 +39,6 @@ export function MyCalendar() {
   // Seleccionando por otra persona no se pregunta: queda aprobada directamente, sin pasar por
   // solicitud pendiente — el checkbox de «crear aprobadas» solo tiene sentido en el propio calendario.
   const effectiveApproved = !viewingSelf || asApproved
-  const requestsPath = viewingSelf
-    ? '/mis-solicitudes'
-    : `/mis-solicitudes?empleado=${viewedEmployee.id}`
 
   const requests = useMemo(
     () => requestsOf(database.requests, viewedEmployee.id, year),
@@ -56,6 +53,42 @@ export function MyCalendar() {
     }
     return map
   }, [requests])
+
+  // Aparte de marks: el globo informativo de un día solicitado necesita el id de su solicitud
+  // para poder cancelarlo, no solo su estado.
+  const requestIdOf = useMemo(() => {
+    const map = new Map<IsoDate, string>()
+    for (const request of requests) {
+      if (request.status === 'rechazada') continue
+      for (const day of request.days) map.set(day, request.id)
+    }
+    return map
+  }, [requests])
+
+  // Cancelar/eliminar desde el globo informativo de un día ya solicitado: el empleado solo sus
+  // pendientes, el administrador cualquiera (también las ya aprobadas). Misma regla que aplica
+  // removeRequestDay() en state/actions.ts.
+  const actionOf = useCallback(
+    (date: IsoDate): DayAction | undefined => {
+      const mark = marks.get(date)
+      if (!mark) return undefined
+      if (!isAdmin && !(viewingSelf && mark === 'pendiente')) return undefined
+
+      const requestId = requestIdOf.get(date)
+      if (!requestId) return undefined
+
+      const label = mark === 'pendiente' ? 'Cancelar' : 'Eliminar'
+      return {
+        label,
+        onClick: () => {
+          if (apply((db) => removeRequestDay(db, requestId, date, currentUser))) {
+            notify(label === 'Cancelar' ? 'Solicitud cancelada.' : 'Solicitud eliminada.')
+          }
+        },
+      }
+    },
+    [marks, requestIdOf, isAdmin, viewingSelf, apply, notify, currentUser],
+  )
 
   const balance = useMemo(
     () =>
@@ -161,7 +194,9 @@ export function MyCalendar() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-        <div className="space-y-4">
+        {/* order-*: en móvil el saldo y «Ten en cuenta» van antes que el calendario, que es largo
+            y obliga a desplazarse; en pantallas lg+ vuelven a su sitio, calendario a la izquierda. */}
+        <div className="order-2 space-y-4 lg:order-1">
           <Legend />
           <div className="card p-4 sm:p-6">
             {selectedDays.length > 0 && (
@@ -186,16 +221,16 @@ export function MyCalendar() {
               selected={selected}
               today={todayIso()}
               onToggle={toggle}
+              actionOf={actionOf}
             />
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="order-1 space-y-4 lg:order-2">
           <BalanceCard
             balance={balance}
             onRequest={openRequestDialog}
             requestDisabled={selectedDays.length === 0}
-            requestsTo={requestsPath}
           />
 
           <section className="rounded-[var(--radius-card)] border border-[var(--color-accent)]/25 bg-[var(--color-accent-soft)] p-4">
@@ -208,7 +243,9 @@ export function MyCalendar() {
               {viewingSelf ? (
                 <>
                   <li>Las solicitudes quedan pendientes hasta que las aprueba un administrador.</li>
-                  <li>Puedes cancelar una solicitud mientras siga pendiente.</li>
+                  <li>
+                    Puedes cancelar una solicitud pendiente pulsando ese día en el calendario.
+                  </li>
                 </>
               ) : (
                 <li>

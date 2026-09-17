@@ -16,6 +16,11 @@ import {
 
 export type DayMark = 'aprobada' | 'pendiente' | undefined
 
+export interface DayAction {
+  label: string
+  onClick: () => void
+}
+
 function tipAlignment(date: IsoDate): string {
   const column = columnOf(date)
   if (column <= 1) return 'day-tip-start'
@@ -33,6 +38,8 @@ interface MonthCalendarProps {
   readonly onToggle?: (date: IsoDate, extendRange: boolean) => void
   readonly infoDay?: IsoDate | null
   readonly onInfo?: (date: IsoDate | null) => void
+  /** Cancelar/eliminar la solicitud de un día, cuando el usuario actual puede hacerlo. */
+  readonly actionOf?: (date: IsoDate) => DayAction | undefined
   /** La rejilla de un solo mes en móvil pinta su propio nombre en el selector de encima. */
   readonly hideTitle?: boolean
 }
@@ -47,6 +54,7 @@ export function MonthCalendar({
   onToggle,
   infoDay,
   onInfo,
+  actionOf,
   hideTitle,
 }: MonthCalendarProps) {
   const cells = monthCells(year, month)
@@ -93,26 +101,40 @@ export function MonthCalendar({
           if (blocked && onInfo) {
             const info = dayInfo(date, holiday, mark)
             const isOpen = infoDay === date
+            const action = actionOf?.(date)
 
+            // Envuelve en un <div>, no en el propio <button>: el botón de cancelar del globo es
+            // otro <button>, y el HTML no admite uno anidado dentro de otro.
             return (
-              <button
-                key={date}
-                type="button"
-                data-day-info
-                style={style}
-                aria-label={`${formatLongDate(date)}: ${info.title}`}
-                aria-expanded={isOpen}
-                onClick={() => onInfo(isOpen ? null : date)}
-                className={`${classes.join(' ')} cursor-pointer`}
-              >
-                {dayOf(date)}
+              <div key={date} data-day-info style={style} className="relative">
+                <button
+                  type="button"
+                  aria-label={`${formatLongDate(date)}: ${info.title}`}
+                  aria-expanded={isOpen}
+                  onClick={() => onInfo(isOpen ? null : date)}
+                  className={`${classes.join(' ')} w-full cursor-pointer`}
+                >
+                  {dayOf(date)}
+                </button>
                 {isOpen && (
                   <span className={`day-tip ${tipAlignment(date)}`} role="tooltip">
                     <span className="font-semibold">{info.title}</span>
                     <span className="opacity-70">{info.detail}</span>
+                    {action && (
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm pointer-events-auto mt-1"
+                        onClick={() => {
+                          onInfo(null)
+                          action.onClick()
+                        }}
+                      >
+                        {action.label}
+                      </button>
+                    )}
                   </span>
                 )}
-              </button>
+              </div>
             )
           }
 
