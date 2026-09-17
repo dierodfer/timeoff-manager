@@ -25,13 +25,13 @@ export function AppSidebar({ organizationName, links, toggled, onClose }: AppSid
         <button
           type="button"
           aria-label="Cerrar menú"
-          className="fixed inset-y-0 right-0 left-[264px] z-30 bg-black/40 xl:hidden"
+          className="fixed inset-y-0 right-0 left-[264px] z-30 bg-black/40 sidebar:hidden"
           onClick={onClose}
         />
       )}
 
       <nav
-        className={`hairline fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col border-r bg-[var(--color-surface)] transition-transform xl:static xl:translate-x-0 ${
+        className={`hairline fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col border-r bg-[var(--color-surface)] transition-transform sidebar:static sidebar:translate-x-0 ${
           toggled ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

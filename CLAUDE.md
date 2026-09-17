@@ -462,9 +462,12 @@ entra en el bundle lo que se usa.
 
 **La barra lateral (`ui/AppSidebar.tsx`) es CSS propio, no una librería.** Antes era
 `react-pro-sidebar`: 204 KB de fuente más el runtime de emotion, para cuatro enlaces estáticos.
-Fijo por encima de `xl` (`xl:static xl:translate-x-0`) y cajón deslizante por debajo
-(`fixed … -translate-x-full`, con `translate-x-0` cuando `toggled`), con un botón a pantalla
-completa de fondo oscurecido para cerrarlo — el botón de menú de la cabecera lo abre. El enlace
+Fijo por encima de `sidebar` (`sidebar:static sidebar:translate-x-0`) y cajón deslizante por
+debajo (`fixed … -translate-x-full`, con `translate-x-0` cuando `toggled`), con un botón a
+pantalla completa de fondo oscurecido para cerrarlo — el botón de menú de la cabecera lo abre.
+`sidebar` es un breakpoint propio (`--breakpoint-sidebar: 1650px` en `index.css`), más ancho que
+el `xl` de Tailwind: a 1280px la barra ya dejaba poco sitio a la rejilla de doce meses de Mi
+calendario. El enlace
 activo lo pinta `.sidebar-link[aria-current='page']`: `NavLink` pone ese atributo solo, no hace
 falta calcularlo a mano comparando `pathname`.
 
