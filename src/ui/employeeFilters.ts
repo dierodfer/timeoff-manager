@@ -2,15 +2,16 @@ import { isActive } from '../domain/accrual'
 import type { Employee, IsoDate } from '../domain/types'
 import { displayName } from '../state/actions'
 
-export type StatusFilter = 'todos' | 'activos' | 'bajas'
-export type ContractFilter = 'todos' | 'fijo' | 'discontinuo'
+export type StatusFilter = 'activos' | 'bajas'
+export type ContractFilter = 'fijo' | 'discontinuo'
 /** Cómo se pinta el nombre en la lista: «Apellidos, Nombre» (con coma) o «Nombre Apellidos». */
 export type NameOrder = 'apellidos-nombre' | 'nombre-apellidos'
 
 export interface EmployeeFilters {
   search: string
-  status: StatusFilter
-  contract: ContractFilter
+  /** Tags multi-selección: ambos valores marcados por defecto equivale a no filtrar. */
+  status: ReadonlySet<StatusFilter>
+  contract: ReadonlySet<ContractFilter>
 }
 
 /**
@@ -26,10 +27,10 @@ export function filterEmployees(
   const term = filters.search.trim().toLowerCase()
   return employees.filter((employee) => {
     if (term && !displayName(employee).toLowerCase().includes(term)) return false
-    if (filters.status === 'activos' && !isActive(employee, today)) return false
-    if (filters.status === 'bajas' && isActive(employee, today)) return false
-    if (filters.contract === 'fijo' && employee.isSeasonal) return false
-    if (filters.contract === 'discontinuo' && !employee.isSeasonal) return false
+    const status: StatusFilter = isActive(employee, today) ? 'activos' : 'bajas'
+    if (!filters.status.has(status)) return false
+    const contract: ContractFilter = employee.isSeasonal ? 'discontinuo' : 'fijo'
+    if (!filters.contract.has(contract)) return false
     return true
   })
 }

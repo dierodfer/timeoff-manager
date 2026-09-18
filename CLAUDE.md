@@ -168,10 +168,17 @@ días del año = ...`).
   aviso y un enlace «Ver todos» para quitar el filtro — el mismo patrón de `?empleado=` que ya usa
   Mi calendario para que un administrador mire a otra persona.
 - **La lista de Empleados los muestra todos y se acota con filtros**: búsqueda por nombre, Estado
-  (Todos / En activo / De baja, sobre `isActive()`) y Tipo de contrato — no hay filtro de orden,
-  ver «Mostrar», abajo. Cada fila lleva el chip «Activo» o «De baja», así que ya no hace falta
-  esconder a nadie por defecto. Un fijo discontinuo entre llamamientos cuenta como de baja: es
-  justo desde donde se le vuelve a dar de alta.
+  y Tipo de contrato — no hay filtro de orden, ver «Mostrar», abajo. Cada fila lleva el chip
+  «Activo» o «De baja», así que ya no hace falta esconder a nadie por defecto. Un fijo discontinuo
+  entre llamamientos cuenta como de baja: es justo desde donde se le vuelve a dar de alta.
+- **Estado y Tipo de contrato son tags de selección múltiple, no un `select` de una opción.**
+  `EmployeeFilters.status`/`.contract` son `ReadonlySet<StatusFilter>`/`ReadonlySet<ContractFilter>`
+  (`ui/employeeFilters.ts`): cada botón (`.filter-tab`, con `aria-pressed`) se activa o desactiva
+  por su cuenta, y `filterEmployees()` deja pasar a un empleado si su estado o su contrato está en
+  el conjunto correspondiente. Los dos tags de cada grupo empiezan marcados — equivale a no
+  filtrar por ese criterio — y ya no existe la opción «Todos»: desmarcar los dos tags de un grupo
+  vacía la lista en vez de ignorarlo, a propósito, para que el estado de los botones siempre
+  refleje lo que se está viendo.
 - **«Mostrar» decide cómo se lee el nombre en la lista de Empleados, no si se ordena.** Dos
   formatos —«Apellidos, Nombre» (con coma, el que viene por defecto) o «Nombre Apellidos» (sin
   coma)— en `ui/employeeFilters.ts` (`formatEmployeeName()`/`NameOrder`). El orden siempre es
