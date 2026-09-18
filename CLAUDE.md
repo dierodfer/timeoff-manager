@@ -245,12 +245,15 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   pulsado, y el rango se reduce a sus dos extremos.
 - **`apply()` es síncrona a propósito.** Si vuelve a ser `async`, el estado que depende del
   resultado se actualiza en otro render y la selección anterior se queda a la vista.
-- **Nunca llamar a `apply()` varias veces seguidas para una acción en lote.** `apply()` cierra
-  sobre el `database` del render en curso (vía `useCallback`), así que una segunda llamada en el
-  mismo manejador sigue viendo la base de datos anterior a la primera y la pisa al guardar: solo
-  sobrevive el último `commit()`. Una acción sobre varios elementos tiene que ser una única función
-  pura en `state/actions.ts` que va enhebrando el `Database` internamente y hace un solo `apply()`
-  al final — así lo hacen `bulkAssign()`, `resolveAllPending()` y `resolveRequestDays()`.
+- **Nunca llamar a `apply()` (o `commit()`) varias veces seguidas para una acción en lote.**
+  `apply()` cierra sobre el `database` del render en curso (vía `useCallback`), así que una segunda
+  llamada en el mismo manejador sigue viendo la base de datos anterior a la primera y la pisa al
+  guardar: solo sobrevive el último `commit()`. Una acción sobre varios elementos tiene que ser una
+  única función pura en `state/actions.ts` que va enhebrando el `Database` internamente y hace una
+  sola escritura al final — así lo hacen `resolveAllPending()`/`resolveRequestDays()` (vía
+  `apply()`, porque devuelven `Outcome`) y `approveMany()`/`bulkAssign()` (vía `commit()` directo
+  desde la página, porque devuelven `BulkApproveResult` con lo asignado y lo saltado por empleado,
+  no un `Outcome` único que falle entero por uno solo).
 - **`commit()` no espera al repositorio** (IndexedDB o Supabase, según el modo) y por eso devuelve
   `void`, no una promesa: la pantalla se actualiza al instante y la escritura va por detrás,
   avisando con un aviso si falla. En modo empresa, además, resincroniza recargando del servidor:
@@ -587,6 +590,25 @@ rejilla anual (`--color-grid-holiday`).
 columna con `data-date` y usa ese atributo para calcular el scroll inicial y para dibujarle un
 borde sutil (cabecera y celdas); sin el atributo, el `useEffect` no encuentra la columna y no
 mueve el scroll.
+
+**Planificación selecciona días de varias personas a la vez, cada una con su propio ancla de
+rango.** `pages/Planning.tsx` guarda la selección como `Map<employeeId, Set<IsoDate>>`, no un
+único `Set` como `useDaySelection()` (esa selección es de una sola fila con mayúsculas, y aquí
+cada fila necesita la suya): un `Map<employeeId, IsoDate>` en un `ref` recuerda el último día
+pulsado de cada fila por separado, para que extender con mayúsculas en la fila de una persona no
+tire del ancla que dejó el último clic en la fila de otra. `YearGrid` recibe `isSelected(id, date)`
+y `hasSelection(id)` en vez de un `selectedEmployeeId`/`selected` únicos, para poder resaltar
+varias filas de golpe.
+
+**Aprobar en Planificación abre antes un resumen por persona y día, no aprueba directamente.**
+El botón «Aprobar vacaciones» de la barra flotante abre un modal que lista cada persona
+seleccionada con sus días (`summarizeDays()`) y su saldo disponible, marcando con el chip «Saldo
+insuficiente» a quien no le llegue — para poder revisarlo antes de confirmar, no después.
+`state/actions.ts` resuelve la aprobación con `approveMany()`, que aprueba una entrada por
+empleado sin frenar en la primera que falte de saldo: quien no llegue se salta y queda en
+`skipped`, igual que ya hacía `bulkAssign()` (que ahora es un caso particular de `approveMany()`
+con los mismos días repetidos para cada empleado). El resultado (aprobadas/sin aprobar, con
+motivo) se enseña también después de confirmar, por si cambió algo entre revisar y confirmar.
 
 ## Comentarios
 

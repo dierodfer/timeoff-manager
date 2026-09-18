@@ -10,8 +10,8 @@ interface YearGridProps {
   readonly employees: Employee[]
   readonly calendar: WorkCalendar
   readonly markOf: (employeeId: string, date: IsoDate) => DayMark
-  readonly selectedEmployeeId: string | null
-  readonly selected: ReadonlySet<IsoDate>
+  readonly isSelected: (employeeId: string, date: IsoDate) => boolean
+  readonly hasSelection: (employeeId: string) => boolean
   readonly today: IsoDate
   readonly onToggle: (employeeId: string, date: IsoDate, extendRange: boolean) => void
 }
@@ -21,8 +21,8 @@ export function YearGrid({
   employees,
   calendar,
   markOf,
-  selectedEmployeeId,
-  selected,
+  isSelected,
+  hasSelection,
   today,
   onToggle,
 }: YearGridProps) {
@@ -104,7 +104,7 @@ export function YearGrid({
 
           <tbody>
             {employees.map((employee) => {
-              const isActiveRow = employee.id === selectedEmployeeId
+              const isActiveRow = hasSelection(employee.id)
               return (
                 <tr key={employee.id} className="group">
                   <th
@@ -122,11 +122,10 @@ export function YearGrid({
                     const holiday = holidayOn(calendar, date)
                     const workable = isWorkingDay(calendar, date)
                     const mark = markOf(employee.id, date)
-                    const isSelected = isActiveRow && selected.has(date)
                     const isToday = date === today
 
                     const state = dayState({
-                      isSelected,
+                      isSelected: isSelected(employee.id, date),
                       mark,
                       isHoliday: Boolean(holiday),
                       isWorkable: workable,

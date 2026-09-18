@@ -3,7 +3,7 @@ import { isActiveInYear } from '../domain/accrual'
 import { withBalances } from '../domain/balance'
 import { formatDate, formatDays } from '../domain/format'
 import { workingDaysInRange } from '../domain/workdays'
-import { bulkAssign, displayName, sortByName, type BulkAssignResult } from '../state/actions'
+import { bulkAssign, displayName, sortByName, type BulkApproveResult } from '../state/actions'
 import { useSession } from '../state/appContext'
 import { DateRangePicker, type DateRange } from '../ui/DateRangePicker'
 
@@ -12,7 +12,7 @@ export function BulkAssign() {
   const [range, setRange] = useState<DateRange>({ start: null, end: null })
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set())
   const [comment, setComment] = useState('')
-  const [result, setResult] = useState<BulkAssignResult | null>(null)
+  const [result, setResult] = useState<BulkApproveResult | null>(null)
 
   const employees = useMemo(
     () => sortByName(database.employees.filter((employee) => isActiveInYear(employee, year))),

@@ -3,6 +3,7 @@ import { makeEmployee, makePeriod, makeRequest, testSettings } from '../domain/f
 import type { Database } from '../domain/types'
 import {
   addRequestDayComment,
+  approveMany,
   deleteEmployee,
   rehireEmployee,
   removeRequestDay,
@@ -275,6 +276,50 @@ describe('removeRequestDay', () => {
 
     const outcome = removeRequestDay(database, request.id, '2026-01-12', employee)
     expect(outcome.ok).toBe(false)
+  })
+})
+
+describe('approveMany', () => {
+  it('aprueba a quien tiene saldo y salta a quien no, cada uno con sus propios días', () => {
+    const employeeB = makeEmployee({ id: 'emp-2', firstName: 'Bea', lastName: 'Ruiz' })
+    const database = makeDatabase({
+      employees: [employee, employeeB],
+      allowances: [{ employeeId: 'emp-2', year: 2026, days: 1 }],
+    })
+
+    const outcome = approveMany(
+      database,
+      [
+        { employeeId: employee.id, days: ['2026-05-04', '2026-05-05'] },
+        { employeeId: employeeB.id, days: ['2026-06-01', '2026-06-02'] },
+      ],
+      'admin-1',
+    )
+
+    expect(outcome.assigned).toEqual([{ employeeId: employee.id, name: 'Ana García', days: 2 }])
+    expect(outcome.skipped).toHaveLength(1)
+    expect(outcome.skipped[0].employeeId).toBe('emp-2')
+    expect(outcome.database.requests).toHaveLength(1)
+    expect(outcome.database.requests[0].status).toBe('aprobada')
+  })
+
+  it('las entradas aprobadas comparten el mismo batchId', () => {
+    const employeeB = makeEmployee({ id: 'emp-2', firstName: 'Bea', lastName: 'Ruiz' })
+    const database = makeDatabase({ employees: [employee, employeeB] })
+
+    const outcome = approveMany(
+      database,
+      [
+        { employeeId: employee.id, days: ['2026-05-04'] },
+        { employeeId: employeeB.id, days: ['2026-06-01'] },
+      ],
+      'admin-1',
+    )
+
+    expect(outcome.assigned).toHaveLength(2)
+    const batchIds = new Set(outcome.database.requests.map((request) => request.batchId))
+    expect(batchIds.size).toBe(1)
+    expect([...batchIds][0]).not.toBeNull()
   })
 })
 
