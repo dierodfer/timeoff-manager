@@ -26,7 +26,6 @@ export function MyCalendar() {
   )
 
   const [params, setParams] = useSearchParams()
-  const [comment, setComment] = useState('')
   const [asApproved, setAsApproved] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -123,7 +122,6 @@ export function MyCalendar() {
     setParams(employeeId === currentUser.id ? {} : { empleado: employeeId }, { replace: true })
     clear()
     setDialogOpen(false)
-    setComment('')
     setAsApproved(false)
   }
 
@@ -141,7 +139,6 @@ export function MyCalendar() {
         days: selectedDays,
         status: effectiveApproved ? 'aprobada' : 'pendiente',
         authorId: currentUser.id,
-        comment,
       }),
     )
     if (ok) {
@@ -152,7 +149,6 @@ export function MyCalendar() {
           : `Solicitud enviada${forThem}.`,
       )
       clear()
-      setComment('')
       setDialogOpen(false)
     }
   }
@@ -240,18 +236,14 @@ export function MyCalendar() {
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--color-ink-soft)]">
               <li>Solo puedes seleccionar días laborables.</li>
-              {viewingSelf ? (
-                <>
-                  <li>Las solicitudes quedan pendientes hasta que las aprueba un administrador.</li>
-                  <li>
-                    Puedes cancelar una solicitud pendiente pulsando ese día en el calendario.
-                  </li>
-                </>
-              ) : (
-                <li>
-                  Al seleccionar por esta persona, sus vacaciones quedan aprobadas directamente.
-                </li>
-              )}
+              <li>
+                Tus propias solicitudes quedan pendientes hasta que las aprueba un administrador;
+                puedes cancelarlas pulsando ese día en el calendario mientras sigan pendientes.
+              </li>
+              <li>
+                Si eres administrador y seleccionas por otra persona, sus vacaciones quedan
+                aprobadas directamente.
+              </li>
             </ul>
           </section>
         </div>
@@ -280,20 +272,6 @@ export function MyCalendar() {
           }
         >
           <div className="space-y-4">
-            <div>
-              <label className="label" htmlFor="comment">
-                Comentario (opcional)
-              </label>
-              <textarea
-                id="comment"
-                className="field"
-                rows={3}
-                value={comment}
-                onChange={(event) => setComment(event.target.value)}
-                placeholder="Motivo, preferencias, sustituciones…"
-              />
-            </div>
-
             {isAdmin && viewingSelf && (
               <label className="hairline flex items-center gap-3 rounded-[var(--radius-control)] border p-3 text-sm">
                 <input

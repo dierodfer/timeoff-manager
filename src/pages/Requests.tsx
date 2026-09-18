@@ -101,7 +101,6 @@ export function Requests() {
   const openRejectSelection = (group: EmployeeGroup) => {
     const selections = selectionOf(group, selected)
     if (selections.length === 0) return
-    setComment('')
     setDialog({
       kind: 'rechazar-seleccion',
       employeeId: group.employee.id,
@@ -110,9 +109,9 @@ export function Requests() {
     })
   }
 
-  const openDialog = (kind: 'rechazar' | 'comentar', requestId: string, day: IsoDate) => {
+  const openComment = (requestId: string, day: IsoDate) => {
     setComment('')
-    setDialog({ kind, requestId, day })
+    setDialog({ kind: 'comentar', requestId, day })
   }
 
   const confirmDialog = () => {
@@ -121,12 +120,11 @@ export function Requests() {
     if (dialog.kind === 'rechazar') {
       if (
         apply((db) =>
-          resolveRequestDay(db, dialog.requestId, dialog.day, 'rechazada', currentUser.id, comment),
+          resolveRequestDay(db, dialog.requestId, dialog.day, 'rechazada', currentUser.id),
         )
       ) {
         notify('Día rechazado.')
         setDialog(null)
-        setComment('')
       }
       return
     }
@@ -145,11 +143,7 @@ export function Requests() {
     }
 
     if (dialog.kind === 'rechazar-seleccion') {
-      if (
-        apply((db) =>
-          resolveRequestDays(db, dialog.selections, 'rechazada', currentUser.id, comment),
-        )
-      ) {
+      if (apply((db) => resolveRequestDays(db, dialog.selections, 'rechazada', currentUser.id))) {
         const count = dialog.selections.length
         notify(`${count} ${count === 1 ? 'día rechazado' : 'días rechazados'}.`)
         setSelected((current) => {
@@ -157,7 +151,6 @@ export function Requests() {
           return new Set([...current].filter((key) => !keys.has(key)))
         })
         setDialog(null)
-        setComment('')
       }
       return
     }
@@ -240,8 +233,8 @@ export function Requests() {
                   count: group.pendingCount,
                 })
               }
-              onComment={(requestId, day) => openDialog('comentar', requestId, day)}
-              onReject={(requestId, day) => openDialog('rechazar', requestId, day)}
+              onComment={openComment}
+              onReject={(requestId, day) => setDialog({ kind: 'rechazar', requestId, day })}
               onApprove={(requestId, day) => {
                 if (
                   apply((db) => resolveRequestDay(db, requestId, day, 'aprobada', currentUser.id))
@@ -277,32 +270,28 @@ export function Requests() {
           onClose={() => setDialog(null)}
           confirm={{ label: 'Rechazar seleccionados', danger: true, onClick: confirmDialog }}
         >
-          <CommentField
-            label="Motivo (opcional, se aplica a todos los días seleccionados)"
-            value={comment}
-            onChange={setComment}
-          />
+          <p className="text-sm text-[var(--color-ink-soft)]">Esta acción no se puede deshacer.</p>
         </Modal>
       )}
 
-      {(dialog?.kind === 'rechazar' || dialog?.kind === 'comentar') && (
+      {dialog?.kind === 'rechazar' && (
         <Modal
-          title={dialog.kind === 'rechazar' ? 'Rechazar día' : 'Añadir comentario'}
-          description={
-            dialog.kind === 'rechazar' ? 'El día vuelve al saldo del empleado.' : undefined
-          }
+          title="Rechazar día"
+          description="El día vuelve al saldo del empleado."
           onClose={() => setDialog(null)}
-          confirm={
-            dialog.kind === 'rechazar'
-              ? { label: 'Rechazar', danger: true, onClick: confirmDialog }
-              : { label: 'Añadir', disabled: !comment.trim(), onClick: confirmDialog }
-          }
+          confirm={{ label: 'Rechazar', danger: true, onClick: confirmDialog }}
         >
-          <CommentField
-            label={dialog.kind === 'rechazar' ? 'Motivo (opcional)' : 'Comentario'}
-            value={comment}
-            onChange={setComment}
-          />
+          <p className="text-sm text-[var(--color-ink-soft)]">Esta acción no se puede deshacer.</p>
+        </Modal>
+      )}
+
+      {dialog?.kind === 'comentar' && (
+        <Modal
+          title="Añadir comentario"
+          onClose={() => setDialog(null)}
+          confirm={{ label: 'Añadir', disabled: !comment.trim(), onClick: confirmDialog }}
+        >
+          <CommentField label="Comentario" value={comment} onChange={setComment} />
         </Modal>
       )}
     </div>

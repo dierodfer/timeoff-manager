@@ -125,40 +125,36 @@ export function Holidays() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
-      <div>
-        <h1 className="text-2xl">Festivos</h1>
-        <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-          Calendario de festivos, comunes para toda la plantilla.
-        </p>
-      </div>
-
-      <Section
-        title={`Festivos de ${year}`}
-        description={`${holidays.length} festivos en ${year}. No restan del saldo de vacaciones.`}
-        action={
-          <div className="flex items-center gap-2">
-            {hasPreloadedHolidays(year) && (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={loadOfficialHolidays}
-              >
-                Cargar oficiales
-              </button>
-            )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl">Festivos de {year}</h1>
+        <div className="flex items-center gap-2">
+          {hasPreloadedHolidays(year) && (
             <button
               type="button"
-              className="btn btn-primary btn-sm"
-              disabled={!holidayDirty}
-              onClick={saveHolidays}
+              className="btn btn-secondary btn-sm"
+              onClick={loadOfficialHolidays}
             >
-              <Save className="size-4" />
-              Guardar cambios
+              Cargar oficiales
             </button>
-          </div>
-        }
-      >
+          )}
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            disabled={!holidayDirty}
+            onClick={saveHolidays}
+          >
+            <Save className="size-4" />
+            Guardar cambios
+          </button>
+        </div>
+      </div>
+
+      <Section>
         <AddHolidayForm key={year} year={year} onAdd={addHoliday} />
+
+        <p className="px-5 py-3 text-sm text-[var(--color-ink-muted)]">
+          {holidays.length} {holidays.length === 1 ? 'festivo' : 'festivos'} en {year}
+        </p>
 
         {holidays.length === 0 && (
           <p className="px-5 py-4 text-sm text-[var(--color-ink-muted)]">
