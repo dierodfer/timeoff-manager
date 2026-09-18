@@ -122,6 +122,9 @@ export function YearGrid({
                     const holiday = holidayOn(calendar, date)
                     const workable = isWorkingDay(calendar, date)
                     const mark = markOf(employee.id, date)
+                    // Mismas condiciones que canSelect() en Mi calendario: un día ya aprobado o
+                    // pendiente no se puede volver a marcar.
+                    const selectable = workable && !mark
                     const isToday = date === today
 
                     const state = dayState({
@@ -144,12 +147,12 @@ export function YearGrid({
                       >
                         <button
                           type="button"
-                          disabled={!workable}
+                          disabled={!selectable}
                           onClick={(event) => onToggle(employee.id, date, event.shiftKey)}
                           title={holiday ? holiday.name : date}
                           aria-label={`${employee.firstName} ${employee.lastName}, ${date}`}
                           className={`grid-day ${GRID_DAY_CLASS[state]} ${
-                            workable ? 'cursor-pointer hover:brightness-90' : 'cursor-default'
+                            selectable ? 'cursor-pointer hover:brightness-90' : 'cursor-default'
                           }`}
                         />
                       </td>

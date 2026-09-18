@@ -625,6 +625,13 @@ tire del ancla que dejó el último clic en la fila de otra. `YearGrid` recibe `
 y `hasSelection(id)` en vez de un `selectedEmployeeId`/`selected` únicos, para poder resaltar
 varias filas de golpe.
 
+**Planificación no deja marcar un día que ya está aprobado o pendiente, las mismas condiciones que
+`canSelect()` de Mi calendario.** `canSelect(employeeId, date)` en `pages/Planning.tsx` exige
+`isWorkingDay()` y que `marks` no tenga ya una entrada para esa pareja empleado/día (aprobada o
+pendiente); `toggle()` la comprueba tanto en el clic suelto como en cada día de un rango con
+mayúsculas. `YearGrid` deshabilita la celda (`disabled`, sin `cursor-pointer`) también en ese
+caso, no solo cuando el día no es laborable.
+
 **Aprobar en Planificación abre antes un resumen por persona y día, no aprueba directamente.**
 El botón «Aprobar vacaciones» de la barra flotante abre un modal que lista cada persona
 seleccionada con sus días (`summarizeDays()`) y su saldo disponible, marcando con el chip «Saldo
