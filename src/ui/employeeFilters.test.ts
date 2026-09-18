@@ -31,7 +31,11 @@ const carla = makeEmployee({
 })
 
 const todos = [ana, bruno, carla]
-const base: EmployeeFilters = { search: '', status: 'todos', contract: 'todos' }
+const base: EmployeeFilters = {
+  search: '',
+  status: new Set(['activos', 'bajas']),
+  contract: new Set(['fijo', 'discontinuo']),
+}
 const filtrar = (cambios: Partial<EmployeeFilters>) =>
   filterEmployees(todos, { ...base, ...cambios }, HOY).map((e) => e.id)
 
@@ -55,33 +59,37 @@ describe('filtro de búsqueda', () => {
 })
 
 describe('filtro de estado', () => {
-  it('«activos» deja fuera a quien tiene el último periodo cerrado', () => {
-    expect(filtrar({ status: 'activos' })).toEqual(['ana', 'bruno'])
+  it('solo «activos» deja fuera a quien tiene el último periodo cerrado', () => {
+    expect(filtrar({ status: new Set(['activos']) })).toEqual(['ana', 'bruno'])
   })
 
-  it('«bajas» deja solo a esa', () => {
-    expect(filtrar({ status: 'bajas' })).toEqual(['carla'])
+  it('solo «bajas» deja solo a esa', () => {
+    expect(filtrar({ status: new Set(['bajas']) })).toEqual(['carla'])
   })
 
-  it('«todos» no descarta a nadie', () => {
-    expect(filtrar({ status: 'todos' })).toHaveLength(3)
+  it('los dos tags marcados no descartan a nadie', () => {
+    expect(filtrar({ status: new Set(['activos', 'bajas']) })).toHaveLength(3)
+  })
+
+  it('ningún tag marcado deja la lista vacía', () => {
+    expect(filtrar({ status: new Set() })).toEqual([])
   })
 })
 
 describe('filtro de tipo de contrato', () => {
   it('separa fijos de fijos discontinuos', () => {
-    expect(filtrar({ contract: 'discontinuo' })).toEqual(['bruno'])
-    expect(filtrar({ contract: 'fijo' })).toEqual(['ana', 'carla'])
+    expect(filtrar({ contract: new Set(['discontinuo']) })).toEqual(['bruno'])
+    expect(filtrar({ contract: new Set(['fijo']) })).toEqual(['ana', 'carla'])
   })
 })
 
 describe('los filtros se combinan', () => {
   it('activos + fijos', () => {
-    expect(filtrar({ status: 'activos', contract: 'fijo' })).toEqual(['ana'])
+    expect(filtrar({ status: new Set(['activos']), contract: new Set(['fijo']) })).toEqual(['ana'])
   })
 
   it('búsqueda + estado que no casan devuelve vacío', () => {
-    expect(filtrar({ search: 'carla', status: 'activos' })).toEqual([])
+    expect(filtrar({ search: 'carla', status: new Set(['activos']) })).toEqual([])
   })
 })
 

@@ -27,8 +27,6 @@ export function Planning() {
   const [result, setResult] = useState<BulkApproveResult | null>(null)
   const anchors = useRef<Map<string, IsoDate>>(new Map())
 
-  const canSelect = useCallback((date: IsoDate) => isWorkingDay(calendar, date), [calendar])
-
   const employees = useMemo(
     () => sortByName(database.employees.filter((employee) => isActiveInYear(employee, year))),
     [database.employees, year],
@@ -43,11 +41,19 @@ export function Planning() {
     return map
   }, [database.requests, year])
 
+  // Mismas condiciones que canSelect() en Mi calendario: ni festivos/domingos ni un día que ya
+  // tenga una solicitud aprobada o pendiente para esa persona.
+  const canSelect = useCallback(
+    (employeeId: string, date: IsoDate) =>
+      isWorkingDay(calendar, date) && !marks.get(`${employeeId}|${date}`),
+    [calendar, marks],
+  )
+
   // Un ancla por empleado, no una sola: mayúsculas en la fila de una persona no debe extender
   // el rango a partir del último clic en la fila de otra.
   const toggle = useCallback(
     (employeeId: string, date: IsoDate, extendRange: boolean) => {
-      if (!canSelect(date)) return
+      if (!canSelect(employeeId, date)) return
       const from = extendRange ? (anchors.current.get(employeeId) ?? null) : null
       anchors.current.set(employeeId, date)
 
@@ -55,7 +61,9 @@ export function Planning() {
         const currentSet = current.get(employeeId) ?? new Set<IsoDate>()
         const additions =
           extendRange && from
-            ? expandRange(from, date).filter((day) => canSelect(day) && !currentSet.has(day))
+            ? expandRange(from, date).filter(
+                (day) => canSelect(employeeId, day) && !currentSet.has(day),
+              )
             : currentSet.has(date)
               ? []
               : [date]

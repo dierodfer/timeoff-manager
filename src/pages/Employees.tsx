@@ -56,16 +56,14 @@ type Dialog =
   | { kind: 'delete'; employee: Employee }
   | null
 
-const STATUS: Record<StatusFilter, string> = {
-  todos: 'Todos',
-  activos: 'En activo',
-  bajas: 'De baja',
-}
-const CONTRACT: Record<ContractFilter, string> = {
-  todos: 'Todos',
-  fijo: 'Fijo',
-  discontinuo: 'Fijo discontinuo',
-}
+const STATUS_TAGS: { value: StatusFilter; label: string }[] = [
+  { value: 'activos', label: 'En activo' },
+  { value: 'bajas', label: 'De baja' },
+]
+const CONTRACT_TAGS: { value: ContractFilter; label: string }[] = [
+  { value: 'fijo', label: 'Fijo' },
+  { value: 'discontinuo', label: 'Fijo discontinuo' },
+]
 const NAME_ORDER: Record<NameOrder, string> = {
   'apellidos-nombre': 'Apellidos, Nombre',
   'nombre-apellidos': 'Nombre Apellido',
@@ -91,9 +89,29 @@ export function Employees() {
   } = useSession()
   const [dialog, setDialog] = useState<Dialog>(null)
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState<StatusFilter>('todos')
-  const [contract, setContract] = useState<ContractFilter>('todos')
+  const [status, setStatus] = useState<ReadonlySet<StatusFilter>>(
+    () => new Set(['activos', 'bajas']),
+  )
+  const [contract, setContract] = useState<ReadonlySet<ContractFilter>>(
+    () => new Set(['fijo', 'discontinuo']),
+  )
   const [nameOrder, setNameOrder] = useState<NameOrder>('apellidos-nombre')
+
+  const toggleStatus = (value: StatusFilter) =>
+    setStatus((prev) => {
+      const next = new Set(prev)
+      if (next.has(value)) next.delete(value)
+      else next.add(value)
+      return next
+    })
+
+  const toggleContract = (value: ContractFilter) =>
+    setContract((prev) => {
+      const next = new Set(prev)
+      if (next.has(value)) next.delete(value)
+      else next.add(value)
+      return next
+    })
 
   const today = todayIso()
   const [dialogDate, setDialogDate] = useState(today)
@@ -301,20 +319,38 @@ export function Employees() {
           </span>
         </div>
 
-        <SelectField
-          id="filtro-estado"
-          label="Estado"
-          value={status}
-          options={STATUS}
-          onChange={setStatus}
-        />
-        <SelectField
-          id="filtro-contrato"
-          label="Tipo de contrato"
-          value={contract}
-          options={CONTRACT}
-          onChange={setContract}
-        />
+        <div>
+          <span className="label">Estado</span>
+          <div className="flex flex-wrap gap-1.5">
+            {STATUS_TAGS.map((tag) => (
+              <button
+                key={tag.value}
+                type="button"
+                className="filter-tab"
+                aria-pressed={status.has(tag.value)}
+                onClick={() => toggleStatus(tag.value)}
+              >
+                {tag.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <span className="label">Tipo de contrato</span>
+          <div className="flex flex-wrap gap-1.5">
+            {CONTRACT_TAGS.map((tag) => (
+              <button
+                key={tag.value}
+                type="button"
+                className="filter-tab"
+                aria-pressed={contract.has(tag.value)}
+                onClick={() => toggleContract(tag.value)}
+              >
+                {tag.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <SelectField
           id="filtro-mostrar"
           label="Mostrar"

@@ -168,10 +168,17 @@ días del año = ...`).
   aviso y un enlace «Ver todos» para quitar el filtro — el mismo patrón de `?empleado=` que ya usa
   Mi calendario para que un administrador mire a otra persona.
 - **La lista de Empleados los muestra todos y se acota con filtros**: búsqueda por nombre, Estado
-  (Todos / En activo / De baja, sobre `isActive()`) y Tipo de contrato — no hay filtro de orden,
-  ver «Mostrar», abajo. Cada fila lleva el chip «Activo» o «De baja», así que ya no hace falta
-  esconder a nadie por defecto. Un fijo discontinuo entre llamamientos cuenta como de baja: es
-  justo desde donde se le vuelve a dar de alta.
+  y Tipo de contrato — no hay filtro de orden, ver «Mostrar», abajo. Cada fila lleva el chip
+  «Activo» o «De baja», así que ya no hace falta esconder a nadie por defecto. Un fijo discontinuo
+  entre llamamientos cuenta como de baja: es justo desde donde se le vuelve a dar de alta.
+- **Estado y Tipo de contrato son tags de selección múltiple, no un `select` de una opción.**
+  `EmployeeFilters.status`/`.contract` son `ReadonlySet<StatusFilter>`/`ReadonlySet<ContractFilter>`
+  (`ui/employeeFilters.ts`): cada botón (`.filter-tab`, con `aria-pressed`) se activa o desactiva
+  por su cuenta, y `filterEmployees()` deja pasar a un empleado si su estado o su contrato está en
+  el conjunto correspondiente. Los dos tags de cada grupo empiezan marcados — equivale a no
+  filtrar por ese criterio — y ya no existe la opción «Todos»: desmarcar los dos tags de un grupo
+  vacía la lista en vez de ignorarlo, a propósito, para que el estado de los botones siempre
+  refleje lo que se está viendo.
 - **«Mostrar» decide cómo se lee el nombre en la lista de Empleados, no si se ordena.** Dos
   formatos —«Apellidos, Nombre» (con coma, el que viene por defecto) o «Nombre Apellidos» (sin
   coma)— en `ui/employeeFilters.ts` (`formatEmployeeName()`/`NameOrder`). El orden siempre es
@@ -617,6 +624,13 @@ pulsado de cada fila por separado, para que extender con mayúsculas en la fila 
 tire del ancla que dejó el último clic en la fila de otra. `YearGrid` recibe `isSelected(id, date)`
 y `hasSelection(id)` en vez de un `selectedEmployeeId`/`selected` únicos, para poder resaltar
 varias filas de golpe.
+
+**Planificación no deja marcar un día que ya está aprobado o pendiente, las mismas condiciones que
+`canSelect()` de Mi calendario.** `canSelect(employeeId, date)` en `pages/Planning.tsx` exige
+`isWorkingDay()` y que `marks` no tenga ya una entrada para esa pareja empleado/día (aprobada o
+pendiente); `toggle()` la comprueba tanto en el clic suelto como en cada día de un rango con
+mayúsculas. `YearGrid` deshabilita la celda (`disabled`, sin `cursor-pointer`) también en ese
+caso, no solo cuando el día no es laborable.
 
 **Aprobar en Planificación abre antes un resumen por persona y día, no aprueba directamente.**
 El botón «Aprobar vacaciones» de la barra flotante abre un modal que lista cada persona
