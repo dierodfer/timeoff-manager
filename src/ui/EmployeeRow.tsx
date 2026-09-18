@@ -85,6 +85,9 @@ export interface EmployeeRowData {
 interface EmployeeRowProps {
   readonly row: EmployeeRowData
   readonly year: number
+  /** El nombre tal y como se pinta, según «Mostrar» (con o sin coma). Las etiquetas de
+   * accesibilidad siguen usando displayName() — «Nombre Apellidos» —, no esta. */
+  readonly nameLabel: string
   readonly isCurrentUser: boolean
   readonly onEdit: () => void
   readonly onToggleEmployment: () => void
@@ -96,6 +99,7 @@ interface EmployeeRowProps {
 export function EmployeeRow({
   row,
   year,
+  nameLabel,
   isCurrentUser,
   onEdit,
   onToggleEmployment,
@@ -123,7 +127,7 @@ export function EmployeeRow({
         <Avatar employee={employee} size="lg" />
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
-            {nombre}
+            {nameLabel}
             {isCurrentUser && <span className="chip chip-neutral">Tú</span>}
             <span className={active ? 'chip chip-aprobada' : 'chip chip-neutral'}>
               {active ? 'Activo' : 'De baja'}

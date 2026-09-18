@@ -5,6 +5,7 @@ import {
   addRequestDayComment,
   approveMany,
   deleteEmployee,
+  findDuplicateEmployees,
   rehireEmployee,
   removeRequestDay,
   resolveAllPending,
@@ -38,6 +39,31 @@ function twoPendingRequests(): { database: Database; selections: RequestDaySelec
     ],
   }
 }
+
+describe('findDuplicateEmployees', () => {
+  it('encuentra una coincidencia exacta', () => {
+    const ana = makeEmployee({ id: 'ana', firstName: 'Ana', lastName: 'García' })
+    expect(findDuplicateEmployees([ana], 'Ana', 'García').map((e) => e.id)).toEqual(['ana'])
+  })
+
+  it('ignora mayúsculas y espacios de sobra', () => {
+    const ana = makeEmployee({ id: 'ana', firstName: 'Ana', lastName: 'García' })
+    expect(findDuplicateEmployees([ana], '  ANA  ', '  garcía  ').map((e) => e.id)).toEqual(['ana'])
+  })
+
+  it('no encuentra nada si no coincide', () => {
+    const ana = makeEmployee({ id: 'ana', firstName: 'Ana', lastName: 'García' })
+    expect(findDuplicateEmployees([ana], 'Bea', 'Ruiz')).toEqual([])
+  })
+
+  it('devuelve todos los que coincidan, puede haber más de uno', () => {
+    const ana1 = makeEmployee({ id: 'ana-1', firstName: 'Ana', lastName: 'García' })
+    const ana2 = makeEmployee({ id: 'ana-2', firstName: 'Ana', lastName: 'García' })
+    const bea = makeEmployee({ id: 'bea', firstName: 'Bea', lastName: 'Ruiz' })
+    const result = findDuplicateEmployees([ana1, ana2, bea], 'Ana', 'García')
+    expect(result.map((e) => e.id)).toEqual(['ana-1', 'ana-2'])
+  })
+})
 
 describe('resolveRequestDay', () => {
   it('separa el día resuelto y deja el resto pendiente', () => {

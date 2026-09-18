@@ -168,10 +168,28 @@ días del año = ...`).
   aviso y un enlace «Ver todos» para quitar el filtro — el mismo patrón de `?empleado=` que ya usa
   Mi calendario para que un administrador mire a otra persona.
 - **La lista de Empleados los muestra todos y se acota con filtros**: búsqueda por nombre, Estado
-  (Todos / En activo / De baja, sobre `isActive()`), Tipo de contrato y orden. Cada fila lleva el
-  chip «Activo» o «De baja», así que ya no hace falta esconder a nadie por defecto. Un fijo
-  discontinuo entre llamamientos cuenta como de baja: es justo desde donde se le vuelve a dar de
-  alta.
+  (Todos / En activo / De baja, sobre `isActive()`) y Tipo de contrato — no hay filtro de orden,
+  ver «Mostrar», abajo. Cada fila lleva el chip «Activo» o «De baja», así que ya no hace falta
+  esconder a nadie por defecto. Un fijo discontinuo entre llamamientos cuenta como de baja: es
+  justo desde donde se le vuelve a dar de alta.
+- **«Mostrar» decide cómo se lee el nombre en la lista de Empleados, no si se ordena.** Dos
+  formatos —«Apellidos, Nombre» (con coma, el que viene por defecto) o «Nombre Apellidos» (sin
+  coma)— en `ui/employeeFilters.ts` (`formatEmployeeName()`/`NameOrder`). El orden siempre es
+  alfabético A-Z y sigue al formato elegido (`sortEmployeesByName()`): con «Apellidos, Nombre» se
+  ordena por apellido, con «Nombre Apellidos» por nombre — por eso no hace falta un filtro de
+  orden aparte, y por eso `EmployeeRow` recibe el nombre ya formateado en un prop `nameLabel`
+  distinto de `displayName()`, que sigue siendo «Nombre Apellidos» sin coma para las etiquetas de
+  accesibilidad (`aria-label`, `panelLabel`, el `label` de `Stepper`): no tiene sentido que un
+  lector de pantalla oiga «Apellidos, coma, Nombre».
+- **Dar de alta comprueba antes si ya existe alguien con el mismo nombre completo**, ignorando
+  mayúsculas y espacios (`findDuplicateEmployees()`, `state/actions.ts`) — nunca lo bloquea, solo
+  avisa: puede haber empleados distintos con el mismo nombre a propósito. La comprobación mira
+  `database.employees` entero, no la lista filtrada de la pantalla, porque un duplicado podría
+  estar oculto tras el filtro de Estado o de Tipo de contrato. Si encuentra alguno, `Employees.tsx`
+  no llama todavía a `createEmployee()`: abre un modal con quién ya se llama igual y dos opciones,
+  «Cancelar» (no crea nada) o «Dar de alta de todas formas» (crea el nuevo, como una persona
+  distinta). Solo se comprueba al dar de alta, no al editar: cambiarle el nombre a alguien para
+  que coincida con otro no pasa por aquí.
 - **Liquidación al dar de baja:** `terminationSettlement()` (`domain/balance.ts`) compara los días
   aprobados y ya pasados (disfrutados de verdad, no los aprobados a futuro) contra la estimación
   recalculada cerrando el periodo en curso en la fecha elegida en el diálogo, no en la de hoy ni el

@@ -28,6 +28,7 @@ import {
   clearAllowance,
   deleteEmployee,
   displayName,
+  findDuplicateEmployees,
   rehireEmployee,
   setAllowance,
   terminateEmployee,
@@ -37,9 +38,11 @@ import { EmployeeForm, type EmployeeFormValues } from '../ui/EmployeeForm'
 import { EmployeeRow } from '../ui/EmployeeRow'
 import { Metric } from '../ui/Metric'
 import {
-  filterAndSortEmployees,
+  filterEmployees,
+  formatEmployeeName,
+  sortEmployeesByName,
   type ContractFilter,
-  type SortOrder,
+  type NameOrder,
   type StatusFilter,
 } from '../ui/employeeFilters'
 import { Modal } from '../ui/Modal'
@@ -47,6 +50,7 @@ import { SelectField } from '../ui/SelectField'
 
 type Dialog =
   | { kind: 'form'; employee: Employee | null }
+  | { kind: 'confirm-duplicate'; values: EmployeeFormValues; matches: Employee[] }
   | { kind: 'baja'; employee: Employee }
   | { kind: 'alta'; employee: Employee }
   | { kind: 'delete'; employee: Employee }
@@ -62,10 +66,9 @@ const CONTRACT: Record<ContractFilter, string> = {
   fijo: 'Fijo',
   discontinuo: 'Fijo discontinuo',
 }
-const ORDER: Record<SortOrder, string> = {
-  nombre: 'Nombre (A–Z)',
-  'nombre-desc': 'Nombre (Z–A)',
-  alta: 'Alta más reciente',
+const NAME_ORDER: Record<NameOrder, string> = {
+  'apellidos-nombre': 'Apellidos, Nombre',
+  'nombre-apellidos': 'Nombre Apellido',
 }
 
 function minAltaDate(employee: Employee, today: IsoDate): IsoDate {
@@ -90,15 +93,15 @@ export function Employees() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('todos')
   const [contract, setContract] = useState<ContractFilter>('todos')
-  const [order, setOrder] = useState<SortOrder>('nombre')
+  const [nameOrder, setNameOrder] = useState<NameOrder>('apellidos-nombre')
 
   const today = todayIso()
   const [dialogDate, setDialogDate] = useState(today)
 
-  const employees = useMemo(
-    () => filterAndSortEmployees(database.employees, { search, status, contract, order }, today),
-    [database.employees, search, status, contract, order, today],
-  )
+  const employees = useMemo(() => {
+    const filtered = filterEmployees(database.employees, { search, status, contract }, today)
+    return sortEmployeesByName(filtered, nameOrder)
+  }, [database.employees, search, status, contract, nameOrder, today])
 
   const rows = useMemo(
     () =>
@@ -126,9 +129,7 @@ export function Employees() {
   const delta = activeCount - inYearCount(year - 1)
   const pendingCount = pendingDaysInYear(database.requests, year)
 
-  const saveEmployee = async (values: EmployeeFormValues) => {
-    if (dialog?.kind !== 'form') return
-    const existing = dialog.employee
+  const commitEmployee = async (existing: Employee | null, values: EmployeeFormValues) => {
     const fields = {
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),
@@ -144,6 +145,24 @@ export function Employees() {
 
     notify(existing ? 'Cambios guardados.' : `${fields.firstName} ${fields.lastName} dado de alta.`)
     setDialog(null)
+  }
+
+  const saveEmployee = async (values: EmployeeFormValues) => {
+    if (dialog?.kind !== 'form') return
+    const existing = dialog.employee
+
+    // Solo al dar de alta: editar un nombre para que coincida con otro no pasa por aquí. Mira
+    // database.employees entero, no la lista filtrada — puede haber una coincidencia oculta por
+    // el filtro de Estado o de Tipo de contrato.
+    if (!existing) {
+      const matches = findDuplicateEmployees(database.employees, values.firstName, values.lastName)
+      if (matches.length > 0) {
+        setDialog({ kind: 'confirm-duplicate', values, matches })
+        return
+      }
+    }
+
+    await commitEmployee(existing, values)
   }
 
   const bajaSettlement = useMemo(() => {
@@ -297,11 +316,11 @@ export function Employees() {
           onChange={setContract}
         />
         <SelectField
-          id="filtro-orden"
-          label="Ordenar por"
-          value={order}
-          options={ORDER}
-          onChange={setOrder}
+          id="filtro-mostrar"
+          label="Mostrar"
+          value={nameOrder}
+          options={NAME_ORDER}
+          onChange={setNameOrder}
         />
       </div>
 
@@ -311,6 +330,7 @@ export function Employees() {
             key={row.employee.id}
             row={row}
             year={year}
+            nameLabel={formatEmployeeName(row.employee, nameOrder)}
             isCurrentUser={row.employee.id === currentUser.id}
             onEdit={() => setDialog({ kind: 'form', employee: row.employee })}
             onToggleEmployment={() => openDialog(row.employed ? 'baja' : 'alta', row.employee)}
@@ -353,6 +373,36 @@ export function Employees() {
             onSubmit={(values) => void saveEmployee(values)}
             onError={(message) => notify(message, 'error')}
           />
+        </Modal>
+      )}
+
+      {dialog?.kind === 'confirm-duplicate' && (
+        <Modal
+          title="Ya existe un empleado con este nombre"
+          onClose={() => setDialog(null)}
+          confirm={{
+            label: 'Dar de alta de todas formas',
+            onClick: () => void commitEmployee(null, dialog.values),
+          }}
+        >
+          <div className="space-y-3 text-sm">
+            <p className="text-[var(--color-ink-soft)]">
+              {dialog.matches.length === 1
+                ? `Ya hay un empleado llamado ${displayName(dialog.matches[0])}.`
+                : `Ya hay ${dialog.matches.length} empleados llamados igual:`}
+            </p>
+            {dialog.matches.length > 1 && (
+              <ul className="list-disc space-y-0.5 pl-5 text-[var(--color-ink-soft)]">
+                {dialog.matches.map((item) => (
+                  <li key={item.id}>{displayName(item)}</li>
+                ))}
+              </ul>
+            )}
+            <p className="text-xs text-[var(--color-ink-muted)]">
+              Puede haber empleados distintos con el mismo nombre a propósito. Si es el caso,
+              continúa; si fue un error al escribirlo, cancela y corrígelo.
+            </p>
+          </div>
         </Modal>
       )}
 

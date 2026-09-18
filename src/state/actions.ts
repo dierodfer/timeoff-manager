@@ -36,6 +36,23 @@ export function sortByName(employees: Employee[]): Employee[] {
   return [...employees].sort((a, b) => displayName(a).localeCompare(displayName(b), 'es'))
 }
 
+function normalizeName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/** Empleados existentes cuyo nombre completo coincide, ignorando mayúsculas y espacios. Se usa
+ * antes de dar de alta a uno nuevo: puede haber varios con el mismo nombre a propósito, así que
+ * esto solo avisa — no bloquea. */
+export function findDuplicateEmployees(
+  employees: Employee[],
+  firstName: string,
+  lastName: string,
+): Employee[] {
+  const target = normalizeName(`${firstName} ${lastName}`)
+  if (!target) return []
+  return employees.filter((employee) => normalizeName(displayName(employee)) === target)
+}
+
 function makeComment(database: Database, authorId: string, text: string): RequestComment {
   const author = findEmployee(database, authorId)
   return {

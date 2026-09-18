@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { makeEmployee, makePeriod } from '../domain/fixtures'
-import { filterAndSortEmployees, type EmployeeFilters } from './employeeFilters'
+import {
+  filterEmployees,
+  formatEmployeeName,
+  sortEmployeesByName,
+  type EmployeeFilters,
+} from './employeeFilters'
 
 const HOY = '2026-09-11'
 
@@ -26,9 +31,9 @@ const carla = makeEmployee({
 })
 
 const todos = [ana, bruno, carla]
-const base: EmployeeFilters = { search: '', status: 'todos', contract: 'todos', order: 'nombre' }
+const base: EmployeeFilters = { search: '', status: 'todos', contract: 'todos' }
 const filtrar = (cambios: Partial<EmployeeFilters>) =>
-  filterAndSortEmployees(todos, { ...base, ...cambios }, HOY).map((e) => e.id)
+  filterEmployees(todos, { ...base, ...cambios }, HOY).map((e) => e.id)
 
 describe('filtro de búsqueda', () => {
   it('busca por nombre sin distinguir mayúsculas', () => {
@@ -70,23 +75,6 @@ describe('filtro de tipo de contrato', () => {
   })
 })
 
-describe('orden', () => {
-  it('por nombre, ascendente y descendente', () => {
-    expect(filtrar({ order: 'nombre' })).toEqual(['ana', 'bruno', 'carla'])
-    expect(filtrar({ order: 'nombre-desc' })).toEqual(['carla', 'bruno', 'ana'])
-  })
-
-  it('por fecha de alta, del más reciente al más antiguo', () => {
-    expect(filtrar({ order: 'alta' })).toEqual(['bruno', 'ana', 'carla'])
-  })
-
-  it('no altera el array que recibe', () => {
-    const original = [...todos]
-    filterAndSortEmployees(todos, { ...base, order: 'nombre-desc' }, HOY)
-    expect(todos).toEqual(original)
-  })
-})
-
 describe('los filtros se combinan', () => {
   it('activos + fijos', () => {
     expect(filtrar({ status: 'activos', contract: 'fijo' })).toEqual(['ana'])
@@ -94,5 +82,38 @@ describe('los filtros se combinan', () => {
 
   it('búsqueda + estado que no casan devuelve vacío', () => {
     expect(filtrar({ search: 'carla', status: 'activos' })).toEqual([])
+  })
+})
+
+describe('formatEmployeeName', () => {
+  it('apellidos-nombre: con coma', () => {
+    expect(formatEmployeeName(ana, 'apellidos-nombre')).toBe('García, Ana')
+  })
+
+  it('nombre-apellidos: sin coma', () => {
+    expect(formatEmployeeName(ana, 'nombre-apellidos')).toBe('Ana García')
+  })
+
+  it('sin apellidos, no deja una coma suelta', () => {
+    const sinApellidos = makeEmployee({ firstName: 'Ana', lastName: '' })
+    expect(formatEmployeeName(sinApellidos, 'apellidos-nombre')).toBe('Ana')
+  })
+})
+
+describe('sortEmployeesByName', () => {
+  it('alfabético por apellido cuando se muestra «Apellidos, Nombre»', () => {
+    const result = sortEmployeesByName(todos, 'apellidos-nombre')
+    expect(result.map((e) => e.id)).toEqual(['bruno', 'ana', 'carla']) // Alonso, García, Ortiz
+  })
+
+  it('alfabético por nombre cuando se muestra «Nombre Apellidos»', () => {
+    const result = sortEmployeesByName(todos, 'nombre-apellidos')
+    expect(result.map((e) => e.id)).toEqual(['ana', 'bruno', 'carla']) // Ana, Bruno, Carla
+  })
+
+  it('no altera el array que recibe', () => {
+    const original = [...todos]
+    sortEmployeesByName(todos, 'apellidos-nombre')
+    expect(todos).toEqual(original)
   })
 })

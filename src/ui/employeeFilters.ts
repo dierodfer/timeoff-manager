@@ -1,30 +1,30 @@
-import { isActive, sortedPeriods } from '../domain/accrual'
-import { compareIso } from '../domain/dates'
+import { isActive } from '../domain/accrual'
 import type { Employee, IsoDate } from '../domain/types'
-import { displayName, sortByName } from '../state/actions'
+import { displayName } from '../state/actions'
 
 export type StatusFilter = 'todos' | 'activos' | 'bajas'
 export type ContractFilter = 'todos' | 'fijo' | 'discontinuo'
-export type SortOrder = 'nombre' | 'nombre-desc' | 'alta'
+/** Cómo se pinta el nombre en la lista: «Apellidos, Nombre» (con coma) o «Nombre Apellidos». */
+export type NameOrder = 'apellidos-nombre' | 'nombre-apellidos'
 
 export interface EmployeeFilters {
   search: string
   status: StatusFilter
   contract: ContractFilter
-  order: SortOrder
 }
 
 /**
- * Filtra y ordena la lista de Empleados. Un fijo discontinuo entre llamamientos cuenta
+ * Filtra la lista de Empleados. No ordena: eso lo hace sortEmployeesByName(), aparte, porque el
+ * orden depende de NameOrder y los filtros no. Un fijo discontinuo entre llamamientos cuenta
  * como de baja, que es justo desde donde se le vuelve a dar de alta.
  */
-export function filterAndSortEmployees(
+export function filterEmployees(
   employees: Employee[],
   filters: EmployeeFilters,
   today: IsoDate,
 ): Employee[] {
   const term = filters.search.trim().toLowerCase()
-  const matching = employees.filter((employee) => {
+  return employees.filter((employee) => {
     if (term && !displayName(employee).toLowerCase().includes(term)) return false
     if (filters.status === 'activos' && !isActive(employee, today)) return false
     if (filters.status === 'bajas' && isActive(employee, today)) return false
@@ -32,12 +32,18 @@ export function filterAndSortEmployees(
     if (filters.contract === 'discontinuo' && !employee.isSeasonal) return false
     return true
   })
+}
 
-  if (filters.order === 'alta') {
-    return [...matching].sort((a, b) =>
-      compareIso(sortedPeriods(b).at(-1)?.start ?? '', sortedPeriods(a).at(-1)?.start ?? ''),
-    )
-  }
-  const byName = sortByName(matching)
-  return filters.order === 'nombre-desc' ? byName.reverse() : byName
+/** «Apellidos, Nombre» con coma; sin apellidos, se queda solo en el nombre, sin coma suelta. */
+export function formatEmployeeName(employee: Employee, order: NameOrder): string {
+  if (order === 'nombre-apellidos') return displayName(employee)
+  const lastName = employee.lastName.trim()
+  return lastName ? `${lastName}, ${employee.firstName.trim()}` : employee.firstName.trim()
+}
+
+/** Siempre alfabético A-Z, por el nombre tal y como se está mostrando (NameOrder). */
+export function sortEmployeesByName(employees: Employee[], order: NameOrder): Employee[] {
+  return [...employees].sort((a, b) =>
+    formatEmployeeName(a, order).localeCompare(formatEmployeeName(b, order), 'es'),
+  )
 }
