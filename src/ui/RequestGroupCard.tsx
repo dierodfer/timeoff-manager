@@ -1,6 +1,6 @@
 import { Check, CheckCheck, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { pluralDays } from '../domain/format'
-import type { IsoDate } from '../domain/types'
+import type { IsoDate, RequestComment } from '../domain/types'
 import { displayName } from '../state/actions'
 import { Avatar } from './Avatar'
 import { RequestDayRow } from './RequestDayRow'
@@ -10,16 +10,14 @@ interface RequestGroupCardProps {
   readonly group: EmployeeGroup
   readonly isCollapsed: boolean
   readonly selected: ReadonlySet<string>
-  readonly openThreads: ReadonlySet<string>
   readonly onToggleCollapsed: () => void
   readonly onToggleSelectAll: () => void
   readonly onToggleSelected: (requestId: string, day: IsoDate) => void
-  readonly onToggleThread: (requestId: string, day: IsoDate) => void
   readonly onApproveSelected: () => void
   readonly onRejectSelected: () => void
   readonly onClearSelection: () => void
   readonly onApproveAll: () => void
-  readonly onComment: (requestId: string, day: IsoDate) => void
+  readonly onComment: (requestId: string, day: IsoDate, comments: RequestComment[]) => void
   readonly onReject: (requestId: string, day: IsoDate) => void
   readonly onApprove: (requestId: string, day: IsoDate) => void
   readonly onRemove: (requestId: string, day: IsoDate) => void
@@ -29,11 +27,9 @@ export function RequestGroupCard({
   group,
   isCollapsed,
   selected,
-  openThreads,
   onToggleCollapsed,
   onToggleSelectAll,
   onToggleSelected,
-  onToggleThread,
   onApproveSelected,
   onRejectSelected,
   onClearSelection,
@@ -102,7 +98,7 @@ export function RequestGroupCard({
 
       {!isCollapsed && (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[58rem] table-fixed text-sm">
+          <table className="w-full min-w-[32rem] table-fixed text-sm">
             <thead>
               <tr className="border-b border-[var(--color-hairline)] bg-[var(--color-surface-sunken)]/60 text-xs font-medium text-[var(--color-ink-muted)]">
                 <th className="w-10 px-5 py-2 text-left font-medium">
@@ -119,9 +115,9 @@ export function RequestGroupCard({
                 </th>
                 <th className="w-32 px-2 py-2 text-left font-medium">Fecha</th>
                 <th className="w-28 px-2 py-2 text-left font-medium">Estado</th>
-                <th className="px-2 py-2 text-left font-medium">Comentarios</th>
-                <th className="w-16 px-2 py-2 text-left font-medium">Días</th>
-                <th className="w-[23rem] px-5 py-2 text-right font-medium">Acciones</th>
+                <th className="px-5 py-2 text-right font-medium">
+                  <span className="sr-only">Acciones</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-hairline)]">
@@ -132,10 +128,8 @@ export function RequestGroupCard({
                     key={key}
                     row={row}
                     isSelected={selected.has(key)}
-                    isThreadOpen={openThreads.has(key)}
                     onToggleSelected={() => onToggleSelected(row.requestId, row.day)}
-                    onToggleThread={() => onToggleThread(row.requestId, row.day)}
-                    onComment={() => onComment(row.requestId, row.day)}
+                    onComment={() => onComment(row.requestId, row.day, row.comments)}
                     onReject={() => onReject(row.requestId, row.day)}
                     onApprove={() => onApprove(row.requestId, row.day)}
                     onRemove={() => onRemove(row.requestId, row.day)}

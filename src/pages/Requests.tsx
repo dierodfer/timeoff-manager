@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import type { IsoDate, RequestStatus } from '../domain/types'
+import { formatDate } from '../domain/format'
+import type { IsoDate, RequestComment, RequestStatus } from '../domain/types'
 import {
   addRequestDayComment,
   displayName,
@@ -32,8 +33,7 @@ const FILTERS: { value: RequestFilter; label: string }[] = [
 ]
 
 type Dialog =
-  | { kind: 'rechazar'; requestId: string; day: IsoDate }
-  | { kind: 'comentar'; requestId: string; day: IsoDate }
+  | { kind: 'comentar'; requestId: string; day: IsoDate; comments: RequestComment[] }
   | { kind: 'aprobar-todos'; employeeId: string; employeeName: string; count: number }
   | {
       kind: 'rechazar-seleccion'
@@ -51,7 +51,6 @@ export function Requests() {
   const [comment, setComment] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [openThreads, setOpenThreads] = useState<Set<string>>(new Set())
 
   const scopedEmployeeId = params.get('empleado')
   const scopedEmployee = database.employees.find((employee) => employee.id === scopedEmployeeId)
@@ -109,25 +108,19 @@ export function Requests() {
     })
   }
 
-  const openComment = (requestId: string, day: IsoDate) => {
+  const openComment = (requestId: string, day: IsoDate, comments: RequestComment[]) => {
     setComment('')
-    setDialog({ kind: 'comentar', requestId, day })
+    setDialog({ kind: 'comentar', requestId, day, comments })
+  }
+
+  const rejectDay = (requestId: string, day: IsoDate) => {
+    if (apply((db) => resolveRequestDay(db, requestId, day, 'rechazada', currentUser.id))) {
+      notify('Día rechazado.')
+    }
   }
 
   const confirmDialog = () => {
     if (!dialog) return
-
-    if (dialog.kind === 'rechazar') {
-      if (
-        apply((db) =>
-          resolveRequestDay(db, dialog.requestId, dialog.day, 'rechazada', currentUser.id),
-        )
-      ) {
-        notify('Día rechazado.')
-        setDialog(null)
-      }
-      return
-    }
 
     if (dialog.kind === 'comentar') {
       if (
@@ -164,7 +157,7 @@ export function Requests() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5">
       <div>
         <h1 className="text-2xl">Solicitudes de vacaciones</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
@@ -211,16 +204,12 @@ export function Requests() {
               group={group}
               isCollapsed={collapsed.has(group.employee.id)}
               selected={selected}
-              openThreads={openThreads}
               onToggleCollapsed={() =>
                 setCollapsed((current) => toggleInSet(current, group.employee.id))
               }
               onToggleSelectAll={() => toggleSelectAll(group)}
               onToggleSelected={(requestId, day) =>
                 setSelected((current) => toggleInSet(current, rowKey(requestId, day)))
-              }
-              onToggleThread={(requestId, day) =>
-                setOpenThreads((current) => toggleInSet(current, rowKey(requestId, day)))
               }
               onApproveSelected={() => approveSelected(group)}
               onRejectSelected={() => openRejectSelection(group)}
@@ -234,7 +223,7 @@ export function Requests() {
                 })
               }
               onComment={openComment}
-              onReject={(requestId, day) => setDialog({ kind: 'rechazar', requestId, day })}
+              onReject={rejectDay}
               onApprove={(requestId, day) => {
                 if (
                   apply((db) => resolveRequestDay(db, requestId, day, 'aprobada', currentUser.id))
@@ -274,24 +263,28 @@ export function Requests() {
         </Modal>
       )}
 
-      {dialog?.kind === 'rechazar' && (
-        <Modal
-          title="Rechazar día"
-          description="El día vuelve al saldo del empleado."
-          onClose={() => setDialog(null)}
-          confirm={{ label: 'Rechazar', danger: true, onClick: confirmDialog }}
-        >
-          <p className="text-sm text-[var(--color-ink-soft)]">Esta acción no se puede deshacer.</p>
-        </Modal>
-      )}
-
       {dialog?.kind === 'comentar' && (
         <Modal
-          title="Añadir comentario"
+          title="Comentarios"
           onClose={() => setDialog(null)}
           confirm={{ label: 'Añadir', disabled: !comment.trim(), onClick: confirmDialog }}
         >
-          <CommentField label="Comentario" value={comment} onChange={setComment} />
+          <div className="space-y-4">
+            {dialog.comments.length > 0 && (
+              <ul className="hairline space-y-2 border-b pb-4">
+                {dialog.comments.map((item) => (
+                  <li key={item.id} className="text-sm">
+                    <span className="font-medium text-[var(--color-ink)]">{item.authorName}</span>{' '}
+                    <span className="text-xs text-[var(--color-ink-muted)]">
+                      · {formatDate(item.createdAt)}
+                    </span>
+                    <p className="text-[var(--color-ink-soft)]">{item.text}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <CommentField label="Nuevo comentario" value={comment} onChange={setComment} />
+          </div>
         </Modal>
       )}
     </div>

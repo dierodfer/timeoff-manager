@@ -107,9 +107,9 @@ del año` (365 o 366, `daysInYear()`) —, redondeada a 2 decimales (`roundDays(
 - **Las fechas se muestran siempre como `dd-mm-aaaa`.** `formatDate()` (`domain/format.ts`) es lo
   único que las pinta; nadie más formatea una fecha a mano ni llama a `toLocaleDateString()`. No
   cubre el propio selector nativo (`<input type="date">`): su formato de fecha lo decide el
-  navegador según el idioma configurado en el dispositivo, no la página. `formatWeekdayShort()`
-  vive al lado, en el mismo fichero: pinta un dato distinto (el día de la semana en 3 letras, «Mar»,
-  «Mié»), así que no compite con `formatDate()` por ser «lo único que pinta fechas».
+  navegador según el idioma configurado en el dispositivo, no la página. `formatWeekday()` vive al
+  lado, en el mismo fichero: pinta un dato distinto (el nombre completo del día de la semana,
+  «Martes», «Miércoles»), así que no compite con `formatDate()` por ser «lo único que pinta fechas».
 - **Los días de vacaciones son decimales.** `formatDays()` (`domain/format.ts`) es lo único que los
   pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado. La tarjeta de saldo
   de Mi calendario trunca «Totales» y «Disponibles» con `truncateDays()` en vez de mostrar los
@@ -210,8 +210,14 @@ días del año = ...`).
   tabla de debajo. Cada día pendiente lleva una casilla; seleccionar varias y pulsar «Aprobar» o
   «Rechazar seleccionados» resuelve todas de una vez con `resolveRequestDays()`
   (`state/actions.ts`), nunca con varias llamadas a `apply()` seguidas — ver la trampa
-  correspondiente. Un día con más de un comentario se pinta con «+N» y un desplegable con el hilo
-  completo (autor y fecha de cada uno).
+  correspondiente. Rechazar un único día (`onReject`, un día suelto) no pasa por ningún modal de
+  confirmación, igual que aprobar: `rejectDay()` en `pages/Requests.tsx` llama a
+  `resolveRequestDay()` directamente. Solo «Rechazar seleccionados» y «Aprobar todos» —que afectan
+  a varios días de golpe— siguen confirmándose en un modal. No hay columna de comentarios en la
+  tabla: el botón «Comentar» de cada fila (solo icono, sin texto) lleva un `.notification-dot` con
+  el recuento cuando el día ya tiene comentarios, y al pulsarlo abre un modal que lista el hilo
+  completo (autor y fecha de cada uno) además del campo para añadir uno nuevo — es la única forma
+  de ver o añadir comentarios de un día.
 - **`Employee.activityPeriods` nunca está vacío**, sus periodos no se solapan y **como mucho uno
   tiene `end: null`, que es además el de inicio más tardío**. Todo lo que antes se leía de
   `hireDate`/`terminationDate` sale ahora de ahí: `hireDateOf()` es el inicio del primero,
