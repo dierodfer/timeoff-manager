@@ -36,6 +36,23 @@ export function sortByName(employees: Employee[]): Employee[] {
   return [...employees].sort((a, b) => displayName(a).localeCompare(displayName(b), 'es'))
 }
 
+function normalizeName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/** Empleados existentes cuyo nombre completo coincide, ignorando mayúsculas y espacios. Se usa
+ * antes de dar de alta a uno nuevo: puede haber varios con el mismo nombre a propósito, así que
+ * esto solo avisa — no bloquea. */
+export function findDuplicateEmployees(
+  employees: Employee[],
+  firstName: string,
+  lastName: string,
+): Employee[] {
+  const target = normalizeName(`${firstName} ${lastName}`)
+  if (!target) return []
+  return employees.filter((employee) => normalizeName(displayName(employee)) === target)
+}
+
 function makeComment(database: Database, authorId: string, text: string): RequestComment {
   const author = findEmployee(database, authorId)
   return {
@@ -97,6 +114,64 @@ export function createVacation(database: Database, input: CreateVacationInput): 
   return { ok: true, database: draft }
 }
 
+export interface ApprovalEntry {
+  employeeId: string
+  days: IsoDate[]
+}
+
+export interface BulkApproveResult {
+  database: Database
+  assigned: { employeeId: string; name: string; days: number }[]
+  skipped: { employeeId: string; name: string; reason: string }[]
+}
+
+/** Aprueba una entrada por empleado, cada una con sus propios días, sin frenar en el primer
+ * fallo: quien no tenga saldo se salta y queda en `skipped`, en vez de abortar toda la
+ * operación — así una persona sin saldo no bloquea al resto. Comparte batchId con las demás. */
+export function approveMany(
+  database: Database,
+  entries: ApprovalEntry[],
+  authorId: string,
+  comment?: string,
+): BulkApproveResult {
+  const batchId = newId()
+  const result: BulkApproveResult = { database, assigned: [], skipped: [] }
+
+  for (const entry of entries) {
+    const employee = findEmployee(result.database, entry.employeeId)
+    if (!employee) continue
+
+    const outcome = createVacation(result.database, {
+      employeeId: entry.employeeId,
+      days: entry.days,
+      status: 'aprobada',
+      authorId,
+      comment,
+      batchId,
+    })
+
+    if (outcome.ok) {
+      const added = outcome.database.requests
+        .filter((request) => request.batchId === batchId && request.employeeId === entry.employeeId)
+        .reduce((total, request) => total + request.days.length, 0)
+      result.database = outcome.database
+      result.assigned.push({
+        employeeId: entry.employeeId,
+        name: displayName(employee),
+        days: added,
+      })
+    } else {
+      result.skipped.push({
+        employeeId: entry.employeeId,
+        name: displayName(employee),
+        reason: outcome.reason,
+      })
+    }
+  }
+
+  return result
+}
+
 export interface BulkAssignInput {
   employeeIds: string[]
   days: IsoDate[]
@@ -104,41 +179,15 @@ export interface BulkAssignInput {
   comment?: string
 }
 
-export interface BulkAssignResult {
-  database: Database
-  assigned: { employeeId: string; name: string; days: number }[]
-  skipped: { employeeId: string; name: string; reason: string }[]
-}
-
-export function bulkAssign(database: Database, input: BulkAssignInput): BulkAssignResult {
-  const batchId = newId()
-  const result: BulkAssignResult = { database, assigned: [], skipped: [] }
-
-  for (const employeeId of input.employeeIds) {
-    const employee = findEmployee(result.database, employeeId)
-    if (!employee) continue
-
-    const outcome = createVacation(result.database, {
-      employeeId,
-      days: input.days,
-      status: 'aprobada',
-      authorId: input.authorId,
-      comment: input.comment,
-      batchId,
-    })
-
-    if (outcome.ok) {
-      const added = outcome.database.requests
-        .filter((request) => request.batchId === batchId && request.employeeId === employeeId)
-        .reduce((total, request) => total + request.days.length, 0)
-      result.database = outcome.database
-      result.assigned.push({ employeeId, name: displayName(employee), days: added })
-    } else {
-      result.skipped.push({ employeeId, name: displayName(employee), reason: outcome.reason })
-    }
-  }
-
-  return result
+/** Mismo periodo para varios empleados: caso particular de approveMany() con una entrada por
+ * empleado que comparte los mismos días. */
+export function bulkAssign(database: Database, input: BulkAssignInput): BulkApproveResult {
+  return approveMany(
+    database,
+    input.employeeIds.map((employeeId) => ({ employeeId, days: input.days })),
+    input.authorId,
+    input.comment,
+  )
 }
 
 export function resolveRequest(

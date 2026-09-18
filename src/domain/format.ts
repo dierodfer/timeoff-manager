@@ -25,11 +25,9 @@ export function formatDate(date: string): string {
   return `${day}-${month}-${year}`
 }
 
-const WEEKDAY_SHORT = WEEKDAY_NAMES.map((name) => name.slice(0, 3))
-
-/** Abreviatura de 3 letras del día de la semana («Mar», «Mié»). No pinta la fecha en sí: sigue
+/** Nombre completo del día de la semana («Martes», «Miércoles»). No pinta la fecha en sí: sigue
  * siendo formatDate() lo único que hace eso. */
-export function formatWeekdayShort(date: IsoDate): string {
-  const short = WEEKDAY_SHORT[weekday(date)]
-  return short.charAt(0).toUpperCase() + short.slice(1)
+export function formatWeekday(date: IsoDate): string {
+  const name = WEEKDAY_NAMES[weekday(date)]
+  return name.charAt(0).toUpperCase() + name.slice(1)
 }

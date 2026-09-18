@@ -107,9 +107,9 @@ del año` (365 o 366, `daysInYear()`) —, redondeada a 2 decimales (`roundDays(
 - **Las fechas se muestran siempre como `dd-mm-aaaa`.** `formatDate()` (`domain/format.ts`) es lo
   único que las pinta; nadie más formatea una fecha a mano ni llama a `toLocaleDateString()`. No
   cubre el propio selector nativo (`<input type="date">`): su formato de fecha lo decide el
-  navegador según el idioma configurado en el dispositivo, no la página. `formatWeekdayShort()`
-  vive al lado, en el mismo fichero: pinta un dato distinto (el día de la semana en 3 letras, «Mar»,
-  «Mié»), así que no compite con `formatDate()` por ser «lo único que pinta fechas».
+  navegador según el idioma configurado en el dispositivo, no la página. `formatWeekday()` vive al
+  lado, en el mismo fichero: pinta un dato distinto (el nombre completo del día de la semana,
+  «Martes», «Miércoles»), así que no compite con `formatDate()` por ser «lo único que pinta fechas».
 - **Los días de vacaciones son decimales.** `formatDays()` (`domain/format.ts`) es lo único que los
   pinta; los controles `+`/`−` de un ajuste manual saltan al entero de al lado. La tarjeta de saldo
   de Mi calendario trunca «Totales» y «Disponibles» con `truncateDays()` en vez de mostrar los
@@ -168,10 +168,28 @@ días del año = ...`).
   aviso y un enlace «Ver todos» para quitar el filtro — el mismo patrón de `?empleado=` que ya usa
   Mi calendario para que un administrador mire a otra persona.
 - **La lista de Empleados los muestra todos y se acota con filtros**: búsqueda por nombre, Estado
-  (Todos / En activo / De baja, sobre `isActive()`), Tipo de contrato y orden. Cada fila lleva el
-  chip «Activo» o «De baja», así que ya no hace falta esconder a nadie por defecto. Un fijo
-  discontinuo entre llamamientos cuenta como de baja: es justo desde donde se le vuelve a dar de
-  alta.
+  (Todos / En activo / De baja, sobre `isActive()`) y Tipo de contrato — no hay filtro de orden,
+  ver «Mostrar», abajo. Cada fila lleva el chip «Activo» o «De baja», así que ya no hace falta
+  esconder a nadie por defecto. Un fijo discontinuo entre llamamientos cuenta como de baja: es
+  justo desde donde se le vuelve a dar de alta.
+- **«Mostrar» decide cómo se lee el nombre en la lista de Empleados, no si se ordena.** Dos
+  formatos —«Apellidos, Nombre» (con coma, el que viene por defecto) o «Nombre Apellidos» (sin
+  coma)— en `ui/employeeFilters.ts` (`formatEmployeeName()`/`NameOrder`). El orden siempre es
+  alfabético A-Z y sigue al formato elegido (`sortEmployeesByName()`): con «Apellidos, Nombre» se
+  ordena por apellido, con «Nombre Apellidos» por nombre — por eso no hace falta un filtro de
+  orden aparte, y por eso `EmployeeRow` recibe el nombre ya formateado en un prop `nameLabel`
+  distinto de `displayName()`, que sigue siendo «Nombre Apellidos» sin coma para las etiquetas de
+  accesibilidad (`aria-label`, `panelLabel`, el `label` de `Stepper`): no tiene sentido que un
+  lector de pantalla oiga «Apellidos, coma, Nombre».
+- **Dar de alta comprueba antes si ya existe alguien con el mismo nombre completo**, ignorando
+  mayúsculas y espacios (`findDuplicateEmployees()`, `state/actions.ts`) — nunca lo bloquea, solo
+  avisa: puede haber empleados distintos con el mismo nombre a propósito. La comprobación mira
+  `database.employees` entero, no la lista filtrada de la pantalla, porque un duplicado podría
+  estar oculto tras el filtro de Estado o de Tipo de contrato. Si encuentra alguno, `Employees.tsx`
+  no llama todavía a `createEmployee()`: abre un modal con quién ya se llama igual y dos opciones,
+  «Cancelar» (no crea nada) o «Dar de alta de todas formas» (crea el nuevo, como una persona
+  distinta). Solo se comprueba al dar de alta, no al editar: cambiarle el nombre a alguien para
+  que coincida con otro no pasa por aquí.
 - **Liquidación al dar de baja:** `terminationSettlement()` (`domain/balance.ts`) compara los días
   aprobados y ya pasados (disfrutados de verdad, no los aprobados a futuro) contra la estimación
   recalculada cerrando el periodo en curso en la fecha elegida en el diálogo, no en la de hoy ni el
@@ -210,8 +228,14 @@ días del año = ...`).
   tabla de debajo. Cada día pendiente lleva una casilla; seleccionar varias y pulsar «Aprobar» o
   «Rechazar seleccionados» resuelve todas de una vez con `resolveRequestDays()`
   (`state/actions.ts`), nunca con varias llamadas a `apply()` seguidas — ver la trampa
-  correspondiente. Un día con más de un comentario se pinta con «+N» y un desplegable con el hilo
-  completo (autor y fecha de cada uno).
+  correspondiente. Rechazar un único día (`onReject`, un día suelto) no pasa por ningún modal de
+  confirmación, igual que aprobar: `rejectDay()` en `pages/Requests.tsx` llama a
+  `resolveRequestDay()` directamente. Solo «Rechazar seleccionados» y «Aprobar todos» —que afectan
+  a varios días de golpe— siguen confirmándose en un modal. No hay columna de comentarios en la
+  tabla: el botón «Comentar» de cada fila (solo icono, sin texto) lleva un `.notification-dot` con
+  el recuento cuando el día ya tiene comentarios, y al pulsarlo abre un modal que lista el hilo
+  completo (autor y fecha de cada uno) además del campo para añadir uno nuevo — es la única forma
+  de ver o añadir comentarios de un día.
 - **`Employee.activityPeriods` nunca está vacío**, sus periodos no se solapan y **como mucho uno
   tiene `end: null`, que es además el de inicio más tardío**. Todo lo que antes se leía de
   `hireDate`/`terminationDate` sale ahora de ahí: `hireDateOf()` es el inicio del primero,
@@ -239,12 +263,15 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   pulsado, y el rango se reduce a sus dos extremos.
 - **`apply()` es síncrona a propósito.** Si vuelve a ser `async`, el estado que depende del
   resultado se actualiza en otro render y la selección anterior se queda a la vista.
-- **Nunca llamar a `apply()` varias veces seguidas para una acción en lote.** `apply()` cierra
-  sobre el `database` del render en curso (vía `useCallback`), así que una segunda llamada en el
-  mismo manejador sigue viendo la base de datos anterior a la primera y la pisa al guardar: solo
-  sobrevive el último `commit()`. Una acción sobre varios elementos tiene que ser una única función
-  pura en `state/actions.ts` que va enhebrando el `Database` internamente y hace un solo `apply()`
-  al final — así lo hacen `bulkAssign()`, `resolveAllPending()` y `resolveRequestDays()`.
+- **Nunca llamar a `apply()` (o `commit()`) varias veces seguidas para una acción en lote.**
+  `apply()` cierra sobre el `database` del render en curso (vía `useCallback`), así que una segunda
+  llamada en el mismo manejador sigue viendo la base de datos anterior a la primera y la pisa al
+  guardar: solo sobrevive el último `commit()`. Una acción sobre varios elementos tiene que ser una
+  única función pura en `state/actions.ts` que va enhebrando el `Database` internamente y hace una
+  sola escritura al final — así lo hacen `resolveAllPending()`/`resolveRequestDays()` (vía
+  `apply()`, porque devuelven `Outcome`) y `approveMany()`/`bulkAssign()` (vía `commit()` directo
+  desde la página, porque devuelven `BulkApproveResult` con lo asignado y lo saltado por empleado,
+  no un `Outcome` único que falle entero por uno solo).
 - **`commit()` no espera al repositorio** (IndexedDB o Supabase, según el modo) y por eso devuelve
   `void`, no una promesa: la pantalla se actualiza al instante y la escritura va por detrás,
   avisando con un aviso si falla. En modo empresa, además, resincroniza recargando del servidor:
@@ -581,6 +608,25 @@ rejilla anual (`--color-grid-holiday`).
 columna con `data-date` y usa ese atributo para calcular el scroll inicial y para dibujarle un
 borde sutil (cabecera y celdas); sin el atributo, el `useEffect` no encuentra la columna y no
 mueve el scroll.
+
+**Planificación selecciona días de varias personas a la vez, cada una con su propio ancla de
+rango.** `pages/Planning.tsx` guarda la selección como `Map<employeeId, Set<IsoDate>>`, no un
+único `Set` como `useDaySelection()` (esa selección es de una sola fila con mayúsculas, y aquí
+cada fila necesita la suya): un `Map<employeeId, IsoDate>` en un `ref` recuerda el último día
+pulsado de cada fila por separado, para que extender con mayúsculas en la fila de una persona no
+tire del ancla que dejó el último clic en la fila de otra. `YearGrid` recibe `isSelected(id, date)`
+y `hasSelection(id)` en vez de un `selectedEmployeeId`/`selected` únicos, para poder resaltar
+varias filas de golpe.
+
+**Aprobar en Planificación abre antes un resumen por persona y día, no aprueba directamente.**
+El botón «Aprobar vacaciones» de la barra flotante abre un modal que lista cada persona
+seleccionada con sus días (`summarizeDays()`) y su saldo disponible, marcando con el chip «Saldo
+insuficiente» a quien no le llegue — para poder revisarlo antes de confirmar, no después.
+`state/actions.ts` resuelve la aprobación con `approveMany()`, que aprueba una entrada por
+empleado sin frenar en la primera que falte de saldo: quien no llegue se salta y queda en
+`skipped`, igual que ya hacía `bulkAssign()` (que ahora es un caso particular de `approveMany()`
+con los mismos días repetidos para cada empleado). El resultado (aprobadas/sin aprobar, con
+motivo) se enseña también después de confirmar, por si cambió algo entre revisar y confirmar.
 
 ## Comentarios
 

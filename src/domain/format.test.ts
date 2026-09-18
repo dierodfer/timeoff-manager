@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatDays, formatWeekdayShort, pluralDays, truncateDays } from './format'
+import { formatDate, formatDays, formatWeekday, pluralDays, truncateDays } from './format'
 
 describe('formatDate', () => {
   it('reordena yyyy-MM-dd a dd-mm-aaaa', () => {
@@ -15,11 +15,11 @@ describe('formatDate', () => {
   })
 })
 
-describe('formatWeekdayShort', () => {
-  it('abrevia a 3 letras con la primera en mayúscula', () => {
-    expect(formatWeekdayShort('2026-01-05')).toBe('Lun')
-    expect(formatWeekdayShort('2026-09-16')).toBe('Mié')
-    expect(formatWeekdayShort('2027-01-01')).toBe('Vie')
+describe('formatWeekday', () => {
+  it('nombre completo con la primera letra en mayúscula', () => {
+    expect(formatWeekday('2026-01-05')).toBe('Lunes')
+    expect(formatWeekday('2026-09-16')).toBe('Miércoles')
+    expect(formatWeekday('2027-01-01')).toBe('Viernes')
   })
 })
 
