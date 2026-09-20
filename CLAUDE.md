@@ -15,6 +15,19 @@ npm run preview       # sirve dist/ como en producción
 El workflow de despliegue corre `lint`, `format:check`, `test` y `build`: si algo de eso falla en
 local, también falla el despliegue.
 
+**La CSP se inyecta como `<meta>` solo en `npm run build`, no en `npm run dev`.** GitHub Pages no
+deja poner cabeceras HTTP, así que la única vía es un `<meta http-equiv="Content-Security-Policy">`
+en `index.html` — pero ese fichero se copia tal cual a `dist/`, así que cualquier cosa que llevara
+escrita a mano viajaría igual a desarrollo que a producción. El plugin `contentSecurityPolicy()`
+(`vite.config.ts`, `apply: 'build'`) la inyecta solo al construir, precisamente porque el modo
+`dev` de Vite mete un `<script type="module">` **inline** para el React Refresh que una CSP con
+`script-src 'self'` bloquearía sin remedio. `connect-src` incluye el origen de Supabase
+(`https://<ref>.supabase.co`, más `wss://` para cuando haya tiempo real) solo si
+`VITE_SUPABASE_PROJECT_REF` está definido en el build; en modo local puro se queda en `'self'`.
+`style-src` lleva `'unsafe-inline'` a propósito: varios componentes pintan color, ancho o sombra
+dinámicos con `style={{...}}` (`BalanceCard`, `Metric`, `MonthCalendar`, `Toasts`…), que no tiene
+equivalente sin inline — lo que de verdad importa bloquear es `script-src`, el vector real de XSS.
+
 ## Capas
 
 | Carpeta       | Qué hace                                             | Reglas                                                |
@@ -312,8 +325,17 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   Añadir, renombrar, eliminar o cargar oficiales en Festivos solo tocan `holidayDraft`; si se
   vuelve a un `commit()` directo en cualquiera de los dos, el botón correspondiente deja de
   reflejar si hay algo sin guardar.
-- **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva:
-  al abrir la aplicación por IP en la red local no está disponible.
+- **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva
+  (`fnv1a:`, vía `fallbackHash()`): al abrir la aplicación por IP en la red local no está
+  disponible.
+- **`verifyPin()` recalcula con el algoritmo que dice el propio formato de `expectedHash`, no con
+  el que elegiría `hashPin()` según el contexto actual.** Si volviera a llamar a `hashPin()` sin
+  más, un PIN creado en un contexto seguro (SHA-256) nunca validaría luego en uno que no lo sea
+  —recalcularía con el hash de reserva y no coincidiría, ni al revés— y el usuario se quedaría
+  fuera con el PIN correcto. El prefijo `fnv1a:` es justo lo que permite distinguir un formato del
+  otro sin guardar el algoritmo aparte. Si el hash guardado es SHA-256 y aquí no hay
+  `crypto.subtle`, no hay forma de recalcularlo: `verifyPin()` devuelve `false` sin intentarlo, en
+  vez de comparar dos hashes de algoritmos distintos.
 - **`crypto.randomUUID()` también exige contexto seguro**, así que los identificadores (`ids.ts`) y
   la sal del PIN salen de `crypto.getRandomValues()`, que sí funciona por IP en la red local.
   `newId()` compone un UUID v4 a mano con esos bytes: las claves primarias de Supabase son `uuid`,
