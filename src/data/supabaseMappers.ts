@@ -16,6 +16,8 @@ export interface OrganizationRow {
   name: string
   default_annual_days: number
   workweek: number[]
+  /** Bloqueo optimista de escritura, no un dato de negocio: no pasa por settingsFromRow(). */
+  version: number
 }
 
 export interface EmployeeRow {

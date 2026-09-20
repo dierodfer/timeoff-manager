@@ -30,8 +30,15 @@ create table if not exists public.organizations (
   -- 0 = domingo … 6 = sábado, igual que Settings.workweek.
   workweek smallint[] not null default '{1,2,3,4,5,6}'
     check (workweek <@ array[0, 1, 2, 3, 4, 5, 6]::smallint[] and workweek <> '{}'),
+  -- Bloqueo optimista de escritura, no un dato de negocio: ver bump_org_version() más abajo.
+  version bigint not null default 1,
   created_at timestamptz not null default now()
 );
+
+-- Para un proyecto que ya tenía este esquema sin `version`: create table if not exists no
+-- toca una tabla ya existente, así que hace falta este alter aparte para que reejecutar el
+-- fichero entero también la añada, sin borrar nada.
+alter table public.organizations add column if not exists version bigint not null default 1;
 
 -- user_id queda a null hasta que exista el usuario de auth: el trigger de la sección 2
 -- los empareja por email.
@@ -227,6 +234,28 @@ language sql stable security definer set search_path = public as $$
        )
   )
 $$;
+
+-- Bloqueo optimista de escritura para toda la empresa (no fila a fila): supabaseRepository.save()
+-- la llama antes de escribir nada, con la versión que vio en su último load(). Si otro guardado se
+-- adelantó, `version` ya no coincide, no actualiza ninguna fila y devuelve null: el cliente aborta
+-- el resto del guardado en vez de pisar lo que el otro acaba de escribir. Ver CLAUDE.md, «El modo
+-- empresa». `security definer` para que cualquier empleado autenticado de su empresa pueda
+-- reservar el bloqueo, no solo el administrador: `organizations_update` (más abajo) es solo para
+-- el administrador, y escribir el propio saldo o una solicitud pendiente no lo exige.
+create or replace function public.bump_org_version(p_expected bigint) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare
+  v_next bigint;
+begin
+  update public.organizations
+     set version = version + 1
+   where id = public.current_org_id()
+     and version = p_expected
+  returning version into v_next;
+  return v_next; -- null si p_expected ya no coincidía con lo que hay guardado
+end $$;
+
+grant execute on function public.bump_org_version(bigint) to authenticated;
 
 -- -----------------------------------------------------------------------------
 -- 4. Row Level Security

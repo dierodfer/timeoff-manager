@@ -455,6 +455,34 @@ cualquier id que no existiera antes en ninguna solicitud es, por definición, un
 fallo de red es frecuente, y dejar la pantalla mostrando algo que no llegó a guardarse sería peor
 que el propio fallo.
 
+**`organizations.version` es un bloqueo optimista de toda la empresa, no un dato de negocio.**
+`supabaseRepository.save()` llama primero a `bump_org_version(p_expected)` (`schema.sql`), una
+función `security definer` que incrementa `version` solo si coincide con la que se vio en el
+último `load()`; si no coincide —otro guardado, de cualquier admin o empleado, se adelantó—
+devuelve `null` sin tocar ninguna fila, y `save()` lanza `ConcurrencyError` **antes** de escribir
+nada del diff. Es de grano grueso a propósito: una sola columna, sin tablas ni triggers nuevos, y
+cualquier cambio de cualquier tabla de la empresa invalida el guardado concurrente de otra
+pestaña, aunque toquen datos distintos — para el tamaño real de una empresa (normalmente un
+admin, alguna vez dos) sale más barato que un bloqueo fila a fila. `ConcurrencyError` vive en
+`data/repository.ts`, no en `supabaseRepository.ts`, para que `AppStore.tsx` (que sirve los dos
+modos) pueda hacer `instanceof` sin arrastrar `@supabase/supabase-js` al bundle de quien entra en
+modo local — la trampa «Perezosas» de `App.tsx` se rompería si se importara desde el sitio
+equivocado. `AppStore.tsx` la captura en el mismo `catch()` que ya reaccionaba a cualquier fallo
+de guardado, y solo cambia el texto del aviso antes de resincronizar: no hay pantalla de conflicto
+aparte, el segundo guardado se pierde y hay que repetir la acción contra los datos recién
+recargados.
+
+**`loadFull()` pagina las siete tablas que pueden crecer, con `fetchAll()` (`.range()` en
+bucle).** PostgREST nunca devuelve más de `db-max-rows` filas de golpe (1000 por defecto en un
+proyecto nuevo); sin paginar, una tabla que lo superase se cargaría truncada, y como
+`activity_periods`/`vacation_request_days` se reescriben por sustitución completa (ver
+`diffDatabase()`, arriba), un guardado posterior borraría sin querer las filas que se quedaron
+fuera de esa primera página. `vacation_request_days` es la más expuesta: crece con cada día de
+cada solicitud de cada año. Cuando una tabla cabe en una página —cualquier tamaño real de
+empresa, hoy— `fetchAll()` hace exactamente la misma petición que antes de este cambio, sin coste
+añadido; solo pide una página más cuando de verdad hace falta. `organizations` no se pagina:
+RLS ya garantiza una única fila por sesión.
+
 **El alta de empleado no pasa por `commit()`.** Crear un usuario exige la Admin API de Supabase, y
 la Admin API exige la `service_role key`, que nunca puede viajar al navegador — por eso vive en la
 Edge Function `crear-empleado`, no en el cliente. `AppContextValue.createEmployee()` es el único

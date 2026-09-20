@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Database } from '../domain/types'
+import { ConcurrencyError } from './repository'
 import { createSupabaseRepository } from './supabaseRepository'
 
 type Row = Record<string, unknown>
@@ -43,11 +44,21 @@ function makeFakeSupabase(seed: Tables) {
   function from(table: string) {
     return {
       select() {
-        return {
+        // .range() trocea de verdad, como PostgREST: hace falta para poder probar que
+        // fetchAll() (supabaseRepository.ts) pagina en vez de quedarse con la primera página.
+        let bounds: [number, number] | null = null
+        const builder = {
           returns() {
-            return Promise.resolve({ data: structuredClone(tables[table]), error: null })
+            const rows = structuredClone(tables[table])
+            const sliced = bounds ? rows.slice(bounds[0], bounds[1] + 1) : rows
+            return Promise.resolve({ data: sliced, error: null })
+          },
+          range(from: number, to: number) {
+            bounds = [from, to]
+            return builder
           },
         }
+        return builder
       },
       insert(payload: Row | Row[]) {
         const items = structuredClone(Array.isArray(payload) ? payload : [payload])
@@ -76,13 +87,31 @@ function makeFakeSupabase(seed: Tables) {
     }
   }
 
-  return { tables, client: { from } as unknown as SupabaseClient }
+  // Simula bump_org_version(): incrementa organizations[0].version si coincide con p_expected, o
+  // devuelve null (sin tocar nada) si no — igual que la función SQL real. Promesa directa, sin
+  // .returns(): bumpVersion() en supabaseRepository.ts la espera tal cual (mismo patrón que
+  // perfiles_para_acceso() en CompanyGate.tsx).
+  function rpc(name: string, params: Record<string, unknown>) {
+    if (name !== 'bump_org_version') throw new Error(`rpc no simulada: ${name}`)
+    const org = tables.organizations[0]
+    const matches = Boolean(org) && org.version === params.p_expected
+    if (matches) org.version = (org.version as number) + 1
+    return Promise.resolve({ data: matches ? org.version : null, error: null })
+  }
+
+  return { tables, client: { from, rpc } as unknown as SupabaseClient }
 }
 
 function seedFor(overrides: Partial<Tables> = {}): Tables {
   return {
     organizations: [
-      { id: 'org-1', name: 'Agrorifer', default_annual_days: 23, workweek: [1, 2, 3, 4, 5, 6] },
+      {
+        id: 'org-1',
+        name: 'Agrorifer',
+        default_annual_days: 23,
+        workweek: [1, 2, 3, 4, 5, 6],
+        version: 1,
+      },
     ],
     employees: [
       {
@@ -279,5 +308,58 @@ describe('supabaseRepository', () => {
   it('clear() se rechaza: el modo empresa no borra la empresa desde la aplicación', async () => {
     const repository = createSupabaseRepository(fake.client)
     await expect(repository.clear()).rejects.toThrow('no borra la empresa')
+  })
+
+  it('save() lanza ConcurrencyError si otro guardado se adelantó', async () => {
+    // Dos repositorios contra la misma tabla, simulando dos pestañas/administradores.
+    const repoA = createSupabaseRepository(fake.client)
+    const repoB = createSupabaseRepository(fake.client)
+    const dbA = await repoA.load()
+    const dbB = await repoB.load()
+    if (!dbA || !dbB) throw new Error('no cargó')
+
+    await repoA.save({
+      ...dbA,
+      settings: { ...dbA.settings, organizationName: 'Cambiado por A' },
+    })
+
+    await expect(
+      repoB.save({ ...dbB, settings: { ...dbB.settings, organizationName: 'Cambiado por B' } }),
+    ).rejects.toBeInstanceOf(ConcurrencyError)
+
+    // El guardado de B no llegó a tocar nada: sigue el nombre que dejó A.
+    expect(fake.tables.organizations[0]?.name).toBe('Cambiado por A')
+  })
+
+  it('load() pagina una tabla que supera las 1000 filas por página', async () => {
+    // vacation_request_days es la más expuesta: crece con cada día de cada solicitud de cada
+    // año. Sin paginar, PostgREST cortaría en la fila 1000 y esta solicitud se cargaría con
+    // menos días de los que tiene de verdad.
+    const days = Array.from({ length: 1500 }, (_, index) => ({
+      request_id: 'req-1',
+      day: `day-${index}`,
+    }))
+    fake = makeFakeSupabase(
+      seedFor({
+        vacation_requests: [
+          {
+            id: 'req-1',
+            employee_id: 'emp-1',
+            year: 2026,
+            status: 'pendiente',
+            created_by: 'emp-1',
+            created_at: '2026-01-01T00:00:00.000Z',
+            resolved_by: null,
+            resolved_at: null,
+            batch_id: null,
+          },
+        ],
+        vacation_request_days: days,
+      }),
+    )
+    const repository = createSupabaseRepository(fake.client)
+    const database = await repository.load()
+
+    expect(database?.requests[0]?.days).toHaveLength(1500)
   })
 })
