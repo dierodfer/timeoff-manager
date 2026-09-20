@@ -1,4 +1,4 @@
-import { Info } from 'lucide-react'
+import { ChevronDown, Info } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { isActiveInYear } from '../domain/accrual'
@@ -229,11 +229,17 @@ export function MyCalendar() {
             requestDisabled={selectedDays.length === 0}
           />
 
-          <section className="rounded-[var(--radius-card)] border border-[var(--color-accent)]/25 bg-[var(--color-accent-soft)] p-4">
-            <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
-              <Info className="size-4" />
-              Ten en cuenta
-            </p>
+          <details
+            className="info-details group rounded-[var(--radius-card)] border border-[var(--color-accent)]/25 bg-[var(--color-accent-soft)] p-4"
+            open
+          >
+            <summary className="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-[var(--color-accent)] sm:pointer-events-none sm:cursor-default">
+              <span className="flex items-center gap-2">
+                <Info className="size-4" />
+                Ten en cuenta
+              </span>
+              <ChevronDown className="size-4 transition-transform group-open:rotate-180 sm:hidden" />
+            </summary>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--color-ink-soft)]">
               <li>Solo puedes seleccionar días laborables.</li>
               <li>
@@ -245,7 +251,7 @@ export function MyCalendar() {
                 aprobadas directamente.
               </li>
             </ul>
-          </section>
+          </details>
         </div>
       </div>
 

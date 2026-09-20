@@ -566,6 +566,21 @@ persona que lo lee (el de solicitar-y-cancelar a quien no es administrador, el d
 otra persona a quien no lo hace), la lista no cambia según `viewingSelf` ni el rol — evita mantener
 varias combinaciones de texto para una caja que ya se lee entera de un vistazo.
 
+**«Ten en cuenta» es un `<details>` plegable en móvil y siempre abierto desde `sm:` en adelante,
+sin JavaScript de por medio.** Empieza con el atributo `open` (se ve igual que antes al entrar), y
+un `<summary>` deja plegarlo con un toque; el icono `ChevronDown` que lo indica solo se pinta por
+debajo de `sm:` (`sm:hidden`). La regla `.info-details:not([open]) > :not(summary) { display:
+block }` en `index.css`, activa solo desde `sm:` (`40rem`), sobreescribe la hoja de estilos del
+user-agent que oculta el contenido de un `<details>` cerrado: por eso en escritorio el contenido
+sigue visible pase lo que pase con el atributo `open`, y el `summary` lleva además
+`sm:pointer-events-none` para que ni siquiera parezca pulsable ahí. Sin esto habría que duplicar el
+aviso en dos sitios o sincronizar un estado de React con el ancho de la ventana, algo que esta
+aplicación no hace en ningún otro sitio (los breakpoints son siempre CSS puro).
+
+**Las cuatro cifras de `BalanceCard` (Totales/Aprobados/Solicitados/Disponibles) van siempre en
+una sola fila, también en móvil.** `grid-cols-4 gap-2 sm:gap-4` sustituye al `grid-cols-2
+sm:grid-cols-4` anterior, que las partía en dos filas de dos por debajo de `sm:`.
+
 **El selector de año de la cabecera (`ui/AppShell.tsx`) tiene tope: no baja de 2023 ni sube del año
 actual + 1.** Los botones se deshabilitan al llegar al límite (mismo patrón que enero/diciembre en
 el selector de mes de `YearCalendar`), sin ningún aviso ni mensaje — no hay nada que explicar, así
