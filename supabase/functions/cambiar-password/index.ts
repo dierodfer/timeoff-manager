@@ -6,7 +6,10 @@
 // la URL evita depender de deno.json, que el editor del Dashboard no admite. Por el mismo
 // motivo no comparte código con crear-empleado aunque autorizar() sea casi idéntica: cada
 // función tiene que poder pegarse sola, sin ficheros aparte.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// Versión exacta, no @2: esta función corre con la service_role key (salta RLS entera), y
+// pegado en el editor del Dashboard no hay lockfile que la fije. La misma versión que
+// package.json fija para el cliente (@supabase/supabase-js).
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.116.0'
 
 // authorization/content-type son del fetch; apikey/x-client-info los añade supabase-js solo:
 // si el preflight no los permite, el navegador bloquea la petición antes de mandarla.
