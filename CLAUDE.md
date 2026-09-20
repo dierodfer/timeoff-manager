@@ -581,6 +581,11 @@ aplicación no hace en ningún otro sitio (los breakpoints son siempre CSS puro)
 una sola fila, también en móvil.** `grid-cols-4 gap-2 sm:gap-4` sustituye al `grid-cols-2
 sm:grid-cols-4` anterior, que las partía en dos filas de dos por debajo de `sm:`.
 
+**`BalanceCard` ya no muestra el chip «Ajustado · estimación X días».** `Balance.isOverridden`
+sigue existiendo en el dominio (`domain/balance.ts`) y sigue condicionando el botón «Restablecer»
+de `EmployeeRow` en Empleados —esa es la vía para ver y deshacer un ajuste—, pero Mi calendario ya
+no lo repite junto al título de la tarjeta de saldo.
+
 **El selector de año de la cabecera (`ui/AppShell.tsx`) tiene tope: no baja de 2023 ni sube del año
 actual + 1.** Los botones se deshabilitan al llegar al límite (mismo patrón que enero/diciembre en
 el selector de mes de `YearCalendar`), sin ningún aviso ni mensaje — no hay nada que explicar, así

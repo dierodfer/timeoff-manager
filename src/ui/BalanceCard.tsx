@@ -1,6 +1,6 @@
 import { Send } from 'lucide-react'
 import type { Balance } from '../domain/balance'
-import { formatDays, truncateDays } from '../domain/format'
+import { truncateDays } from '../domain/format'
 import { Metric } from './Metric'
 
 interface BalanceCardProps {
@@ -12,14 +12,7 @@ interface BalanceCardProps {
 export function BalanceCard({ balance, onRequest, requestDisabled }: BalanceCardProps) {
   return (
     <div className="card p-5">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold">Días de vacaciones {balance.year}</h2>
-        {balance.isOverridden && (
-          <span className="chip chip-neutral">
-            Ajustado · estimación {formatDays(balance.estimated)}
-          </span>
-        )}
-      </div>
+      <h2 className="text-sm font-semibold">Días de vacaciones {balance.year}</h2>
 
       <div className="mt-4 grid grid-cols-4 gap-2 sm:gap-4">
         <Metric label="Totales" value={truncateDays(balance.assigned)} />
