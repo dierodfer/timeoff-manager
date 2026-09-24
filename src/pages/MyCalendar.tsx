@@ -1,4 +1,4 @@
-import { Info } from 'lucide-react'
+import { ChevronDown, Info } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { isActiveInYear } from '../domain/accrual'
@@ -196,18 +196,17 @@ export function MyCalendar() {
           <Legend />
           <div className="card p-4 sm:p-6">
             {selectedDays.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-control)] bg-[var(--color-accent-soft)] px-3 py-2 text-sm">
-                <p>
-                  <span className="font-semibold">
-                    {selectedDays.length} {selectedDays.length === 1 ? 'día' : 'días'}
-                  </span>{' '}
-                  <span className="text-[var(--color-ink-muted)]">
-                    {summarizeDays(selectedDays)}
-                  </span>
-                </p>
-                <button type="button" className="btn btn-quiet btn-sm" onClick={clear}>
-                  Limpiar
-                </button>
+              <div className="mb-4 space-y-1 rounded-[var(--radius-control)] bg-[var(--color-accent-soft)] px-3 py-2.5 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-base font-semibold">
+                    {selectedDays.length}{' '}
+                    {selectedDays.length === 1 ? 'día seleccionado' : 'días seleccionados'}
+                  </p>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={clear}>
+                    Limpiar
+                  </button>
+                </div>
+                <p className="text-[var(--color-ink-muted)]">{summarizeDays(selectedDays)}</p>
               </div>
             )}
             <YearCalendar
@@ -229,11 +228,17 @@ export function MyCalendar() {
             requestDisabled={selectedDays.length === 0}
           />
 
-          <section className="rounded-[var(--radius-card)] border border-[var(--color-accent)]/25 bg-[var(--color-accent-soft)] p-4">
-            <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
-              <Info className="size-4" />
-              Ten en cuenta
-            </p>
+          <details
+            className="info-details group rounded-[var(--radius-card)] border border-[var(--color-accent)]/25 bg-[var(--color-accent-soft)] p-4"
+            open
+          >
+            <summary className="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-[var(--color-accent)] sm:pointer-events-none sm:cursor-default">
+              <span className="flex items-center gap-2">
+                <Info className="size-4" />
+                Ten en cuenta
+              </span>
+              <ChevronDown className="size-4 transition-transform group-open:rotate-180 sm:hidden" />
+            </summary>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--color-ink-soft)]">
               <li>Solo puedes seleccionar días laborables.</li>
               <li>
@@ -245,7 +250,7 @@ export function MyCalendar() {
                 aprobadas directamente.
               </li>
             </ul>
-          </section>
+          </details>
         </div>
       </div>
 

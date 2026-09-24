@@ -28,6 +28,7 @@ erDiagram
         text name
         numeric default_annual_days "base anual, 23"
         smallint workweek "array 0=domingo..6=sabado"
+        bigint version "bloqueo optimista, no dato de negocio"
     }
     employees {
         uuid id PK
@@ -169,6 +170,48 @@ Supabase para RLS). No aplica a `employee_in_my_org()`, `can_read_request()` ni
 `can_write_request()`, que reciben una columna de la fila como argumento: al depender de la fila,
 no se pueden precalcular una sola vez para toda la consulta. Cualquier política nueva que añada una
 de las tres primeras funciones debe seguir el mismo patrón.
+
+## Bloqueo optimista y paginación
+
+Dos problemas de la arquitectura instantánea + diff (ver `CLAUDE.md`, «El modo empresa») que no
+dependen de RLS, sino de cómo `supabaseRepository.ts` carga y guarda:
+
+**Dos pestañas guardando casi a la vez pueden pisarse.** `save()` compara la instantánea que
+guarda (`next`) contra la última que cargó (`lastKnown`), y escribe solo la diferencia. Si otra
+pestaña —otro administrador, u otro empleado creando su propia solicitud— guardó algo entre medias
+sin que esta lo supiera, su diff se calcula contra una base ya vieja: podría reescribir sobre un
+cambio ajeno sin darse cuenta. `organizations.version` existe para evitarlo: es un contador de
+toda la empresa, no un dato de negocio, y `bump_org_version(p_expected)` lo incrementa solo si
+`p_expected` —la versión que se vio en el último `load()`— sigue coincidiendo con la guardada.
+`save()` la llama antes de escribir ninguna otra tabla; si devuelve `null` (alguien se adelantó),
+aborta sin tocar nada y el cliente lanza `ConcurrencyError`, que `AppStore.tsx` resuelve
+recargando del servidor y avisando de que hay que repetir la acción — el mismo mecanismo que ya
+usaba para un fallo de red, solo con otro mensaje.
+
+Es un bloqueo de grano grueso a propósito: una columna, sin tablas ni funciones de más, y
+cualquier escritura de cualquier tabla de la empresa invalida el guardado concurrente de otra
+pestaña, aunque toquen datos que no se relacionan entre sí. Para el tamaño real de esta
+aplicación —normalmente un administrador conectado, alguna vez dos— sale mucho más barato que
+llevar una versión por fila en las ocho tablas, y cabe de sobra en el free tier: una columna
+`bigint` no pesa nada y la llamada extra a `bump_org_version()` es una única fila por guardado.
+`security definer`, como el resto de funciones de esta sección, para que cualquier empleado
+autenticado de su empresa pueda reservar el bloqueo, no solo el administrador — escribir el saldo
+propio o una solicitud pendiente no pasa por `organizations_update`, que sigue siendo solo para
+el administrador.
+
+**`loadFull()` pagina las siete tablas que pueden crecer.** PostgREST nunca devuelve más de
+`db-max-rows` filas en una sola respuesta (1000 por defecto en un proyecto nuevo, en **Settings →
+API**), aunque no se pida `.range()`. Sin paginar, la tabla que lo superase se cargaría truncada
+—la más expuesta es `vacation_request_days`, que crece con cada día de cada solicitud de cada
+año—, y como `activity_periods`/`vacation_request_days` se reescriben por sustitución completa
+(ver «`diffDatabase()` sustituye el conjunto entero…» en `CLAUDE.md`), un guardado posterior
+borraría sin querer las filas que se quedaron fuera de esa primera página. `fetchAll()`
+(`src/data/supabaseRepository.ts`) pide páginas de 1000 en bucle hasta que una vuelve con menos
+filas de las pedidas. Para cualquier tamaño real de empresa hoy, eso es una página y una sola
+petición — exactamente lo mismo que antes de este cambio, sin coste añadido; el bucle solo pide
+una página más el día que de verdad haga falta. `organizations` no se pagina: RLS ya garantiza una
+única fila por sesión. Si alguna vez bajas `db-max-rows` en el panel por debajo de 1000, baja
+también `PAGE_SIZE` en el mismo fichero para que siga coincidiendo; subirlo no rompe nada.
 
 ## Altas y acceso: el administrador lo hace todo
 
@@ -346,7 +389,8 @@ página (`getSession()`) y a un cierre desde otra pestaña (`onAuthStateChange()
 de contraseña pasan por las Edge Functions `crear-empleado`/`cambiar-password`, nunca por una
 escritura directa a `employees`. `CLAUDE.md`, sección «El modo empresa», documenta cómo encaja
 esto con `state/actions.ts` y el resto de la aplicación —la arquitectura de instantánea + diff, el
-motor de diff, la cola de escrituras— con más detalle del que tiene sentido repetir aquí.
+motor de diff, la cola de escrituras, el bloqueo optimista y la paginación de `loadFull()`— con
+más detalle del que tiene sentido repetir aquí.
 
 Lo que queda:
 

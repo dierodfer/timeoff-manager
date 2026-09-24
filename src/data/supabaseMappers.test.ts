@@ -19,6 +19,7 @@ describe('databaseFromRows', () => {
         name: 'Agrorifer',
         default_annual_days: 23,
         workweek: [1, 2, 3, 4, 5, 6],
+        version: 1,
       },
       employees: [
         {
@@ -106,6 +107,7 @@ describe('databaseFromRows', () => {
         name: 'Vacía',
         default_annual_days: 23,
         workweek: [1, 2, 3, 4, 5],
+        version: 1,
       },
       employees: [
         {

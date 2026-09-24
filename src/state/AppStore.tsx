@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { VacationRepository } from '../data/repository'
+import { ConcurrencyError, type VacationRepository } from '../data/repository'
 import { hashPin, randomSalt, verifyPin } from '../data/pin'
 import {
   createInitialDatabase,
@@ -99,7 +99,12 @@ export function AppProvider({ children, repository, mode, supabase }: AppProvide
       setDatabase(next)
       void repository.save(next).catch((saveError: unknown) => {
         console.error(saveError)
-        notify('No se han podido guardar los cambios.', 'error')
+        notify(
+          saveError instanceof ConcurrencyError
+            ? 'Alguien más ha guardado cambios justo antes. Se han recargado los datos más recientes: repite la acción.'
+            : 'No se han podido guardar los cambios.',
+          'error',
+        )
         // Resincroniza: sin esto, la pantalla seguiría mostrando algo que no llegó a guardarse.
         void repository.load().then((reloaded) => {
           if (reloaded) setDatabase(reloaded)

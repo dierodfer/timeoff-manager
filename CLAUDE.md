@@ -15,6 +15,19 @@ npm run preview       # sirve dist/ como en producción
 El workflow de despliegue corre `lint`, `format:check`, `test` y `build`: si algo de eso falla en
 local, también falla el despliegue.
 
+**La CSP se inyecta como `<meta>` solo en `npm run build`, no en `npm run dev`.** GitHub Pages no
+deja poner cabeceras HTTP, así que la única vía es un `<meta http-equiv="Content-Security-Policy">`
+en `index.html` — pero ese fichero se copia tal cual a `dist/`, así que cualquier cosa que llevara
+escrita a mano viajaría igual a desarrollo que a producción. El plugin `contentSecurityPolicy()`
+(`vite.config.ts`, `apply: 'build'`) la inyecta solo al construir, precisamente porque el modo
+`dev` de Vite mete un `<script type="module">` **inline** para el React Refresh que una CSP con
+`script-src 'self'` bloquearía sin remedio. `connect-src` incluye el origen de Supabase
+(`https://<ref>.supabase.co`, más `wss://` para cuando haya tiempo real) solo si
+`VITE_SUPABASE_PROJECT_REF` está definido en el build; en modo local puro se queda en `'self'`.
+`style-src` lleva `'unsafe-inline'` a propósito: varios componentes pintan color, ancho o sombra
+dinámicos con `style={{...}}` (`BalanceCard`, `Metric`, `MonthCalendar`, `Toasts`…), que no tiene
+equivalente sin inline — lo que de verdad importa bloquear es `script-src`, el vector real de XSS.
+
 ## Capas
 
 | Carpeta       | Qué hace                                             | Reglas                                                |
@@ -312,8 +325,17 @@ Estas son las que ya han mordido una vez y están comentadas en el código:
   Añadir, renombrar, eliminar o cargar oficiales en Festivos solo tocan `holidayDraft`; si se
   vuelve a un `commit()` directo en cualquiera de los dos, el botón correspondiente deja de
   reflejar si hay algo sin guardar.
-- **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva:
-  al abrir la aplicación por IP en la red local no está disponible.
+- **`crypto.subtle` solo existe en contextos seguros.** Por eso `pin.ts` tiene un hash de reserva
+  (`fnv1a:`, vía `fallbackHash()`): al abrir la aplicación por IP en la red local no está
+  disponible.
+- **`verifyPin()` recalcula con el algoritmo que dice el propio formato de `expectedHash`, no con
+  el que elegiría `hashPin()` según el contexto actual.** Si volviera a llamar a `hashPin()` sin
+  más, un PIN creado en un contexto seguro (SHA-256) nunca validaría luego en uno que no lo sea
+  —recalcularía con el hash de reserva y no coincidiría, ni al revés— y el usuario se quedaría
+  fuera con el PIN correcto. El prefijo `fnv1a:` es justo lo que permite distinguir un formato del
+  otro sin guardar el algoritmo aparte. Si el hash guardado es SHA-256 y aquí no hay
+  `crypto.subtle`, no hay forma de recalcularlo: `verifyPin()` devuelve `false` sin intentarlo, en
+  vez de comparar dos hashes de algoritmos distintos.
 - **`crypto.randomUUID()` también exige contexto seguro**, así que los identificadores (`ids.ts`) y
   la sal del PIN salen de `crypto.getRandomValues()`, que sí funciona por IP en la red local.
   `newId()` compone un UUID v4 a mano con esos bytes: las claves primarias de Supabase son `uuid`,
@@ -455,6 +477,34 @@ cualquier id que no existiera antes en ninguna solicitud es, por definición, un
 fallo de red es frecuente, y dejar la pantalla mostrando algo que no llegó a guardarse sería peor
 que el propio fallo.
 
+**`organizations.version` es un bloqueo optimista de toda la empresa, no un dato de negocio.**
+`supabaseRepository.save()` llama primero a `bump_org_version(p_expected)` (`schema.sql`), una
+función `security definer` que incrementa `version` solo si coincide con la que se vio en el
+último `load()`; si no coincide —otro guardado, de cualquier admin o empleado, se adelantó—
+devuelve `null` sin tocar ninguna fila, y `save()` lanza `ConcurrencyError` **antes** de escribir
+nada del diff. Es de grano grueso a propósito: una sola columna, sin tablas ni triggers nuevos, y
+cualquier cambio de cualquier tabla de la empresa invalida el guardado concurrente de otra
+pestaña, aunque toquen datos distintos — para el tamaño real de una empresa (normalmente un
+admin, alguna vez dos) sale más barato que un bloqueo fila a fila. `ConcurrencyError` vive en
+`data/repository.ts`, no en `supabaseRepository.ts`, para que `AppStore.tsx` (que sirve los dos
+modos) pueda hacer `instanceof` sin arrastrar `@supabase/supabase-js` al bundle de quien entra en
+modo local — la trampa «Perezosas» de `App.tsx` se rompería si se importara desde el sitio
+equivocado. `AppStore.tsx` la captura en el mismo `catch()` que ya reaccionaba a cualquier fallo
+de guardado, y solo cambia el texto del aviso antes de resincronizar: no hay pantalla de conflicto
+aparte, el segundo guardado se pierde y hay que repetir la acción contra los datos recién
+recargados.
+
+**`loadFull()` pagina las siete tablas que pueden crecer, con `fetchAll()` (`.range()` en
+bucle).** PostgREST nunca devuelve más de `db-max-rows` filas de golpe (1000 por defecto en un
+proyecto nuevo); sin paginar, una tabla que lo superase se cargaría truncada, y como
+`activity_periods`/`vacation_request_days` se reescriben por sustitución completa (ver
+`diffDatabase()`, arriba), un guardado posterior borraría sin querer las filas que se quedaron
+fuera de esa primera página. `vacation_request_days` es la más expuesta: crece con cada día de
+cada solicitud de cada año. Cuando una tabla cabe en una página —cualquier tamaño real de
+empresa, hoy— `fetchAll()` hace exactamente la misma petición que antes de este cambio, sin coste
+añadido; solo pide una página más cuando de verdad hace falta. `organizations` no se pagina:
+RLS ya garantiza una única fila por sesión.
+
 **El alta de empleado no pasa por `commit()`.** Crear un usuario exige la Admin API de Supabase, y
 la Admin API exige la `service_role key`, que nunca puede viajar al navegador — por eso vive en la
 Edge Function `crear-empleado`, no en el cliente. `AppContextValue.createEmployee()` es el único
@@ -566,15 +616,51 @@ persona que lo lee (el de solicitar-y-cancelar a quien no es administrador, el d
 otra persona a quien no lo hace), la lista no cambia según `viewingSelf` ni el rol — evita mantener
 varias combinaciones de texto para una caja que ya se lee entera de un vistazo.
 
+**«Ten en cuenta» es un `<details>` plegable en móvil y siempre abierto desde `sm:` en adelante,
+sin JavaScript de por medio.** Empieza con el atributo `open` (se ve igual que antes al entrar), y
+un `<summary>` deja plegarlo con un toque; el icono `ChevronDown` que lo indica solo se pinta por
+debajo de `sm:` (`sm:hidden`). La regla `.info-details:not([open]) > :not(summary) { display:
+block }` en `index.css`, activa solo desde `sm:` (`40rem`), sobreescribe la hoja de estilos del
+user-agent que oculta el contenido de un `<details>` cerrado: por eso en escritorio el contenido
+sigue visible pase lo que pase con el atributo `open`, y el `summary` lleva además
+`sm:pointer-events-none` para que ni siquiera parezca pulsable ahí. Sin esto habría que duplicar el
+aviso en dos sitios o sincronizar un estado de React con el ancho de la ventana, algo que esta
+aplicación no hace en ningún otro sitio (los breakpoints son siempre CSS puro).
+
+**Las cuatro cifras de `BalanceCard` (Totales/Aprobados/Solicitados/Disponibles) van siempre en
+una sola fila, también en móvil.** `grid-cols-4 gap-2 sm:gap-4` sustituye al `grid-cols-2
+sm:grid-cols-4` anterior, que las partía en dos filas de dos por debajo de `sm:`.
+
+**`BalanceCard` ya no muestra el chip «Ajustado · estimación X días».** `Balance.isOverridden`
+sigue existiendo en el dominio (`domain/balance.ts`) y sigue condicionando el botón «Restablecer»
+de `EmployeeRow` en Empleados —esa es la vía para ver y deshacer un ajuste—, pero Mi calendario ya
+no lo repite junto al título de la tarjeta de saldo.
+
 **El selector de año de la cabecera (`ui/AppShell.tsx`) tiene tope: no baja de 2023 ni sube del año
 actual + 1.** Los botones se deshabilitan al llegar al límite (mismo patrón que enero/diciembre en
 el selector de mes de `YearCalendar`), sin ningún aviso ni mensaje — no hay nada que explicar, así
 que tampoco hay una línea nueva en «Ten en cuenta» por esto.
 
-**La selección de días de Mi calendario no lleva barra flotante.** El resumen («N días: rango») y el
-botón «Limpiar» viven dentro de la propia tarjeta del calendario, encima de la rejilla de meses;
-«Solicitar vacaciones» ya vive en `BalanceCard` y no necesita otro sitio. Una barra `fixed` tapaba
-contenido en pantallas pequeñas y obligaba a un `pb-24` de relleno que ya no hace falta.
+**La selección de días de Mi calendario no lleva barra flotante.** El resumen («N días
+seleccionados» en negrita y `text-base` —una talla por encima del resto de la caja, para que
+destaque como título—, el detalle debajo) y el botón «Limpiar» viven dentro de la propia tarjeta
+del calendario, encima de la rejilla de meses, en dos líneas — no uno al lado del otro, que
+aprieta el detalle contra el botón en cuanto hay varios tramos. «Solicitar vacaciones» ya vive
+en `BalanceCard` y no necesita otro sitio. Una barra `fixed` tapaba contenido en pantallas pequeñas
+y obligaba a un `pb-24` de relleno que ya no hace falta. **«Limpiar» usa `.btn-secondary`, no
+`.btn-quiet`**: con fondo y borde parece un botón de verdad, no un enlace suelto — `.btn-quiet`
+solo tiene sentido para una acción secundaria que compite por poco espacio, no para la única
+acción de una tarjeta.
+
+**`summarizeDays()` (`ui/calendarGrid.ts`) agrupa los días por mes, no lista fechas completas.**
+«Jun: 9–10, 16–17 · Ago: 4, 7–8, 11»: cada mes lleva su abreviatura de tres letras y, dentro de
+él, solo el número de día — el año no hace falta (es el que se está mirando) y el mes ya va en la
+etiqueta. Antes formateaba cada tramo con `formatDate()` completo (`09-06-2026 – 10-06-2026`),
+ilegible en cuanto había más de dos o tres tramos seleccionados. Agrupar por mes va **antes** de
+fusionar días consecutivos, no después: así un tramo que cruza de mes (30-31 de enero, 1-2 de
+febrero) se corta solo en dos etiquetas distintas, sin lógica aparte para detectarlo. Es la misma
+función que usa el modal «Solicitar vacaciones» de Mi calendario y el resumen por persona de
+Planificación (`summarizeDays(entry.days)`): mejorarla aquí lo mejora en los dos sitios.
 
 **Cancelar o eliminar una solicitud es por día suelto, no por tramo ni por solicitud entera.**
 `removeRequestDay()` (`state/actions.ts`) quita un único día de una solicitud —o la solicitud

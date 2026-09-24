@@ -762,6 +762,25 @@
     gap: 0.875rem;
     padding: 1rem 1.125rem;
   }
+
+  /* «Ten en cuenta» de Mi calendario: <details> plegable en móvil, siempre abierto (y sin
+     interacción) desde `sm:` en adelante. El contenido de un <details> cerrado se oculta por la
+     hoja de estilos del user-agent (details:not([open]) > *:not(summary) { display: none }); esta
+     regla lo sobreescribe en pantallas grandes sin tocar el atributo `open`, así que un clic en el
+     summary sigue sin cambiar nada visible ahí. */
+  .info-details summary {
+    list-style: none;
+  }
+
+  .info-details summary::-webkit-details-marker {
+    display: none;
+  }
+
+  @media (width >= 40rem) {
+    .info-details:not([open]) > :not(summary) {
+      display: block;
+    }
+  }
 }
 
 @layer utilities {
