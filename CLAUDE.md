@@ -641,10 +641,25 @@ actual + 1.** Los botones se deshabilitan al llegar al límite (mismo patrón qu
 el selector de mes de `YearCalendar`), sin ningún aviso ni mensaje — no hay nada que explicar, así
 que tampoco hay una línea nueva en «Ten en cuenta» por esto.
 
-**La selección de días de Mi calendario no lleva barra flotante.** El resumen («N días: rango») y el
-botón «Limpiar» viven dentro de la propia tarjeta del calendario, encima de la rejilla de meses;
-«Solicitar vacaciones» ya vive en `BalanceCard` y no necesita otro sitio. Una barra `fixed` tapaba
-contenido en pantallas pequeñas y obligaba a un `pb-24` de relleno que ya no hace falta.
+**La selección de días de Mi calendario no lleva barra flotante.** El resumen («N días
+seleccionados» en negrita, el detalle debajo) y el botón «Limpiar» viven dentro de la propia
+tarjeta del calendario, encima de la rejilla de meses, en dos líneas — no uno al lado del otro,
+que aprieta el detalle contra el botón en cuanto hay varios tramos. «Solicitar vacaciones» ya vive
+en `BalanceCard` y no necesita otro sitio. Una barra `fixed` tapaba contenido en pantallas pequeñas
+y obligaba a un `pb-24` de relleno que ya no hace falta. **«Limpiar» usa `.btn-secondary`, no
+`.btn-quiet`**: con fondo y borde parece un botón de verdad, no un enlace suelto — `.btn-quiet`
+solo tiene sentido para una acción secundaria que compite por poco espacio, no para la única
+acción de una tarjeta.
+
+**`summarizeDays()` (`ui/calendarGrid.ts`) agrupa los días por mes, no lista fechas completas.**
+«Jun: 9–10, 16–17 · Ago: 4, 7–8, 11»: cada mes lleva su abreviatura de tres letras y, dentro de
+él, solo el número de día — el año no hace falta (es el que se está mirando) y el mes ya va en la
+etiqueta. Antes formateaba cada tramo con `formatDate()` completo (`09-06-2026 – 10-06-2026`),
+ilegible en cuanto había más de dos o tres tramos seleccionados. Agrupar por mes va **antes** de
+fusionar días consecutivos, no después: así un tramo que cruza de mes (30-31 de enero, 1-2 de
+febrero) se corta solo en dos etiquetas distintas, sin lógica aparte para detectarlo. Es la misma
+función que usa el modal «Solicitar vacaciones» de Mi calendario y el resumen por persona de
+Planificación (`summarizeDays(entry.days)`): mejorarla aquí lo mejora en los dos sitios.
 
 **Cancelar o eliminar una solicitud es por día suelto, no por tramo ni por solicitud entera.**
 `removeRequestDay()` (`state/actions.ts`) quita un único día de una solicitud —o la solicitud

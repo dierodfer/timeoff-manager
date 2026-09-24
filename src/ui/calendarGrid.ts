@@ -1,4 +1,4 @@
-import { compareIso, daysInMonth, isoOf, weekday } from '../domain/dates'
+import { compareIso, dayOf, daysInMonth, isoOf, monthOf, weekday, yearOf } from '../domain/dates'
 import { formatDate } from '../domain/format'
 import { WEEKDAY_NAMES } from '../domain/workdays'
 import type { Holiday, HolidayScope, IsoDate, RequestStatus } from '../domain/types'
@@ -52,37 +52,48 @@ export function formatLongDate(date: IsoDate): string {
   return `${day} de ${MONTH_NAMES[month - 1].toLowerCase()} de ${year}`
 }
 
-/** Agrupa días sueltos en tramos de fechas consecutivas, cada uno con sus días en orden. */
-export function dayRanges(days: IsoDate[]): IsoDate[][] {
-  const sorted = [...days].sort(compareIso)
-  const ranges: IsoDate[][] = []
-
+/** Tramos de días consecutivos dentro de un mismo mes (ya no lleva año: quien lo lee lo ve en la
+ * propia etiqueta del mes). Cortar por mes antes de fusionar significa que un tramo que cruza de
+ * mes (30-31 de enero, 1-2 de febrero) ya se separa solo, sin lógica aparte. */
+function dayRangesInMonth(days: number[]): number[][] {
+  const sorted = [...days].sort((a, b) => a - b)
+  const ranges: number[][] = []
   for (const day of sorted) {
     const last = ranges.at(-1)
-    if (last && isNextCalendarDay(last.at(-1) as IsoDate, day)) {
-      last.push(day)
-    } else {
-      ranges.push([day])
-    }
+    if (last && day === (last.at(-1) as number) + 1) last.push(day)
+    else ranges.push([day])
   }
-
   return ranges
 }
 
-export function formatDayRange(range: IsoDate[]): string {
+function formatDayRangeInMonth(range: number[]): string {
   const start = range[0]
-  const end = range.at(-1) as IsoDate
-  return start === end ? formatDate(start) : `${formatDate(start)} – ${formatDate(end)}`
+  const end = range.at(-1) as number
+  return start === end ? `${start}` : `${start}–${end}`
 }
 
+/** «Jun: 9–10, 16–17 · Ago: 4, 7–8, 11»: agrupa por mes, y dentro de cada uno solo pinta el
+ * número de día, no la fecha completa — el mes ya va en la etiqueta y el año es el que se está
+ * mirando. Sustituye a un listado de fechas completas separadas por comas, ilegible en cuanto
+ * hay más de dos o tres tramos seleccionados. */
 export function summarizeDays(days: IsoDate[]): string {
   if (days.length === 0) return '—'
-  return dayRanges(days).map(formatDayRange).join(', ')
-}
 
-function isNextCalendarDay(previous: IsoDate, next: IsoDate): boolean {
-  const gap = (Date.parse(`${next}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`)) / 86_400_000
-  return gap === 1
+  const byMonth = new Map<string, number[]>()
+  for (const day of [...days].sort(compareIso)) {
+    const key = `${yearOf(day)}-${monthOf(day)}`
+    const bucket = byMonth.get(key)
+    if (bucket) bucket.push(dayOf(day))
+    else byMonth.set(key, [dayOf(day)])
+  }
+
+  return [...byMonth.entries()]
+    .map(([key, monthDays]) => {
+      const month = Number(key.split('-')[1])
+      const ranges = dayRangesInMonth(monthDays).map(formatDayRangeInMonth).join(', ')
+      return `${MONTH_NAMES[month - 1].slice(0, 3)}: ${ranges}`
+    })
+    .join(' · ')
 }
 
 export type DayState = 'selected' | 'aprobada' | 'pendiente' | 'festivo' | 'no-laborable' | 'libre'

@@ -196,18 +196,17 @@ export function MyCalendar() {
           <Legend />
           <div className="card p-4 sm:p-6">
             {selectedDays.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-control)] bg-[var(--color-accent-soft)] px-3 py-2 text-sm">
-                <p>
-                  <span className="font-semibold">
-                    {selectedDays.length} {selectedDays.length === 1 ? 'día' : 'días'}
-                  </span>{' '}
-                  <span className="text-[var(--color-ink-muted)]">
-                    {summarizeDays(selectedDays)}
-                  </span>
-                </p>
-                <button type="button" className="btn btn-quiet btn-sm" onClick={clear}>
-                  Limpiar
-                </button>
+              <div className="mb-4 space-y-1 rounded-[var(--radius-control)] bg-[var(--color-accent-soft)] px-3 py-2.5 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold">
+                    {selectedDays.length}{' '}
+                    {selectedDays.length === 1 ? 'día seleccionado' : 'días seleccionados'}
+                  </p>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={clear}>
+                    Limpiar
+                  </button>
+                </div>
+                <p className="text-[var(--color-ink-muted)]">{summarizeDays(selectedDays)}</p>
               </div>
             )}
             <YearCalendar
