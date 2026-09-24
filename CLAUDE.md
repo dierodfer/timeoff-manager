@@ -642,9 +642,10 @@ el selector de mes de `YearCalendar`), sin ningún aviso ni mensaje — no hay n
 que tampoco hay una línea nueva en «Ten en cuenta» por esto.
 
 **La selección de días de Mi calendario no lleva barra flotante.** El resumen («N días
-seleccionados» en negrita, el detalle debajo) y el botón «Limpiar» viven dentro de la propia
-tarjeta del calendario, encima de la rejilla de meses, en dos líneas — no uno al lado del otro,
-que aprieta el detalle contra el botón en cuanto hay varios tramos. «Solicitar vacaciones» ya vive
+seleccionados» en negrita y `text-base` —una talla por encima del resto de la caja, para que
+destaque como título—, el detalle debajo) y el botón «Limpiar» viven dentro de la propia tarjeta
+del calendario, encima de la rejilla de meses, en dos líneas — no uno al lado del otro, que
+aprieta el detalle contra el botón en cuanto hay varios tramos. «Solicitar vacaciones» ya vive
 en `BalanceCard` y no necesita otro sitio. Una barra `fixed` tapaba contenido en pantallas pequeñas
 y obligaba a un `pb-24` de relleno que ya no hace falta. **«Limpiar» usa `.btn-secondary`, no
 `.btn-quiet`**: con fondo y borde parece un botón de verdad, no un enlace suelto — `.btn-quiet`

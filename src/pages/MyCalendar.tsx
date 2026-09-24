@@ -198,7 +198,7 @@ export function MyCalendar() {
             {selectedDays.length > 0 && (
               <div className="mb-4 space-y-1 rounded-[var(--radius-control)] bg-[var(--color-accent-soft)] px-3 py-2.5 text-sm">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold">
+                  <p className="text-base font-semibold">
                     {selectedDays.length}{' '}
                     {selectedDays.length === 1 ? 'día seleccionado' : 'días seleccionados'}
                   </p>
