@@ -108,7 +108,7 @@ export function AppShell() {
                 )}
               </NavLink>
             )}
-            <UserMenu />
+            {!isAdmin && <UserMenu />}
           </span>
         </header>
 

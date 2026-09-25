@@ -5,7 +5,14 @@ import { useSession } from '../state/appContext'
 import { Avatar } from './Avatar'
 import { useDismiss } from './useDismiss'
 
-export function UserMenu() {
+interface UserMenuProps {
+  /** 'header' (por defecto): icono suelto en la cabecera, el menú abre hacia abajo. 'sidebar':
+   * fila a todo lo ancho para el pie de la barra lateral, el menú abre hacia arriba para no
+   * salirse de la ventana al estar pegado al fondo. */
+  readonly variant?: 'header' | 'sidebar'
+}
+
+export function UserMenu({ variant = 'header' }: UserMenuProps) {
   const { currentUser, signOut } = useSession()
   const [open, setOpen] = useState(false)
   const container = useRef<HTMLDivElement>(null)
@@ -18,12 +25,16 @@ export function UserMenu() {
   useDismiss(open, isInside, () => setOpen(false))
 
   const role = currentUser.role === 'admin' ? 'Administrador' : 'Empleado'
+  const isSidebar = variant === 'sidebar'
 
   return (
-    <div className="relative" ref={container}>
+    <div
+      className={isSidebar ? 'hairline relative mt-auto border-t p-2' : 'relative'}
+      ref={container}
+    >
       <button
         type="button"
-        className="icon-btn"
+        className={isSidebar ? 'sidebar-link w-full' : 'icon-btn'}
         aria-label="Tu cuenta"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -31,10 +42,13 @@ export function UserMenu() {
         onClick={() => setOpen((current) => !current)}
       >
         <Avatar employee={currentUser} size="sm" />
+        {isSidebar && (
+          <span className="min-w-0 flex-1 truncate text-left">{displayName(currentUser)}</span>
+        )}
       </button>
 
       {open && (
-        <div id={id} role="menu" className="row-menu w-60">
+        <div id={id} role="menu" className={`row-menu w-60 ${isSidebar ? 'row-menu-up' : ''}`}>
           <div className="flex items-center gap-2.5 px-2 py-1.5">
             <Avatar employee={currentUser} size="md" />
             <span className="min-w-0">
