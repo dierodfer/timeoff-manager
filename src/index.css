@@ -711,6 +711,13 @@
     box-shadow: var(--shadow-raised);
   }
 
+  /* Variante para un disparador pegado al fondo (pie de la barra lateral): abre hacia arriba
+     para no salirse de la ventana. */
+  .row-menu-up {
+    top: auto;
+    bottom: calc(100% + 4px);
+  }
+
   .row-menu-item {
     border-radius: 8px;
     padding: 0.4rem 0.6rem;

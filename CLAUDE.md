@@ -589,11 +589,17 @@ enlazar: `AppShell` no monta el `Sidebar` (ni el botón de menú del móvil) si 
 administrador, y en su lugar la cabecera pinta el logo y el nombre de la organización, que si no se
 perderían con la barra.
 
-**El usuario vive en la esquina superior derecha (`ui/UserMenu.tsx`)**, no al pie de la barra
-lateral: al pulsar su avatar se abre un popover con su nombre, su rol y «Salir». Reutiliza las
-clases `.row-menu`/`.row-menu-item` del menú `⋮` de una fila y el `useDismiss()` de siempre, porque
-es el mismo patrón de popover. Es lo único que cierra la sesión, y está donde está para que también
-lo tenga a mano quien no ve barra lateral.
+**`UserMenu.tsx` vive en dos sitios distintos según haya o no barra lateral**, con un prop
+`variant` (`'header'` por defecto, `'sidebar'`): al pulsar el avatar se abre un popover con
+nombre, rol y «Salir» — es lo único que cierra la sesión. Reutiliza las clases
+`.row-menu`/`.row-menu-item` del menú `⋮` de una fila y el `useDismiss()` de siempre, porque es
+el mismo patrón de popover. Un administrador lo ve al pie de la barra lateral (`AppSidebar.tsx`,
+`variant="sidebar"`, empujado abajo con `mt-auto`): el disparador ocupa el ancho entero
+(`.sidebar-link`) con el nombre a la vista, y el popover abre hacia **arriba** (`.row-menu-up`,
+`bottom` en vez de `top`) para no salirse por el borde inferior de la ventana al estar pegado al
+fondo. Un empleado normal no tiene barra lateral, así que sigue en la esquina superior derecha de
+la cabecera (`AppShell.tsx`, `variant="header"` por defecto, solo cuando `!isAdmin`) — es la única
+forma de que también él tenga a mano cómo cerrar sesión.
 
 **No hay una pantalla de «Mis solicitudes» separada.** Existió (`pages/MyRequests.tsx`, con
 `ui/RequestCard.tsx` y `removeRequestDays()`), a la que se entraba desde un botón «Ver mis

@@ -1,6 +1,7 @@
 import { Sprout, type LucideProps } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { NavLink } from 'react-router-dom'
+import { UserMenu } from './UserMenu'
 
 export interface NavItem {
   to: string
@@ -56,6 +57,8 @@ export function AppSidebar({ organizationName, links, toggled, onClose }: AppSid
             </NavLink>
           ))}
         </div>
+
+        <UserMenu variant="sidebar" />
       </nav>
     </>
   )
